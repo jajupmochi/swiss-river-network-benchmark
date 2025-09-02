@@ -1,9 +1,9 @@
 
 import torch
 
-from swissrivernetwork.journal.dataset import *
-from swissrivernetwork.journal.model import *
-from swissrivernetwork.journal.training import training_loop
+from swissrivernetwork.benchmark.dataset import *
+from swissrivernetwork.benchmark.model import *
+from swissrivernetwork.benchmark.training import training_loop
 
 def train_lstm_embedding(config):
 
