@@ -143,6 +143,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     """
     # Each experiment has one time
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Use same time for all!
+    # now = '2025-09-05_13-34-45'  # fixme: debug only
     storage_path = (CUR_ABS_DIR / '../../' / storage_path).resolve() if storage_path else None
     resources_per_trial = {'cpu': 1, 'gpu': 0}
 
@@ -215,7 +216,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             metric='validation_mse',
             mode='min',
             storage_path=storage_path,
-            resources_per_trial=resources_per_trial
+            resources_per_trial=resources_per_trial,
+            # resume=True,  # fixme: debug only
         )
 
     if 'stgnn' == method:
@@ -250,7 +252,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
 
 def parse_config():
-    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']
+    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
     graphs = ['swiss-1990', 'swiss-2010', 'zurich']
 
     parser = argparse.ArgumentParser()
@@ -280,7 +282,7 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = False  # debug
+    debug_mode = False  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:

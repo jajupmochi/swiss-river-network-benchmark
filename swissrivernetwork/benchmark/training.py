@@ -1,15 +1,15 @@
-import torch
-import tempfile
-import torch.nn as nn
 import sys
+import tempfile
 
+import torch
+import torch.nn as nn
 import wandb
-from ray.train import Checkpoint, report
 from ray.air import session
-from tqdm import tqdm
+from ray.tune import Checkpoint, report
 from torchinfo import summary
+from tqdm import tqdm
+
 from swissrivernetwork.benchmark.util import save
-from swissrivernetwork.util.myhalo import EpochHalo
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -45,7 +45,7 @@ def training_loop(
             name=name,
             config=config,  # save hyperparameters
             mode='disabled' if config.get('dev_run', False) else None,
-            reinit=True  # each trial gets a new wandb run (for Ray Tune)
+            # finish_previous=True  # each Ray Tune trial should create a separate wandb run automatically
         )
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -128,7 +128,6 @@ def training_loop(
             wandb.log({'epoch': epoch + 1, 'train_loss': train_loss})
             wandb.log({'epoch': epoch + 1, 'valid_loss': validation_mse})
             wandb.log({'epoch': epoch + 1, 'validation_mse': validation_mse})
-
 
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
