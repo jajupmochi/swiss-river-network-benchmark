@@ -3,10 +3,10 @@ import os
 import torch
 import torch.nn as nn
 
-from swissrivernetwork.journal.dataset import *
-from swissrivernetwork.journal.model import LstmModel
-from swissrivernetwork.journal.util import *
-from swissrivernetwork.journal.training import training_loop
+from swissrivernetwork.benchmark.dataset import *
+from swissrivernetwork.benchmark.model import LstmModel
+from swissrivernetwork.benchmark.util import *
+from swissrivernetwork.benchmark.training import training_loop
 
 def train_lstm(config):
     # config    
