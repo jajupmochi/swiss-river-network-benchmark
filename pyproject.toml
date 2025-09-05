@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "halo>=0.0.31",
     "matplotlib>=3.10.6",
     "notebook>=7.4.5",
     "odfpy>=1.4.1",
@@ -17,6 +18,8 @@ dependencies = [
     "tensorboard>=2.20.0",
     "torch>=2.8.0",
     "torch-geometric>=2.6.1",
+    "torchinfo>=1.8.0",
+    "wandb>=0.21.3",
 ]
 
 [build-system]
