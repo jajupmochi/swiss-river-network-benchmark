@@ -37,34 +37,34 @@ def compute_stats(df: pd.DataFrame):
     returns a new DataFrame with the original data and the statistics appended at the bottom.
     """
     stats = {
-        'Station': ['Mean', 'Std', 'Median', 'Max', 'Min'],
+        'Station': ['Mean', 'Std', 'Median', 'Min', 'Max'],
         'RMSE': [
             df['RMSE'].mean(),
             df['RMSE'].std(),
             df['RMSE'].median(),
-            df['RMSE'].max(),
             df['RMSE'].min(),
+            df['RMSE'].max(),
         ],
         'MAE': [
             df['MAE'].mean(),
             df['MAE'].std(),
             df['MAE'].median(),
-            df['MAE'].max(),
             df['MAE'].min(),
+            df['MAE'].max(),
         ],
         'NSE': [
             df['NSE'].mean(),
             df['NSE'].std(),
             df['NSE'].median(),
-            df['NSE'].max(),
             df['NSE'].min(),
+            df['NSE'].max(),
         ],
         'N': [
             df['N'].mean(),
             df['N'].std(),
             df['N'].median(),
-            df['N'].max(),
             df['N'].min(),
+            df['N'].max(),
         ]
     }
     stats_df = pd.DataFrame(stats)
@@ -73,6 +73,28 @@ def compute_stats(df: pd.DataFrame):
     # Append statistics to the original DataFrame
     df_stats = pd.concat([df, stats_df], ignore_index=True)
     return df_stats
+
+
+def show_best_trial(best_trial):
+    best_all = best_trial.get('all', None)
+    best_last = best_trial.get('last', None)
+    if best_all is not None:
+        valid_mse = best_all.metric_analysis.get('validation_mse', {}).get('min', None)
+        train_loss = best_all.metric_analysis.get('train_loss', {}).get('min', None)
+        print(f'\n{INFO_TAG}Best All Trial:')
+        print(f'  - Trial ID: {best_all.trial_id}')
+        print(f'  - Validation MSE: {valid_mse:.6f}' if valid_mse is not None else '  - Validation MSE: N/A')
+        print(f'  - Training Loss: {train_loss:.6f}' if train_loss is not None else '  - Training Loss: N/A')
+        print(f'  - Epoch: {best_all.last_result["training_iteration"]}')
+    if best_last is not None:
+        valid_mse = best_last.metric_analysis.get('validation_mse', {}).get('last', None)
+        train_loss = best_last.metric_analysis.get('train_loss', {}).get('last', None)
+        print(f'\n{INFO_TAG}Best Last Trial:')
+        print(f'  - Trial ID: {best_last.trial_id}')
+        print(f'  - Validation MSE: {valid_mse:.6f}' if valid_mse is not None else '  - Validation MSE: N/A')
+        print(f'  - Training Loss: {train_loss:.6f}' if train_loss is not None else '  - Training Loss: N/A')
+        print(f'  - Epoch: {best_last.last_result["training_iteration"]}')
+
 
 
 def experiment_analysis_isolated_station(graph_name, method, station):
@@ -195,13 +217,14 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
 
     # df = analysis.dataframe()
     # Get the best Trial:
-    best_trial = analysis.get_best_trial(metric="validation_mse", mode="min", scope="all")
-    best_config = best_trial.config
+    best_trial_all = analysis.get_best_trial(metric="validation_mse", mode="min", scope="all")
+    best_trial_last = analysis.get_best_trial(metric="validation_mse", mode="min", scope="last")
+    best_config = best_trial_all.config
     # VERBOSE and print(f"Best trial: {best_trial}")
     VERBOSE and print(f'{INFO_TAG}Best Trial Configuration: {best_config}')
 
     # Get the best checkpoint
-    best_checkpoint = analysis.get_best_checkpoint(best_trial, metric="validation_mse", mode="min")
+    best_checkpoint = analysis.get_best_checkpoint(best_trial_all, metric="validation_mse", mode="min")
 
     # Determine input_size:
     if method in ['lstm', 'lstm_embedding', 'transformer_embedding']:
@@ -243,14 +266,21 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
     # model summary
     total_params = parameter_count(model)
 
+    best_trial = {'all': best_trial_all, 'last': best_trial_last}
+
     if 'lstm' == method:
-        return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR), total_params)
+        return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR), total_params, best_trial)
     elif 'graphlet' == method:
-        return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR), total_params)
+        return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR), total_params, best_trial)
     elif 'lstm_embedding' == method:
-        return (*test_lstm_embedding(graph_name, station, i, model, dump_dir=DUMP_DIR), total_params)
+        return (*test_lstm_embedding(
+            graph_name, station, i, model,
+            window_len=None,  # best_config['window_len'],  # fixme: check
+            dump_dir=DUMP_DIR), total_params, best_trial)
     elif 'transformer_embedding' == method:
-        return (*test_transformer_embedding(graph_name, station, i, model, dump_dir=DUMP_DIR), total_params)
+        return (*test_transformer_embedding(
+            graph_name, station, i, model, window_len=best_config['window_len'], dump_dir=DUMP_DIR
+        ), total_params, best_trial)
     # Move
     # elif 'stgnn' == method:
     #    return test_stgnn(graph_name, )
@@ -298,7 +328,7 @@ def process_method(graph_name, method, output_dir: Path | None = None):
 
             # if True:
             try:
-                rmse, mae, nse, n, params = evaluate_best_trial_isolated_station(
+                rmse, mae, nse, n, params, best_trial = evaluate_best_trial_isolated_station(
                     graph_name, method, station, i, output_dir=output_dir
                 )
                 if math.isnan(rmse):
@@ -319,8 +349,8 @@ def process_method(graph_name, method, output_dir: Path | None = None):
                 raise
             except Exception as e:
                 print(f'{ISSUE_TAG}Station {station} failed!')
-                # print(e)
-                # raise
+                print(e)
+                raise
                 failed_stations.append(station)
 
         spinner.succeed(f'Processed {len(stations)} stations with {len(failed_stations)} failures.')
@@ -355,6 +385,8 @@ def process_method(graph_name, method, output_dir: Path | None = None):
 
     df = compute_stats(df)
 
+    show_best_trial(best_trial)
+
     test_dir = DUMP_DIR / 'test_results/'
     test_dir.mkdir(parents=True, exist_ok=True)
 
@@ -378,7 +410,7 @@ def process_method(graph_name, method, output_dir: Path | None = None):
 if __name__ == '__main__':
 
     GRAPH_NAMES = ['swiss-1990', 'swiss-2010', 'zurich']
-    METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']
+    METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
 
     # Single Run
     SINGLE_RUN = False

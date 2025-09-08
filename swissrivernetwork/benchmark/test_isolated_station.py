@@ -1,22 +1,16 @@
-import os
-
-import torch
-import torch.nn as nn
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-
 from ray.tune import ExperimentAnalysis
-from sklearn.preprocessing import MinMaxScaler
 
-from swissrivernetwork.benchmark.model import LstmModel, LstmEmbeddingModel
 from swissrivernetwork.benchmark.dataset import *
+from swissrivernetwork.benchmark.model import LstmModel, LstmEmbeddingModel
 from swissrivernetwork.benchmark.util import *
 
 SHOW_PLOT = False
 
 
-def run_lstm_model(model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False):
+def run_lstm_model(
+        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
+):
     # Predict test data:
     df['air_temperature'] = normalizer_at.transform(df['air_temperature'].values.reshape(-1, 1))
 
@@ -26,7 +20,10 @@ def run_lstm_model(model, df, normalizer_at, normalizer_wt, embedding_idx=None, 
     # print('[DATA PREPARATION] counted NaN values in input:', df['air_temperature'].isna().sum())
     # df['air_temperature'] = df['air_temperature'].fillna(-1)
 
-    dataset = SequenceFullDataset(df, embedding_idx)
+    if window_len is None:
+        dataset = SequenceFullDataset(df, embedding_idx)
+    else:
+        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
     dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
 
     epoch_days = []
@@ -72,7 +69,9 @@ def run_lstm_model(model, df, normalizer_at, normalizer_wt, embedding_idx=None, 
     return epoch_days, prediction_norm, masks, actual, prediction
 
 
-def run_transformer_model(model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False):
+def run_transformer_model(
+        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
+):
     # Predict test data:
     df['air_temperature'] = normalizer_at.transform(df['air_temperature'].values.reshape(-1, 1))
 
@@ -82,7 +81,10 @@ def run_transformer_model(model, df, normalizer_at, normalizer_wt, embedding_idx
     # print('[DATA PREPARATION] counted NaN values in input:', df['air_temperature'].isna().sum())
     # df['air_temperature'] = df['air_temperature'].fillna(-1)
 
-    dataset = SequenceFullDataset(df, embedding_idx)
+    if window_len is None:
+        dataset = SequenceFullDataset(df, embedding_idx)
+    else:
+        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
     dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
 
     epoch_days = []
@@ -237,7 +239,10 @@ def test_lstm(graph_name, station, model, dump_dir: Path | str = 'swissrivernetw
     return rmse, mae, nse, len(prediction)
 
 
-def test_lstm_embedding(graph_name, station, i, model, dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'):
+def test_lstm_embedding(
+        graph_name, station, i, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
+):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
     normalizer_at, normalizer_wt = fit_normalizers(df_train)
@@ -245,7 +250,7 @@ def test_lstm_embedding(graph_name, station, i, model, dump_dir: Path | str = 's
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True
+        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
     )
 
     # Compute errors:
@@ -259,7 +264,10 @@ def test_lstm_embedding(graph_name, station, i, model, dump_dir: Path | str = 's
     return rmse, mae, nse, len(prediction)
 
 
-def test_transformer_embedding(graph_name, station, i, model, dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'):
+def test_transformer_embedding(
+        graph_name, station, i, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
+):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
     normalizer_at, normalizer_wt = fit_normalizers(df_train)
@@ -267,7 +275,7 @@ def test_transformer_embedding(graph_name, station, i, model, dump_dir: Path | s
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction = run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True
+        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
     )
 
     # Compute errors:

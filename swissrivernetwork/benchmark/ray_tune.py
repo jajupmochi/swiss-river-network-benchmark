@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 from functools import partial
+from benedict import benedict
 
 import ray
 from ray.tune import uniform, randint, run, choice, Callback
@@ -130,7 +131,7 @@ def scheduler_single_model_hard():
     )
 
 
-def run_experiment(method, graph_name, num_samples, storage_path: str | None, config, verbose: int):
+def run_experiment(method, graph_name, num_samples, storage_path: str | None, config: benedict, verbose: int):
     """
     Run a Ray Tune experiment for the given method and graph.
 
@@ -145,9 +146,16 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Use same time for all!
     # now = '2025-09-05_13-34-45'  # fixme: debug only
     storage_path = (CUR_ABS_DIR / '../../' / storage_path).resolve() if storage_path else None
-    resources_per_trial = {'cpu': 1, 'gpu': 0}
+    # For transformer_embedding, GPU per epoch is around 50 seconds, CPU around 14-40 minutes
+    # Using GPU is much faster. Notice when only one GPU is present, set the `resources_per_trial['gpu']` to a float
+    # between 0 and 1 to enable multiple trials on GPU, otherwise it seems that Ray Tune just simply runs each trial
+    # until the end.
+    resources_per_trial = {
+        'cpu': config.get('resources_per_trial.cpu', 1),
+        'gpu': config.get('resources_per_trial.gpu', 0)
+    }  # debug  transformer_embedding: {'cpu': 1, 'gpu': 0.25}, others: {'cpu': 1, 'gpu': 0}
 
-    num_cpus = None if ((not hasattr(config, 'num_cpus')) or config.num_cpus is None) else (
+    num_cpus = None if ('num_cpus' not in config or config.num_cpus is None) else (
         config.num_cpus if config.num_cpus > 0 else os.cpu_count() + config.num_cpus
     )
     ray.init(num_cpus=num_cpus)
@@ -289,7 +297,7 @@ if __name__ == '__main__':
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
-            'graph': 'swiss-1990',
+            'graph': 'swiss-2010',  # 'swiss-1990', 'swiss-2010', 'zurich'
         }
 
         # Set the cfg as the input args:
@@ -300,6 +308,6 @@ if __name__ == '__main__':
     args = parse_config()
     print(f'{INFO_TAG}Arguments: {args}.')
     run_experiment(
-        args.method, args.graph, args.num_samples, args.storage_path, args,
+        args.method, args.graph, args.num_samples, args.storage_path, benedict(vars(args)),
         args.verbose
     )

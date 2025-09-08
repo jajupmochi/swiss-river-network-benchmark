@@ -102,15 +102,15 @@ def get_job_script_gpu(id_str):
 ##   gpu:4 (maximum) for gpu_k80
 ##   gpu:2 (maximum) for gpu_p100
 ##SBATCH --gres=gpu:gtx1080ti:1
-#SBATCH --gres=gpu:rtx4090:1  # @fixme: change as needed
+#SBATCH --gres=gpu:rtx4090:1  # @fixme: change as needed. Use multiple GPUs so that Ray Tune can run multiple trials in parallel to do pruning.
 ##SBATCH --gpus-per-node=a100:1  # may needed for 1024 px)
 # ----------------------------
 # Job time (hh:mm:ss)
 #SBATCH --time=24:00:00  # @fixme: change as needed
 ##SBATCH --ntasks=1
 ##SBATCH --nodes=1
-#SBATCH --cpus-per-task=10  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB)
-#SBATCH --mem-per-cpu=9G  # @fixme: change as needed (may need a lot for 1024 px)
+#SBATCH --cpus-per-task=2  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB)
+#SBATCH --mem-per-cpu=20G  # @fixme: change as needed
 
 # environments
 # ---------------------------------
@@ -122,7 +122,7 @@ python3 --version
 module list
 
 echo hostname
-cd """ + cur_path + r"""/../word_spotting/
+cd """ + cur_path + r"""/../
 echo Working directory : $PWD
 echo Local work dir_file : $LOCAL_WORK_DIR
 """
@@ -201,11 +201,16 @@ if __name__ == '__main__':
     # fixme debug: change these as needed.
 
     # general settings:
-    device = 'cpu'
+    # It seems GPUs should be used for transformer model:
+    # for transformer_embedding, GPU per epoch is around 50 seconds, CPU around 14-40 minutes
+    # Using GPU is much faster. Notice when only one GPU is present, set the `resources_per_trial['gpu']` to a float
+    # between 0 and 1 to enable multiple trials on GPU, otherwise it seems that Ray Tune just simply runs each trial
+    # until the end.
+    device = 'gpu'
 
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
     methods = ['transformer_embedding', 'lstm_embedding']
-    graphs = ['swiss-1990', 'swiss-2010', 'zurich']
+    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][1:]  # fixme
 
     params_list = {
         'method': methods,
@@ -216,6 +221,13 @@ if __name__ == '__main__':
 
     params_list = list(ParameterGrid(params_list))
     for i, params in enumerate(params_list):
+        if params['method'] in ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']:
+            device = 'cpu'
+        elif params['method'].startswith('transformer'):
+            device = 'gpu'
+        else:
+            raise NotImplementedError(f'Method {params["method"]} not implemented.')
+
         exp_key = f"{params['method']}_{params['graph']}"
         print(f'[{i + 1}/{len(params_list)}] Experiment: {exp_key}')
 

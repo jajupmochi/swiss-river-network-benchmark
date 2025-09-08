@@ -122,7 +122,7 @@ def training_loop(
             checkpoint = Checkpoint.from_directory(checkpoint_dir)
 
             # report epoch loss
-            report({"validation_mse": validation_mse}, checkpoint=checkpoint)
+            report({"train_loss": train_loss, "validation_mse": validation_mse}, checkpoint=checkpoint)
             print(f'End of Epoch {epoch + 1}: {validation_mse:.5f}')
 
             wandb.log({'epoch': epoch + 1, 'train_loss': train_loss})
