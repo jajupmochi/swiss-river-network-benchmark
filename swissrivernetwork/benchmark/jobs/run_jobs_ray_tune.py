@@ -72,7 +72,7 @@ def get_job_script(
     #     script += r"""
     # python3 """ + py_file
     script += r"""
-python3 """ + py_file + ' '.join([r"""--""" + k + r""" """ + v for k, v in params.items()])
+python3 """ + py_file + ' ' + ' '.join([r"""--""" + k + r""" """ + v for k, v in params.items()])
     script = script.strip()
     script = re.sub('\n\t+', '\n', script)
     script = re.sub('\n +', '\n', script)
@@ -117,7 +117,7 @@ def get_job_script_gpu(id_str):
 module load cuDNN/8.9.2.26-CUDA-12.2.0
 module load Python/3.10.4-GCCcore-11.3.0
 ##module load CMake
-source """ + cur_path + r"""/../.venv/bin/activate  # change as needed
+source """ + cur_path + r"""/../../../.venv/bin/activate  # change as needed
 python3 --version
 module list
 
@@ -149,7 +149,7 @@ def get_job_script_cpu(id_str):
 #SBATCH --mem-per-cpu=10G  # This value can not exceed 4GB on CRIANN. on UBELIX, 256G for 1 CPU, 7G for 128 CPUs each.
 
 module load Python/3.9.5-GCCcore-10.3.0
-source """ + cur_path + r"""/../.venv/bin/activate  # change as needed
+source """ + cur_path + r"""/../../../.venv/bin/activate  # change as needed
 python3 --version
 # module load CMake # This is useful to load GLIBCXX_3.4.29 for GED computation.
 module list
