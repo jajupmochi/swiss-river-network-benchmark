@@ -11,7 +11,8 @@ num_samples: 200  # number of hyperparameter combinations to initialize the ray 
 # - Non-positive values allocate all but that many cpus, e.g. -1 allocates all but 1 cpu. At least 1 cpu must be allocated.
 # - Positive values allocate that many cpus. At most the number of available cpus can be allocated.
 # - If None, use the default ray tuner behavior, which is to allocate all available cpus.
-num_cpus: 1
+# When cpu = 1 and gpu = 0.25 per trial, num_cpus = 4 allows for 4 trials to run in parallel on a machine with 4 cpus and 1 gpu.
+num_cpus: 4
 resources_per_trial:
   cpu: 1
   gpu: 0.25

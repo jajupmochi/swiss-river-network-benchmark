@@ -109,8 +109,8 @@ def get_job_script_gpu(id_str):
 #SBATCH --time=24:00:00  # @fixme: change as needed
 ##SBATCH --ntasks=1
 ##SBATCH --nodes=1
-#SBATCH --cpus-per-task=1  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB)
-#SBATCH --mem-per-cpu=20G  # @fixme: change as needed
+#SBATCH --cpus-per-task=4  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB) # When cpu = 1 and gpu = 0.25 per trial, num_cpus = 4 allows for 4 trials to run in parallel on a machine with 4 cpus and 1 gpu.
+#SBATCH --mem-per-cpu=10G  # @fixme: change as needed
 
 # environments
 # ---------------------------------
