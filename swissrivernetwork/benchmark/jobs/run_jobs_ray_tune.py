@@ -102,14 +102,14 @@ def get_job_script_gpu(id_str):
 ##   gpu:4 (maximum) for gpu_k80
 ##   gpu:2 (maximum) for gpu_p100
 ##SBATCH --gres=gpu:gtx1080ti:1
-#SBATCH --gres=gpu:rtx4090:1  # @fixme: change as needed. Use multiple GPUs so that Ray Tune can run multiple trials in parallel to do pruning.
+#SBATCH --gres=gpu:rtx4090:1  # @fixme: change as needed. Can use multiple GPUs so that Ray Tune can run more trials in parallel to better prune.
 ##SBATCH --gpus-per-node=a100:1  # may needed for 1024 px)
 # ----------------------------
 # Job time (hh:mm:ss)
 #SBATCH --time=24:00:00  # @fixme: change as needed
 ##SBATCH --ntasks=1
 ##SBATCH --nodes=1
-#SBATCH --cpus-per-task=2  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB)
+#SBATCH --cpus-per-task=1  # for UBELIX: per rtx4090 GPU (CPU: 16, RAM: 92160 MB)
 #SBATCH --mem-per-cpu=20G  # @fixme: change as needed
 
 # environments
