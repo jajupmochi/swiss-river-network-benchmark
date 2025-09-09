@@ -3,6 +3,8 @@ graph: "swiss-1990"
 
 verbose: 1  # verbosity level for ray tuner
 
+enable_wandb: False
+
 # ray tuner settings:
 num_samples: 200  # number of hyperparameter combinations to initialize the ray tuner with
 # number of cpus to allocate to the ray tuner.

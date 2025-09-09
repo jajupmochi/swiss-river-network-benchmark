@@ -1,4 +1,4 @@
-import torch
+from benedict import benedict
 
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.model import *
@@ -9,7 +9,7 @@ INFO_TAG = "\033[94m[info]\033[0m "  # Blue
 SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
-def train_lstm_embedding(config, verbose: int = 2):
+def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int = 2):
     # Setup Dataset
     graph_name = config['graph_name']
     stations = read_stations(graph_name)
@@ -35,7 +35,8 @@ def train_lstm_embedding(config, verbose: int = 2):
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True, verbose=verbose
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        settings=settings, verbose=verbose
     )
 
 
@@ -57,7 +58,7 @@ def create_dataset_embedding(config, df, i, valid_use_window: bool = False):
     return dataset_train, dataset_valid
 
 
-def train_stgnn(config, verbose: int = 2):
+def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     # Setup Dataset
     graph_name = config['graph_name']
     stations = read_stations(graph_name)
@@ -88,11 +89,11 @@ def train_stgnn(config, verbose: int = 2):
     # Run Training Loop!
     training_loop(
         config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=False, edges=edges,
-        verbose=verbose
+        settings=settings, verbose=verbose
     )
 
 
-def train_transformer(config, verbose: int = 2):
+def train_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
     """
     Train on a pure transformer model without station embeddings.
     """
@@ -131,14 +132,15 @@ def train_transformer(config, verbose: int = 2):
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True, verbose=verbose
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True, settings=settings,
+        verbose=verbose
     )
 
 
 if __name__ == '__main__':
     # fix 2010 bug:
-    # graph_name = 'swiss-2010'
-    graph_name = 'swiss-1990'
+    graph_name = 'swiss-2010'
+    # graph_name = 'swiss-1990'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')

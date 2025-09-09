@@ -195,7 +195,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space = search_space_lstm_embedding.copy()
         search_space['graph_name'] = graph_name
 
-        trainer = partial(train_lstm_embedding, verbose=verbose)
+        trainer = partial(train_lstm_embedding, settings=config, verbose=verbose)
 
         analysis = run(
             trainer,
@@ -213,7 +213,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
 
-        trainer = partial(train_transformer, verbose=verbose)
+        trainer = partial(train_transformer, settings=config, verbose=verbose)
 
         analysis = run(
             trainer,
@@ -237,7 +237,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         if search_space['gnn_conv'] == 'GAT':
             search_space['num_heads'] = randint(1, 8)
 
-        trainer = partial(train_stgnn, verbose=verbose)
+        trainer = partial(train_stgnn, settings=config, verbose=verbose)
 
         analysis = run(
             trainer,

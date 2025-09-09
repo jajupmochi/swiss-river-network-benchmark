@@ -4,6 +4,7 @@ import tempfile
 import torch
 import torch.nn as nn
 import wandb
+from benedict import benedict
 from ray.air import session
 from ray.tune import Checkpoint, report
 from torchinfo import summary
@@ -18,7 +19,7 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 def training_loop(
         config, dataloader_train, dataloader_valid, model, n_valid, use_embedding, edges=None,
-        wandb_project: str | None = 'swissrivernetwork',
+        wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
     if verbose >= 2:
@@ -37,16 +38,17 @@ def training_loop(
         print(f'{INFO_TAG}Using device: {next(model.parameters()).device}.\n')
 
     # Login via command line: `wandb login <your_api_key>`
-    if wandb_project:
-        name = (
-            session.get_trial_id() if session.get_trial_id() else f'{config["graph_name"]}_{model.__class__.__name__}')
-        wandb.init(
-            project=wandb_project,
-            name=name,
-            config=config,  # save hyperparameters
-            mode='disabled' if config.get('dev_run', False) else None,
-            # finish_previous=True  # each Ray Tune trial should create a separate wandb run automatically
-        )
+    disable_wandb = config.get('dev_run', False) or wandb_project is None or not settings.get('enable_wandb', False)
+    name = f'{config["graph_name"]}_{model.__class__.__name__}'
+    if session.get_trial_id():
+        name += f'_{session.get_trial_id()}'
+    wandb.init(
+        project=wandb_project,
+        name=name,
+        config=config,  # save hyperparameters
+        mode='disabled' if disable_wandb else None,
+        # finish_previous=True  # each Ray Tune trial should create a separate wandb run automatically
+    )
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -135,5 +137,4 @@ def training_loop(
         else:
             raise
 
-    if wandb_project:
-        wandb.finish()
+    wandb.finish()
