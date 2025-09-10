@@ -48,9 +48,12 @@ class TransformerEmbeddingModel(nn.Module):
     def __init__(
             self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
             dim_feedforward: int, dropout: float = 0.1,
-            d_model: int | None = None, ratio_heads_to_d_model: int = 8
+            d_model: int | None = None, ratio_heads_to_d_model: int = 8,
+            use_current_x: bool = True
     ):
         super().__init__()
+        self.use_current_x = use_current_x
+
         # Optional station embedding:
         self.embedding = nn.Embedding(num_embeddings, embedding_size) if num_embeddings > 0 else None
 
@@ -88,10 +91,18 @@ class TransformerEmbeddingModel(nn.Module):
             x = torch.cat((emb, x), dim=-1)  # fuse embedding
         else:
             pass  # no embedding
+
         x = self.input_proj(x)  # [batch, seq_len, d_model]
         seq_len = x.size(1)
         x = x + self.pos_embedding[:seq_len]
-        out = self.transformer(x)  # [batch, seq_len, d_model]
+
+        # Mask the future positions (causal):
+        if self.use_current_x:
+            mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
+        else:
+            mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
+
+        out = self.transformer(x, mask=mask)  # [batch, seq_len, d_model]
         target = self.linear(out)  # [batch, seq_len, 1]
         return target
 

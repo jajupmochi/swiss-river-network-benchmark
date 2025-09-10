@@ -139,8 +139,8 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
 
 if __name__ == '__main__':
     # fix 2010 bug:
-    graph_name = 'swiss-2010'
-    # graph_name = 'swiss-1990'
+    # graph_name = 'swiss-2010'
+    graph_name = 'swiss-1990'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -168,8 +168,8 @@ if __name__ == '__main__':
         }
     )
 
-    # train_lstm_embedding(config)
-    # # train_stgnn(config)
+    # # train_lstm_embedding(config)
+    # train_stgnn(config)
 
     # Transformer specific:
     config.update(
@@ -182,4 +182,4 @@ if __name__ == '__main__':
             'use_station_embedding': True
         }
     )
-    train_transformer(config)
+    train_transformer(config, settings=benedict({'enable_wandb': True}))
