@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from halo import Halo
 from ray.tune import ExperimentAnalysis
@@ -95,6 +96,58 @@ def show_best_trial(best_trial):
         print(f'  - Training Loss: {train_loss:.6f}' if train_loss is not None else '  - Training Loss: N/A')
         print(f'  - Epoch: {best_last.last_result["training_iteration"]}')
 
+
+def plot_diff(
+        graph_name, method, epoch_day_list, actuals, predictions, title,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
+):
+    epoch_days = np.sort(np.unique(np.concatenate(epoch_day_list)))
+    diffs = np.empty((len(epoch_day_list), len(epoch_days)), dtype=float)
+    for idx_station, (ed, a, p) in enumerate(zip(epoch_day_list, actuals, predictions)):
+        day_idx_in_full = np.searchsorted(epoch_days, ed)
+        diff = np.full((len(epoch_days)), np.nan, dtype=float)
+        diff[day_idx_in_full] = np.abs(np.array(a) - np.array(p))
+        diffs[idx_station] = diff
+
+    mean_diff = np.nanmean(diffs, axis=0)
+    std_diff = np.nanstd(diffs, axis=0)
+
+    plt.figure(figsize=(20, 6))
+    plt.plot(
+        epoch_days, mean_diff, color='tab:blue', linestyle='-', linewidth=1, label='Difference'
+    )
+    plt.fill_between(
+        epoch_days, mean_diff - std_diff, mean_diff + std_diff, color='tab:blue', alpha=0.3, label='Std Dev'
+    )
+    # Plot sequence separators as vertical dashed lines:
+    day_diff = np.diff(epoch_days)
+    breaks = day_diff != 1
+    breaks = np.concatenate((np.array([True]), breaks))
+    seque_id = np.cumsum(breaks)
+    seques = np.argwhere(breaks).flatten()
+    unique_ids, counts = np.unique(seque_id, return_counts=True)
+    seque_lengths = counts
+    starts = epoch_days[seques]
+    ends = epoch_days[seques + seque_lengths - 1]
+    colors = plt.cm.get_cmap('tab20', len(starts))
+    fill_params = []
+    for i, (s, e) in enumerate(zip(starts, ends)):
+        plt.axvline(x=s, color=colors(i), linestyle='--', alpha=0.5, linewidth=0.5)
+        plt.axvline(x=e, color=colors(i), linestyle='--', alpha=0.5, linewidth=0.5)
+        fill_params.append({'s': s, 'e': e, 'color': colors(i), 'ylim': plt.ylim()})
+    max_ylim = (min([p['ylim'][0] for p in fill_params]), max([p['ylim'][1] for p in fill_params]))
+    for param in fill_params:
+        plt.fill_betweenx(max_ylim, param['s'], param['e'], color=param['color'], alpha=0.1)
+    plt.legend()
+    plt.title(title.replace('\t', ' '))
+    fig_path = Path(dump_dir) / f'figures/{graph_name}_{method}_difference.png'
+    os.makedirs(fig_path.parent, exist_ok=True)
+    plt.savefig(fig_path, dpi=300)
+    plt.show()
+    plt.close()
+
+
+# %%
 
 
 def experiment_analysis_isolated_station(graph_name, method, station):
@@ -275,11 +328,14 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
     elif 'lstm_embedding' == method:
         return (*test_lstm_embedding(
             graph_name, station, i, model,
-            window_len=None,  # best_config['window_len'],  # fixme: check
-            dump_dir=DUMP_DIR), total_params, best_trial)
+            window_len=None,  # best_config['window_len'],  # fixme: experiment
+            dump_dir=DUMP_DIR
+        ), total_params, best_trial)
     elif 'transformer_embedding' == method:
         return (*test_transformer_embedding(
-            graph_name, station, i, model, window_len=best_config['window_len'], dump_dir=DUMP_DIR
+            graph_name, station, i, model,
+            window_len=500,  # best_config['window_len'], # fixme: experiment
+            dump_dir=DUMP_DIR
         ), total_params, best_trial)
     # Move
     # elif 'stgnn' == method:
@@ -316,6 +372,10 @@ def process_method(graph_name, method, output_dir: Path | None = None):
         )
         spinner.start()
 
+        actuals = []
+        predictions = []
+        epoch_day_list = []
+
         for i, station in enumerate(stations):
             spinner.text = f'Processing Stations: {i + 1}/{len(stations)} ->'
 
@@ -328,9 +388,10 @@ def process_method(graph_name, method, output_dir: Path | None = None):
 
             # if True:
             try:
-                rmse, mae, nse, n, params, best_trial = evaluate_best_trial_isolated_station(
+                rmse, mae, nse, n, preds, params, best_trial = evaluate_best_trial_isolated_station(
                     graph_name, method, station, i, output_dir=output_dir
                 )
+                actual, prediction, epoch_days = preds
                 if math.isnan(rmse):
                     failed_stations.append(station)
                     continue
@@ -345,6 +406,10 @@ def process_method(graph_name, method, output_dir: Path | None = None):
                 col_mae.append(mae)
                 col_nse.append(nse)
                 col_n.append(n)
+
+                actuals.append(actual)
+                predictions.append(prediction)
+                epoch_day_list.append(epoch_days)
             except FileNotFoundError as e:
                 raise
             except Exception as e:
@@ -354,6 +419,11 @@ def process_method(graph_name, method, output_dir: Path | None = None):
                 failed_stations.append(station)
 
         spinner.succeed(f'Processed {len(stations)} stations with {len(failed_stations)} failures.')
+
+        plot_diff(
+            graph_name, method, epoch_day_list, actuals, predictions, 'Difference on all stations',
+            dump_dir=DUMP_DIR
+        )  # fixme: debug
 
     if 'stgnn' == method:
         # run model:

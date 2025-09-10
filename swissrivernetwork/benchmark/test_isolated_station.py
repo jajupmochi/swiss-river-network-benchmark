@@ -167,11 +167,55 @@ def summary(station, rmse, mae, nse):
 
 def plot(
         graph_name, method, station, epoch_days, actual, prediction, title,
+        plot_ys: bool = True,
+        plot_diff: bool = False,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
 ):
-    plt.figure(figsize=(10, 6))
-    plt.plot(epoch_days, actual, label='Actual')
-    plt.plot(epoch_days, prediction, label='Prediction')
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(epoch_days, actual, label='Actual')
+    # plt.plot(epoch_days, prediction, label='Prediction')
+    # if plot_diff:
+    #     ax1 = plt.gca()
+    #     ax2 = ax1.twinx()
+    #     ax2.plot(epoch_days, np.abs(np.array(actual) - np.array(prediction)), color='tab:red', label='Difference')
+    #     ax2.set_ylabel('Difference')
+    #     ax2.legend(loc='upper right')
+    # plt.legend(loc='upper left')
+    # plt.title(title.replace('\t', ' '))
+    # fig_path = Path(dump_dir) / f'figures/{graph_name}_{method}_{station}.png'
+    # os.makedirs(fig_path.parent, exist_ok=True)
+    # plt.savefig(fig_path, dpi=300)
+    # SHOW_PLOT and plt.show()
+    # plt.close()
+    plt.figure(figsize=(20, 6))
+    # plt.figure(figsize=(10, 6))
+    if plot_ys:
+        plt.plot(epoch_days, actual, label='Actual')
+        plt.plot(epoch_days, prediction, label='Prediction')
+    if plot_diff:
+        plt.plot(
+            epoch_days, np.abs(np.array(actual) - np.array(prediction)), color='tab:red', linestyle='-', linewidth=0.5,
+            label='Difference'
+        )
+        # Plot sequence separators as vertical dashed lines:
+        day_diff = np.diff(epoch_days)
+        breaks = day_diff != 1
+        breaks = np.concatenate((np.array([True]), breaks))
+        seque_id = np.cumsum(breaks)
+        seques = np.argwhere(breaks).flatten()
+        unique_ids, counts = np.unique(seque_id, return_counts=True)
+        seque_lengths = counts
+        starts = epoch_days[seques]
+        ends = epoch_days[seques + seque_lengths - 1]
+        colors = plt.cm.get_cmap('tab20', len(starts))
+        fill_params = []
+        for i, (s, e) in enumerate(zip(starts, ends)):
+            plt.axvline(x=s, color=colors(i), linestyle='--', alpha=0.5, linewidth=0.5)
+            plt.axvline(x=e, color=colors(i), linestyle='--', alpha=0.5, linewidth=0.5)
+            fill_params.append({'s': s, 'e': e, 'color': colors(i), 'ylim': plt.ylim()})
+        max_ylim = (min([p['ylim'][0] for p in fill_params]), max([p['ylim'][1] for p in fill_params]))
+        for param in fill_params:
+            plt.fill_betweenx(max_ylim, param['s'], param['e'], color=param['color'], alpha=0.1)
     plt.legend()
     plt.title(title.replace('\t', ' '))
     fig_path = Path(dump_dir) / f'figures/{graph_name}_{method}_{station}.png'
@@ -259,9 +303,13 @@ def test_lstm_embedding(
     print(title)
 
     # Plot Figure of Test Data
-    plot(graph_name, 'lstm_embedding', station, epoch_days[mask], actual, prediction, title, dump_dir=dump_dir)
+    plot(
+        graph_name, 'lstm_embedding', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # fixme: debug
+        dump_dir=dump_dir
+    )
 
-    return rmse, mae, nse, len(prediction)
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask])
 
 
 def test_transformer_embedding(
