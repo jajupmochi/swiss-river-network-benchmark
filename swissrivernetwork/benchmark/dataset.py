@@ -98,7 +98,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         breaks = day_diff != 1
         sequence_id = breaks.cumsum()
         sequences = self.df.index[breaks].values
-        sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values - self.window_len
+        sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values - self.window_len + 1
 
         # remove short sequences
         drop_sequences = sequence_lengths < 0
@@ -189,7 +189,7 @@ class SequenceWindowedDataset(SequenceDataset):
 
     def __getitem__(self, idx):
         for i, length in enumerate(self.sequence_lengths):
-            if idx > length:
+            if idx >= length:
                 idx -= length
                 continue
 
