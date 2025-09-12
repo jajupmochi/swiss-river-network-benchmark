@@ -129,7 +129,7 @@ def plot_diff(
     seque_lengths = counts
     starts = epoch_days[seques]
     ends = epoch_days[seques + seque_lengths - 1]
-    colors = plt.cm.get_cmap('tab20', len(starts))
+    colors = plt.get_cmap('tab20', len(starts))
     fill_params = []
     for i, (s, e) in enumerate(zip(starts, ends)):
         plt.axvline(x=s, color=colors(i), linestyle='--', alpha=0.5, linewidth=0.5)
@@ -334,7 +334,7 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
     elif 'transformer_embedding' == method:
         return (*test_transformer_embedding(
             graph_name, station, i, model,
-            window_len=500,  # best_config['window_len'], # fixme: experiment
+            window_len=90,  # best_config['window_len'], # fixme: experiment
             dump_dir=DUMP_DIR
         ), total_params, best_trial)
     # Move

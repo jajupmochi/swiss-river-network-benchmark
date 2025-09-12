@@ -4,6 +4,7 @@ from ray.tune import ExperimentAnalysis
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.model import LstmModel, LstmEmbeddingModel
 from swissrivernetwork.benchmark.util import *
+from swissrivernetwork.experiment.error import compute_errors
 
 SHOW_PLOT = False
 
@@ -110,11 +111,10 @@ def run_transformer_model(
             # mask values:
             mask = ~torch.isnan(y)
             masks.append(mask[0])
-            if mask.sum() == 0:
-                continue  # skip if all is masked
+            # if mask.sum() == 0:
+            #     continue  # skip if all is masked
 
-            y = y[mask]
-            out = out[mask]
+            # Store everything and mask later, so that we can aggregate later:
             out = normalizer_wt.inverse_transform(out.detach().numpy().reshape(-1, 1))
 
             # Store values
@@ -127,6 +127,23 @@ def run_transformer_model(
     masks = np.concatenate(masks, axis=0).flatten()
     actual = np.concatenate(actual, axis=0).flatten()
     prediction = np.concatenate(prediction, axis=0).flatten()
+
+    # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
+    unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+        epoch_days,
+        {'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual, 'prediction': prediction},
+        method='longest_history'
+    )
+    # Store epoch_days, prediction_norm and masks on all days:
+    epoch_days = unique_epoch_days
+    prediction_norm = aggregated_dict['prediction_norm']
+    masks = aggregated_dict['mask']
+    # Apply mask on actual and prediction:
+    actual = aggregated_dict['actual']
+    prediction = aggregated_dict['prediction']
+    actual = actual[masks]
+    prediction = prediction[masks]
+
     return epoch_days, prediction_norm, masks, actual, prediction
 
 
@@ -151,14 +168,6 @@ def fit_normalizers(df):
     normalizer_at = MinMaxScaler().fit(df['air_temperature'].values.reshape(-1, 1))
     normalizer_wt = MinMaxScaler().fit(df['water_temperature'].values.reshape(-1, 1))
     return normalizer_at, normalizer_wt
-
-
-def compute_errors(actual, prediction):
-    from swissrivernetwork.experiment.error import Error
-    rmse = Error.rmse(actual, prediction)
-    mae = Error.mae(actual, prediction)
-    nse = Error.nse(actual, prediction)
-    return rmse, mae, nse
 
 
 def summary(station, rmse, mae, nse):
@@ -305,7 +314,7 @@ def test_lstm_embedding(
     # Plot Figure of Test Data
     plot(
         graph_name, 'lstm_embedding', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # fixme: debug
+        plot_diff=True,  # debug
         dump_dir=dump_dir
     )
 
@@ -332,9 +341,13 @@ def test_transformer_embedding(
     print(title)
 
     # Plot Figure of Test Data
-    plot(graph_name, 'transformer_embedding', station, epoch_days[mask], actual, prediction, title, dump_dir=dump_dir)
+    plot(
+        graph_name, 'transformer_embedding', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # debug
+        dump_dir=dump_dir
+    )
 
-    return rmse, mae, nse, len(prediction)
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask])
 
 
 if __name__ == '__main__':

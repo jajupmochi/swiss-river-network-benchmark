@@ -59,7 +59,7 @@ def normalize_isolated_station(df):
     if df['water_temperature'].isna().sum() > 0:
         print('[DATA PREPARATION] counted NaN values in output:', df['water_temperature'].isna().sum())
 
-    return df
+    return df, normalizer_at, normalizer_wt
 
 
 def normalize_columns(df):
@@ -189,6 +189,7 @@ class SequenceWindowedDataset(SequenceDataset):
 
     def __getitem__(self, idx):
         for i, length in enumerate(self.sequence_lengths):
+            # This length already excludes windows that are too short. See `SequenceDataset.extract_sequences()`.
             if idx >= length:
                 idx -= length
                 continue

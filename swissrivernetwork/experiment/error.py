@@ -25,3 +25,11 @@ class Error:
     def nse(y, y_hat):
         y_mean = np.mean(y)
         return 1.-(np.sum((y-y_hat)**2)/np.sum((y-y_mean)**2))
+
+
+def compute_errors(actual, prediction):
+    from swissrivernetwork.experiment.error import Error
+    rmse = Error.rmse(actual, prediction)
+    mae = Error.mae(actual, prediction)
+    nse = Error.nse(actual, prediction)
+    return rmse, mae, nse

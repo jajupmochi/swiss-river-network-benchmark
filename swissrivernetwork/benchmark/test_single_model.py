@@ -14,7 +14,8 @@ from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.util import *
 
-from swissrivernetwork.benchmark.test_isolated_station import compute_errors, plot, summary
+from swissrivernetwork.benchmark.test_isolated_station import plot, summary
+from swissrivernetwork.experiment.error import compute_errors
 
 
 def fit_column_normalizers(df):

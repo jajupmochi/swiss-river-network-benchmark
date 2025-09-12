@@ -20,7 +20,7 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     datasets_valid = []
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
-        dataset_train, dataset_valid = create_dataset_embedding(config, df_station, i)
+        dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(config, df_station, i)
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
     dataset_train = torch.utils.data.ConcatDataset(datasets_train)
@@ -36,13 +36,13 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     # Run Training Loop!
     training_loop(
         config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
-        settings=settings, verbose=verbose
+        normalizer_at=normalizer_at, normalizer_wt=normalizer_wt, settings=settings, verbose=verbose
     )
 
 
 def create_dataset_embedding(config, df, i, valid_use_window: bool = False):
     # Normalize
-    df = normalize_isolated_station(df)
+    df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
 
     # Train/Validation split
     df_train, df_valid = train_valid_split(config, df)
@@ -52,10 +52,12 @@ def create_dataset_embedding(config, df, i, valid_use_window: bool = False):
         config['window_len'], df_train, embedding_idx=i, dev_run=config.get('dev_run', False)
     )
     if valid_use_window:
-        dataset_valid = SequenceWindowedDataset(config['window_len'], df_valid, embedding_idx=i)
+        dataset_valid = SequenceWindowedDataset(
+            config['window_len'], df_valid, embedding_idx=i, dev_run=config.get('dev_run', False)
+        )
     else:
         dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i)
-    return dataset_train, dataset_valid
+    return dataset_train, dataset_valid, normalizer_at, normalizer_wt
 
 
 def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
@@ -107,7 +109,9 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     datasets_valid = []
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
-        dataset_train, dataset_valid = create_dataset_embedding(config, df_station, i, valid_use_window=True)
+        dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
+            config, df_station, i, valid_use_window=True
+        )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
     dataset_train = torch.utils.data.ConcatDataset(datasets_train)
@@ -132,8 +136,8 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True, settings=settings,
-        verbose=verbose
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        normalizer_at=normalizer_at, normalizer_wt=normalizer_wt, settings=settings, verbose=verbose
     )
 
 
@@ -164,12 +168,12 @@ if __name__ == '__main__':
     # Extra config:
     config.update(
         {
-            'dev_run': False,  # fixme: debug
+            'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
         }
     )
 
-    # # train_lstm_embedding(config)
-    # train_stgnn(config)
+    # train_lstm_embedding(config, settings=benedict({'enable_wandb': True, 'method': 'lstm_embedding'}))
+    # # # train_stgnn(config)
 
     # Transformer specific:
     config.update(
@@ -182,4 +186,4 @@ if __name__ == '__main__':
             'use_station_embedding': True
         }
     )
-    train_transformer(config, settings=benedict({'enable_wandb': True}))
+    train_transformer(config, settings=benedict({'enable_wandb': True, 'method': 'transformer_embedding'}))
