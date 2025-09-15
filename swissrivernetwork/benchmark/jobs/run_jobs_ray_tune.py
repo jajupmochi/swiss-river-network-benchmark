@@ -221,12 +221,14 @@ if __name__ == '__main__':
 
     params_list = list(ParameterGrid(params_list))
     for i, params in enumerate(params_list):
-        if params['method'] in ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']:
-            device = 'cpu'
-        elif params['method'].startswith('transformer'):
+        if params['method'].startswith('transformer'):
             device = 'gpu'
+        # elif params['method'] in ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']:
+        #     device = 'cpu'  # todo: seems with ray tune, cpu is not working properly.
         else:
-            raise NotImplementedError(f'Method {params["method"]} not implemented.')
+            device = 'gpu'
+        # else:
+        #     raise NotImplementedError(f'Method {params["method"]} not implemented.')
 
         exp_key = f"{params['method']}_{params['graph']}"
         print(f'[{i + 1}/{len(params_list)}] Experiment: {exp_key}')
