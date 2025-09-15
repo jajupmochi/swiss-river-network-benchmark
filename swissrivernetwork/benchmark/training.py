@@ -11,6 +11,7 @@ from ray.tune import Checkpoint, report
 from torchinfo import summary
 from tqdm import tqdm
 
+from swissrivernetwork.benchmark.dataset import SequenceWindowedDataset, SequenceFullDataset
 from swissrivernetwork.benchmark.util import save, aggregate_day_predictions
 from swissrivernetwork.experiment.error import Error
 
@@ -137,10 +138,10 @@ def training_loop(
                     preds.append(out)  # Both preds and targets are normalized
                     targets.append(y)
 
-            epoch_days = torch.cat(epoch_days, dim=0)
-            masks = torch.cat(masks, dim=0)
-            preds = torch.cat(preds, dim=0)
-            targets = torch.cat(targets, dim=0)
+            epoch_days = [i for t in epoch_days for i in t]  # Can not torch.cat here as sequence lengths may vary
+            masks = [i for m in masks for i in m]
+            preds = [i for p in preds for i in p]
+            targets = [i for tg in targets for i in tg]
 
             # preds, targets, masks, etc. are lists of tensors in shape [B, sub_seq_len, 1].
             # For SequenceFullDataset, each tensor corresponds to one station;
@@ -159,12 +160,15 @@ def training_loop(
             valid_ave_rmses = []
             cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
             for start, end in zip(cumulative_sizes[:-1], cumulative_sizes[1:]):
-                station_epoch_days = epoch_days[start:end].flatten()
-                station_masks = masks[start:end].flatten()
-                station_preds_norm = preds[start:end].flatten()
-                station_targets_norm = targets[start:end].flatten()
+                station_epoch_days = torch.cat(epoch_days[start:end], dim=0).flatten()
+                station_masks = torch.cat(masks[start:end], dim=0).flatten()
+                station_preds_norm = torch.cat(preds[start:end], dim=0).flatten()
+                station_targets_norm = torch.cat(targets[start:end], dim=0).flatten()
                 # todo: upgrade with aggregation method in config or full/windowed dataset
-                if settings.method in ['transformer_embedding']:
+                # if settings.method in ['transformer_embedding']:
+                # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
+                # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
+                if isinstance(dataloader_valid.dataset.datasets[0], SequenceWindowedDataset):
                     unique_epoch_days, aggregated_dict = aggregate_day_predictions(
                         station_epoch_days,
                         {
@@ -176,9 +180,11 @@ def training_loop(
                     station_masks = aggregated_dict['masks']
                     station_preds_norm = aggregated_dict['preds_norm'][station_masks]  # masked tensor
                     station_targets_norm = aggregated_dict['targets_norm'][station_masks]  # masked tensor
-                else:
+                elif isinstance(dataloader_valid.dataset.datasets[0], SequenceFullDataset):
                     station_preds_norm = station_preds_norm[station_masks]
                     station_targets_norm = station_targets_norm[station_masks]
+                else:
+                    raise NotImplementedError('Unknown dataset type!')
 
                 station_preds = normalizer_wt.inverse_transform(
                     station_preds_norm.cpu().numpy().reshape(-1, 1)
