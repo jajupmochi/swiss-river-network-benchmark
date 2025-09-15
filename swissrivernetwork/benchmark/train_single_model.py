@@ -120,7 +120,9 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     dataloader_train = torch.utils.data.DataLoader(
         dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=True
     )
-    dataloader_valid = torch.utils.data.DataLoader(dataset_valid)
+    dataloader_valid = torch.utils.data.DataLoader(
+        dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
+    )
 
     model = TransformerEmbeddingModel(
         1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,

@@ -25,6 +25,9 @@ def training_loop(
         wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
     if verbose >= 2:
         # Print data info:
         print(f'{INFO_TAG}Training sample size: {len(dataloader_train.dataset)}.')
@@ -53,10 +56,7 @@ def training_loop(
         # finish_previous=True  # each Ray Tune trial should create a separate wandb run automatically
     )
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     try:
-        model.to(device)
         # Run the Training loop on the Model
         optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
         criterion = nn.MSELoss()
@@ -132,12 +132,17 @@ def training_loop(
                         out = model(x)
                     mask = ~torch.isnan(y)  # mask NaNs
                     # Record everything (not masked) for possible aggregation later:
-                    epoch_days.append(t[0])
-                    masks.append(mask[0])
-                    preds.append(out[0])  # Both preds and targets are normalized
-                    targets.append(y[0])
+                    epoch_days.append(t)
+                    masks.append(mask)
+                    preds.append(out)  # Both preds and targets are normalized
+                    targets.append(y)
 
-            # preds, targets, masks, etc. are lists of tensors in shape [sub_seq_len, 1].
+            epoch_days = torch.cat(epoch_days, dim=0)
+            masks = torch.cat(masks, dim=0)
+            preds = torch.cat(preds, dim=0)
+            targets = torch.cat(targets, dim=0)
+
+            # preds, targets, masks, etc. are lists of tensors in shape [B, sub_seq_len, 1].
             # For SequenceFullDataset, each tensor corresponds to one station;
             # For SequenceWindowedDataset, each tensor corresponds to one sub-sequence of a station.
             # - For valid loss, we concatenate all samples and compute the total mse over all samples. **It is the same as
@@ -154,10 +159,10 @@ def training_loop(
             valid_ave_rmses = []
             cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
             for start, end in zip(cumulative_sizes[:-1], cumulative_sizes[1:]):
-                station_epoch_days = torch.cat(epoch_days[start:end], dim=0).flatten()
-                station_masks = torch.cat(masks[start:end], dim=0).flatten()
-                station_preds_norm = torch.cat(preds[start:end], dim=0).flatten()
-                station_targets_norm = torch.cat(targets[start:end], dim=0).flatten()
+                station_epoch_days = epoch_days[start:end].flatten()
+                station_masks = masks[start:end].flatten()
+                station_preds_norm = preds[start:end].flatten()
+                station_targets_norm = targets[start:end].flatten()
                 # todo: upgrade with aggregation method in config or full/windowed dataset
                 if settings.method in ['transformer_embedding']:
                     unique_epoch_days, aggregated_dict = aggregate_day_predictions(
