@@ -11,8 +11,8 @@ PROJ_DIR = (CUR_ABS_DIR / '../../').resolve()
 
 # Utility functions
 
-def read_stations(graph_name):
-    x, _ = read_graph(graph_name)
+def read_stations(graph_name, base_dir: str | Path = PROJ_DIR):
+    x, _ = read_graph(graph_name, base_dir=base_dir)
     return [str(i) for i in x[:, 2].numpy()]
 
 
