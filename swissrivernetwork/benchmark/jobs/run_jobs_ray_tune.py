@@ -5,6 +5,9 @@ run_jobs_ray_tune
 
 @Author: linlin
 @Date: Sep 05 2025
+
+Notice: Use same Python and Ray versions for training and evaluation. Otherwise, the checkpoint may not be loaded correctly.
+E.g., Python 3.10.4-GCCcore-11.3.0 trained and saved checkpoints can not be loaded by Python 3.12.3.
 """
 
 import os
@@ -24,7 +27,7 @@ infras = 'ubelix'  # 'criann'
 			module load python3-DL/keras/2.4.3-cuda10.1
 			# CMake is needed for CRIANN as well.
 		- UBELIX/CPU: 
-			module load Python/3.10.4-GCCcore-11.3.0
+			module load Python/3.12.3-GCCcore-13.3.0  # previous version: 3.10.4-GCCcore-11.3.0
 			module load CMake
 """
 
@@ -114,8 +117,8 @@ def get_job_script_gpu(id_str):
 
 # environments
 # ---------------------------------
-module load cuDNN/8.9.2.26-CUDA-12.2.0
-module load Python/3.10.4-GCCcore-11.3.0
+module load cuDNN/9.5.0.50-CUDA-12.6.0  # previous version: cuDNN/8.9.2.26-CUDA-12.2.0
+module load Python/3.12.3-GCCcore-13.3.0
 ##module load CMake
 source """ + cur_path + r"""/../../../.venv/bin/activate  # change as needed
 python3 --version
@@ -148,7 +151,7 @@ def get_job_script_cpu(id_str):
 # Do not use values without a unit. In CRIANN, the default unit is MB; while in UBELIX, it is GB.
 #SBATCH --mem-per-cpu=10G  # This value can not exceed 4GB on CRIANN. on UBELIX, 256G for 1 CPU, 7G for 128 CPUs each.
 
-module load Python/3.9.5-GCCcore-10.3.0
+module load Python/3.12.3-GCCcore-13.3.0
 source """ + cur_path + r"""/../../../.venv/bin/activate  # change as needed
 python3 --version
 # module load CMake # This is useful to load GLIBCXX_3.4.29 for GED computation.
@@ -209,8 +212,8 @@ if __name__ == '__main__':
     device = 'gpu'
 
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
-    methods = ['transformer_embedding', 'lstm_embedding']
-    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][1:]  # fixme
+    methods = ['transformer_embedding', 'lstm_embedding'][0:]
+    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:]  # fixme
 
     params_list = {
         'method': methods,
