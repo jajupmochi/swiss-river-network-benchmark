@@ -117,7 +117,10 @@ def get_job_script_gpu(id_str):
 
 # environments
 # ---------------------------------
-module load cuDNN/9.5.0.50-CUDA-12.6.0  # previous version: cuDNN/8.9.2.26-CUDA-12.2.0
+# cuDNN is needed when using Python/3.10.4-GCCcore-11.3.0. When using Python/3.12.3-GCCcore-13.3.0 and torch >= 2.6,
+# torch comes with its own cuDNN, so no need to load it separately. If loading cuDNN incorrectly, it may cause 
+# discrepancy between torch and cuDNN versions, leading to errors.
+# module load cuDNN/9.5.0.50-CUDA-12.6.0  # previous version: cuDNN/8.9.2.26-CUDA-12.2.0
 module load Python/3.12.3-GCCcore-13.3.0
 ##module load CMake
 source """ + cur_path + r"""/../../../.venv/bin/activate  # change as needed
