@@ -40,7 +40,7 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     )
 
 
-def create_dataset_embedding(config, df, i, valid_use_window: bool = False):
+def create_dataset_embedding(config, df, i, valid_use_window: bool = False, dev_run: bool = False):
     # Normalize
     df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
 
@@ -49,11 +49,11 @@ def create_dataset_embedding(config, df, i, valid_use_window: bool = False):
 
     # Create datasets
     dataset_train = SequenceWindowedDataset(
-        config['window_len'], df_train, embedding_idx=i, dev_run=config.get('dev_run', False)
+        config['window_len'], df_train, embedding_idx=i, dev_run=dev_run
     )
     if valid_use_window:
         dataset_valid = SequenceWindowedDataset(
-            config['window_len'], df_valid, embedding_idx=i, dev_run=config.get('dev_run', False)
+            config['window_len'], df_valid, embedding_idx=i, dev_run=dev_run
         )
     else:
         dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i)
@@ -74,7 +74,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     # Create Datasets
     df_train, df_valid = train_valid_split(config, df)
     dataset_train = STGNNSequenceWindowedDataset(
-        config['window_len'], df_train, stations, dev_run=config.get('dev_run', False)
+        config['window_len'], df_train, stations, dev_run=settings.get('dev_run', False)
     )
     dataset_valid = STGNNSequenceFullDataset(df_valid, stations)
 
@@ -97,7 +97,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
 
 def train_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
     """
-    Train on a pure transformer model without station embeddings.
+    Train on a vanilla transformer model with / without station embeddings.
     """
     # Setup Dataset
     graph_name = config['graph_name']
@@ -110,7 +110,7 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
-            config, df_station, i, valid_use_window=True
+            config, df_station, i, valid_use_window=True, dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
@@ -168,14 +168,13 @@ if __name__ == '__main__':
     }
 
     # Extra config:
-    config.update(
-        {
-            'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
-        }
-    )
+    settings = {
+        'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
+        'enable_wandb': True,
+    }
 
-    # train_lstm_embedding(config, settings=benedict({'enable_wandb': True, 'method': 'lstm_embedding'}))
-    # # # train_stgnn(config)
+    # train_lstm_embedding(config, settings=benedict({**settings, 'method': 'lstm_embedding'}))
+    # # # train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
 
     # Transformer specific:
     config.update(
@@ -188,4 +187,5 @@ if __name__ == '__main__':
             'use_station_embedding': True
         }
     )
-    train_transformer(config, settings=benedict({'enable_wandb': True, 'method': 'transformer_embedding'}))
+    # train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+    train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))

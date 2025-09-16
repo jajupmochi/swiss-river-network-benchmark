@@ -11,8 +11,8 @@ num_samples: 200  # number of hyperparameter combinations to initialize the ray 
 # - Non-positive values allocate all but that many cpus, e.g. -1 allocates all but 1 cpu. At least 1 cpu must be allocated.
 # - Positive values allocate that many cpus. At most the number of available cpus can be allocated.
 # - If None, use the default ray tuner behavior, which is to allocate all available cpus.
-num_cpus: 0
+num_cpus: 1
 resources_per_trial:
   cpu: 1
-  gpu: 0
+  gpu: 0.25
 storage_path: "swissrivernetwork/benchmark/outputs/ray_results/"  # directory to store ray tuner results relative to the root of the repository

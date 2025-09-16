@@ -1,17 +1,17 @@
-import os
 import argparse
+import os
+import sys
 from datetime import datetime
-from pathlib import Path
 from functools import partial
-from benedict import benedict
+from pathlib import Path
 
 import ray
+from benedict import benedict
 from ray.tune import uniform, randint, run, choice, Callback
 from ray.tune.schedulers import ASHAScheduler
 
 from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_stations, train_graphlet
 from swissrivernetwork.benchmark.train_single_model import train_lstm_embedding, train_stgnn, train_transformer
-import sys
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -110,7 +110,7 @@ def scheduler():
 def scheduler_soft():
     return ASHAScheduler(
         max_t=200,  # 100
-        grace_period=5,
+        grace_period=5,  # 5
         reduction_factor=1.5
     )
 
@@ -144,7 +144,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     """
     # Each experiment has one time
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Use same time for all!
-    # now = '2025-09-05_13-34-45'  # fixme: debug only
+    # now = '2025-09-15_14-53-11'  # fixme: debug only
     storage_path = (CUR_ABS_DIR / '../../' / storage_path).resolve() if storage_path else None
     # For transformer_embedding, GPU per epoch is around 50 seconds, CPU around 14-40 minutes
     # Using GPU is much faster. Notice when only one GPU is present, set the `resources_per_trial['gpu']` to a float
@@ -156,9 +156,12 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     }  # debug  transformer_embedding: {'cpu': 1, 'gpu': 0.25}, others: {'cpu': 1, 'gpu': 0}
 
     num_cpus = None if ('num_cpus' not in config or config.num_cpus is None) else (
-        config.num_cpus if config.num_cpus > 0 else os.cpu_count() + config.num_cpus
+        config.num_cpus if config.num_cpus > 0 else os.cpu_count() + config.num_cpus  # todo: check this for clusters
     )
     ray.init(num_cpus=num_cpus)
+    print(f'{INFO_TAG}Ray initialized with {num_cpus} CPUs.')
+    print(f'{INFO_TAG}Cluster resources detected by Ray: {ray.cluster_resources()}.')
+    print(f'{INFO_TAG}Available / Idle resources detected by Ray: {ray.available_resources()}.')
 
     # update search space (!)
     if 'lstm' == method or 'graphlet' == method:
@@ -253,6 +256,9 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         )
 
     if method in ['lstm_embedding', 'stgnn', 'transformer_embedding']:
+        # print(f'trials: {analysis.trials}')  # debug
+        # print(f'last results: {[t.last_result for t in analysis.trials]}')  # debug
+        # print(f'configs: {[t.config for t in analysis.trials]}')  # debug
         print(f'\n\n~~~ Analysis of {method} ~~~')
         print('Best config: ', analysis.best_config)
         # print('Best trial: ', analysis.get_best_trial())
@@ -269,12 +275,16 @@ def parse_config():
     parser.add_argument('-g', '--graph', required=False, choices=graphs)
     parser.add_argument(
         '-n', '--num_samples', required=False, type=int,
-        help='The amount of hyperparameter combination random search samples for ray tune.', default=200
+        help='The amount of hyperparameter combination random search samples for ray tune.', default=200  # 200 debug
     )
     parser.add_argument(
         '-s', '--storage_path', required=False, type=str, help='Path to store results.', default=None
     )
     parser.add_argument('-v', '--verbose', required=False, type=int, help='Verbosity level.')
+    parser.add_argument(
+        '-d', '--dev_run', type=bool, default=False, required=False,
+        help='If set, use very small subsets for training and validation to test the pipeline.'
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -297,7 +307,8 @@ if __name__ == '__main__':
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
-            'graph': 'swiss-2010',  # 'swiss-1990', 'swiss-2010', 'zurich'
+            'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
+            'dev_run': False,  # fixme: debug
         }
 
         # Set the cfg as the input args:

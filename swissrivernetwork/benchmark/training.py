@@ -45,7 +45,7 @@ def training_loop(
         print(f'{INFO_TAG}Using device: {next(model.parameters()).device}.\n')
 
     # Login via command line: `wandb login <your_api_key>`
-    disable_wandb = config.get('dev_run', False) or wandb_project is None or not settings.get('enable_wandb', False)
+    disable_wandb = settings.get('dev_run', False) or wandb_project is None or not settings.get('enable_wandb', False)
     name = f'{config["graph_name"]}_{model.__class__.__name__}'
     if session.get_trial_id():
         name += f'_{session.get_trial_id()}'
@@ -212,7 +212,7 @@ def training_loop(
                 print(f'{ISSUE_TAG}Warning: No valid samples in validation set after masking NaNs!')
                 raise StopIteration
 
-            validation_mse = validation_criterion(all_preds_norm, all_targets_norm).cpu().numpy()
+            validation_mse = validation_criterion(all_preds_norm, all_targets_norm).cpu().numpy().item()
             validation_rmse = Error.rmse(all_preds, all_targets)
             validation_ave_rmse = np.mean(valid_ave_rmses)
 
@@ -260,8 +260,12 @@ def training_loop(
             # save(normalizer_wt, checkpoint_dir, 'normalizer_wt.pth')
             checkpoint = Checkpoint.from_directory(checkpoint_dir)
 
-            # report epoch loss
+            # report epoch loss. The reported metrics for Ray Tune must be a number, it can not be a numpy.adarray!!
             report(metrics_to_report, checkpoint=checkpoint)
+            # print(
+            #     f'{SUCCESS_TAG}I have reported to Ray!, where validation_mse is {metrics_to_report["validation_mse"]}'
+            #     f' of type {type(metrics_to_report["validation_mse"])}.'
+            # )  # debug
 
             for k, v in metrics_to_report.items():
                 wandb.log({'epoch': epoch + 1, k: v})
