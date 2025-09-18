@@ -49,10 +49,12 @@ class TransformerEmbeddingModel(nn.Module):
             self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
             dim_feedforward: int, dropout: float = 0.1,
             d_model: int | None = None, ratio_heads_to_d_model: int = 8,
+            missing_value_method: str = 'mask_embedding',  # 'mask_embedding' or None
             use_current_x: bool = True
     ):
         super().__init__()
         self.use_current_x = use_current_x
+        self.use_mask_embedding = (missing_value_method == 'mask_embedding')
 
         # Optional station embedding:
         self.embedding = nn.Embedding(num_embeddings, embedding_size) if num_embeddings > 0 else None
@@ -80,12 +82,19 @@ class TransformerEmbeddingModel(nn.Module):
             nn.Linear(d_model, 1)
         )
 
+        if self.use_mask_embedding:
+            # Learnable embedding for missing values:
+            self.mask_embedding = nn.Parameter(torch.zeros(1, 1, d_model))
 
-    def forward(self, e, x):
+
+    def forward(self, e, x, time_masks=None):
         """
         e: [batch, seq_len] (station id)
         x: [batch, seq_len, input_size] (features per time step)
         """
+        if x.isnan().any():
+            raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
+
         if self.embedding:
             emb = self.embedding(e)  # [batch, seq_len, embedding_size]
             x = torch.cat((emb, x), dim=-1)  # fuse embedding
@@ -95,16 +104,80 @@ class TransformerEmbeddingModel(nn.Module):
         x = self.input_proj(x)  # [batch, seq_len, d_model]
         seq_len = x.size(1)
         x = x + self.pos_embedding[:seq_len]
+        if time_masks is not None and self.use_mask_embedding:
+            # Add mask embedding to the input at missing value positions:
+            x = x + time_masks.unsqueeze(-1) * self.mask_embedding  # add mask
+            # Replace missing values with mask embedding:
+            # x = torch.where(time_masks.unsqueeze(-1), self.mask_embedding, x)  # substitute missing values
 
-        # Mask the future positions (causal):
+        # Mask the future positions (causal) - True means to ignore / to mask:
         if self.use_current_x:
             mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
         else:
             mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
 
-        out = self.transformer(x, mask=mask)  # [batch, seq_len, d_model]
-        target = self.linear(out)  # [batch, seq_len, 1]
+        # Check mask validity:
+        if not self.use_mask_embedding:
+            self.check_mask_validity(mask, time_masks, x.size(0), seq_len)
+
+        # For both ``mask`` and ``src_key_padding_mask``, True values are positions that will be ignored.
+        # Notice that the values at the masked positions in ``out`` will still be computed, which should be
+        # ignored in some subsequent process and the loss calculation:
+        src_key_padding_mask = None if self.use_mask_embedding else time_masks
+        out = self.transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)  # [batch, seq_len, d_model]
+        # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
+        target = self.linear(out)
         return target
+
+
+    @staticmethod
+    def check_mask_validity(mask, src_key_padding_mask, batch_size, seq_len):
+        """
+        Check that the combination of causal mask and padding mask does not fully mask any position.
+        mask: [L, L] or [B*heads, L, L] (True means masked)
+        src_key_padding_mask: [B, L] (True means masked)
+        batch_size: B
+        seq_len: L
+        1. If mask is [B*heads, L, L], we only check the first batch.
+        2. If src_key_padding_mask is None, we only check the causal mask.
+        3. If src_key_padding_mask is given, we check the combination of both masks.
+        4. If any position is fully masked, raise ValueError.
+        """
+        # Convert mask to [L, L] if needed. If mask is [B*heads, L, L], we only check the first batch:
+        if mask.dim() == 3:
+            mask = mask[0]
+
+        for b in range(batch_size):
+            for t in range(seq_len):
+                # If this position is already padding, skip the check:
+                if src_key_padding_mask is not None and src_key_padding_mask[b, t]:
+                    continue
+
+                # mask[t] means the causal mask for position t: [L] (True means masked):
+                row_mask = mask[t] | (src_key_padding_mask[b] if src_key_padding_mask is not None else 0)
+
+                if row_mask.all():  # All positions are masked
+                    raise ValueError(
+                        f"Invalid mask: batch={b}, position={t} is fully masked "
+                        f"(causal + padding mask overlap)."
+                    )
+
+
+    def compute_time_steps_since_last_observation(self, time_stamps):
+        """
+        time_stamps: [batch, seq_len] (time in days)
+        return: time_masks: [batch, seq_len] (True means missing value)
+        """
+        time_since = torch.full_like(obs_mask, -1, dtype=torch.float)  # or zeros
+        for b in range(B):
+            last = -1e9
+            for t in range(L):
+                if obs_mask[b, t]:
+                    last = 0.
+                    time_since[b, t] = 0.
+                else:
+                    last += 1.
+                    time_since[b, t] = last
 
 
 class SpatioTemporalEmbeddingModel(nn.Module):

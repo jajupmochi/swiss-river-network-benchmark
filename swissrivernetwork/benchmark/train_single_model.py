@@ -143,6 +143,84 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     )
 
 
+def create_masked_dataset_embedding(
+        config, df, i, valid_use_window: bool = False, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
+        dev_run: bool = False
+):
+    # Normalize
+    df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
+
+    # Train/Validation split
+    df_train, df_valid = train_valid_split(config, df)
+
+    # Create datasets
+    dataset_train = SequenceMaskedWindowedDataset(
+        config['window_len'], df_train, embedding_idx=i,
+        max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+        dev_run=dev_run
+    )
+    if valid_use_window:
+        dataset_valid = SequenceMaskedWindowedDataset(
+            config['window_len'], df_valid, embedding_idx=i,
+            max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+            dev_run=dev_run  # debug
+        )
+    else:
+        raise NotImplementedError('Validation without window not implemented for masked dataset.')
+        dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i)
+    return dataset_train, dataset_valid, normalizer_at, normalizer_wt
+
+
+def train_masked_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
+    """
+    Train on a vanilla masked transformer model with / without station embeddings.
+    """
+    # Setup Dataset
+    graph_name = config['graph_name']
+    stations = read_stations(graph_name)
+    num_embeddings = len(stations)
+
+    df = read_csv_train(graph_name)
+    datasets_train = []
+    datasets_valid = []
+    for i, station in enumerate(stations):
+        df_station = select_isolated_station(df, station)
+        dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_masked_dataset_embedding(
+            config, df_station, i, valid_use_window=True,
+            max_mask_ratio=config['max_mask_ratio'], max_mask_consecutive=config['max_mask_consecutive'],
+            dev_run=settings.get('dev_run', False)
+        )
+        datasets_train.append(dataset_train)
+        datasets_valid.append(dataset_valid)
+    dataset_train = torch.utils.data.ConcatDataset(datasets_train)
+    dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
+
+    dataloader_train = torch.utils.data.DataLoader(
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=True
+    )
+    dataloader_valid = torch.utils.data.DataLoader(
+        dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
+    )
+
+    model = TransformerEmbeddingModel(
+        1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
+        embedding_size=config['embedding_size'],
+        num_heads=config['num_heads'],
+        num_layers=config['num_layers'],
+        dim_feedforward=config['dim_feedforward'],
+        dropout=config['dropout'],
+        d_model=config['d_model'] if config.get('d_model', None) else int(
+            config['ratio_heads_to_d_model'] * config['num_heads']
+        ),
+    )
+
+    # Run Training Loop!
+    training_loop(
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        normalizer_at=normalizer_at, normalizer_wt=normalizer_wt, settings=settings, verbose=verbose
+    )
+
+
 if __name__ == '__main__':
     # fix 2010 bug:
     # graph_name = 'swiss-2010'
@@ -170,7 +248,7 @@ if __name__ == '__main__':
     # Extra config:
     settings = {
         'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
-        'enable_wandb': True,
+        'enable_wandb': True,  # fixme: debug Enable wandb logging
     }
 
     # train_lstm_embedding(config, settings=benedict({**settings, 'method': 'lstm_embedding'}))
@@ -184,7 +262,9 @@ if __name__ == '__main__':
             'num_layers': 4,
             'dim_feedforward': 128,
             'dropout': 0.1,
-            'use_station_embedding': True
+            'use_station_embedding': True,
+            'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window
+            'max_mask_consecutive': 1,  # maximum number of consecutive days to be masked in a window
         }
     )
     # train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))

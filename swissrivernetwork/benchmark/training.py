@@ -11,7 +11,8 @@ from ray.tune import Checkpoint, report
 from torchinfo import summary
 from tqdm import tqdm
 
-from swissrivernetwork.benchmark.dataset import SequenceWindowedDataset, SequenceFullDataset
+from swissrivernetwork.benchmark.dataset import SequenceWindowedDataset, SequenceFullDataset, \
+    SequenceMaskedWindowedDataset
 from swissrivernetwork.benchmark.util import save, aggregate_day_predictions
 from swissrivernetwork.experiment.error import Error
 
@@ -87,16 +88,30 @@ def training_loop(
             # the MSE over all samples.
             # Notice that shuffling is applied for training, so the order of samples is different from
             # the original time order.
-            for step, (_, e, x, y) in enumerate(iterator):
+            for step, content in enumerate(iterator):
+                if len(content) == 4:
+                    _, e, x, y = content
+                    time_masks = None
+                    kwargs = {}
+                elif len(content) == 5:
+                    _, e, x, y, time_masks = content
+                    time_masks = time_masks.to(device)
+                    kwargs = {'time_masks': time_masks}
+                else:
+                    raise ValueError('The dataloader must return (t, e, x, y) or (t, e, x, y, time_masks)!')
+
                 e, x, y = e.to(device), x.to(device), y.to(device)
                 optimizer.zero_grad()
                 if edges is not None:
-                    out = model(x, edges)
+                    out = model(x, edges, **kwargs)
                 elif use_embedding:
-                    out = model(e, x)
+                    out = model(e, x, **kwargs)
                 else:
-                    out = model(x)
-                mask = ~torch.isnan(y)  # mask NaNs
+                    out = model(x, **kwargs)
+                mask = ~torch.isnan(y)  # mask NaNs.
+                if time_masks is not None:
+                    # also mask the padded time steps. This was not done in the Transformer outputs:
+                    mask &= (~time_masks).unsqueeze(-1)
                 loss = criterion(out[mask], y[mask])
                 loss.backward()
                 optimizer.step()
@@ -123,15 +138,30 @@ def training_loop(
                 else:
                     iterator_valid = dataloader_valid
 
-                for t, e, x, y in iterator_valid:
+                for content in iterator_valid:
+                    if len(content) == 4:
+                        t, e, x, y = content
+                        time_masks = None
+                        kwargs = {}
+                    elif len(content) == 5:
+                        t, e, x, y, time_masks = content
+                        time_masks = time_masks.to(device)
+                        kwargs = {'time_masks': time_masks}
+                    else:
+                        raise ValueError('The dataloader must return (t, e, x, y) or (t, e, x, y, time_masks)!')
+
                     t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
                     if edges is not None:
-                        out = model(x, edges)
+                        out = model(x, edges, **kwargs)
                     elif use_embedding:
-                        out = model(e, x)
+                        out = model(e, x, **kwargs)
                     else:
-                        out = model(x)
+                        out = model(x, **kwargs)
                     mask = ~torch.isnan(y)  # mask NaNs
+                    if time_masks is not None:
+                        # also mask the padded time steps. This was not done in the Transformer outputs:
+                        mask &= (~time_masks).unsqueeze(-1)
+
                     # Record everything (not masked) for possible aggregation later:
                     epoch_days.append(t)
                     masks.append(mask)
@@ -155,7 +185,7 @@ def training_loop(
             #       this requires to aggregate predictions for each station first, e.g., by the 'longest_history' method,
             #       so that each day has only one prediction per station, the same as using SequenceFullDataset.
             #       Then compute the RMSE for each station, and finally average the RMSEs over all stations.
-            #       **This is the same metric as in Ray tuner evaluation for test sets**.
+            #       **This is the same metric as in Ray tuner evaluation for test sets**.4950
             all_masks, all_preds, all_targets, all_preds_norm, all_targets_norm = [], [], [], [], []
             valid_ave_rmses = []
             cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
@@ -168,7 +198,10 @@ def training_loop(
                 # if settings.method in ['transformer_embedding']:
                 # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
                 # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
-                if isinstance(dataloader_valid.dataset.datasets[0], SequenceWindowedDataset):
+                if any(
+                        [isinstance(dataloader_valid.dataset.datasets[0], dataset_type) for dataset_type in
+                         [SequenceWindowedDataset, SequenceMaskedWindowedDataset]]
+                ):
                     unique_epoch_days, aggregated_dict = aggregate_day_predictions(
                         station_epoch_days,
                         {
