@@ -12,6 +12,10 @@ SHOW_PLOT = False
 def run_lstm_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
 ):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    # print(f'Using device: {next(model.parameters()).device}.\n')
+
     # Predict test data:
     df['air_temperature'] = normalizer_at.transform(df['air_temperature'].values.reshape(-1, 1))
 
@@ -23,56 +27,77 @@ def run_lstm_model(
 
     if window_len is None:
         dataset = SequenceFullDataset(df, embedding_idx)
+        dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
-    dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
 
     epoch_days = []
     prediction_norm = []
     masks = []
     actual = []
-    prediction = []
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
+            t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
             if use_embedding:
                 out = model(e, x)
             else:
                 out = model(x)
 
             # Check for only one batch:
-            assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
+            if window_len is None:
+                assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
 
             # Store epoch_days and prediction_norm on all days:
-            epoch_days.append(t[0].detach().numpy())
-            prediction_norm.append(out[0].detach().numpy())  # store normalized predictions
+            epoch_days.append(t.cpu().detach().numpy())
+            prediction_norm.append(out.cpu().detach().numpy())  # store normalized predictions
 
             # mask values:
             mask = ~torch.isnan(y)
-            masks.append(mask[0])
-            if mask.sum() == 0:
-                continue  # skip if all is masked
+            masks.append(mask.cpu().detach().numpy())
+            # if mask.sum() == 0:
+            #     continue  # skip if all is masked
 
-            y = y[mask]
-            out = out[mask]
-            out = normalizer_wt.inverse_transform(out.detach().numpy().reshape(-1, 1))
+            # Store values
+            actual.append(y.cpu().detach().numpy())  # original
 
-            # Store values            
-            actual.append(y.detach().numpy())  # original
-            prediction.append(out[:, 0])
+    # combine arrays. We can simply combine everything together as there is only one station:
+    epoch_days = np.concatenate([i.flatten() for i in epoch_days], axis=0).flatten()
+    prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
+    masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
+    actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
 
-    # combine arrays:
-    epoch_days = np.concatenate(epoch_days, axis=0).flatten()
-    prediction_norm = np.concatenate(prediction_norm, axis=0).flatten()
-    masks = np.concatenate(masks, axis=0).flatten()
-    actual = np.concatenate(actual, axis=0).flatten()
-    prediction = np.concatenate(prediction, axis=0).flatten()
+    if window_len is not None:
+        # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
+        unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+            epoch_days,
+            {
+                'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual,
+            },
+            method='longest_history'
+        )
+        # Store epoch_days, prediction_norm and masks on all days:
+        epoch_days = unique_epoch_days
+        prediction_norm = aggregated_dict['prediction_norm']
+        masks = aggregated_dict['mask']
+        actual = aggregated_dict['actual']
+
+    prediction = normalizer_wt.inverse_transform(prediction_norm.reshape(-1, 1)).flatten()
+    # Apply mask on actual and prediction:
+    actual = actual[masks]
+    prediction = prediction[masks]
+
     return epoch_days, prediction_norm, masks, actual, prediction
 
 
 def run_transformer_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
 ):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    # print(f'Using device: {next(model.parameters()).device}.\n')
+
     # Predict test data:
     df['air_temperature'] = normalizer_at.transform(df['air_temperature'].values.reshape(-1, 1))
 
@@ -84,63 +109,62 @@ def run_transformer_model(
 
     if window_len is None:
         dataset = SequenceFullDataset(df, embedding_idx)
+        dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
-    dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
 
     epoch_days = []
     prediction_norm = []
     masks = []
     actual = []
-    prediction = []
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
+            t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
             if use_embedding:
                 out = model(e, x)
             else:
                 out = model(x)
 
-            # Check for only one batch:
-            assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
+            # # Check for only one batch:
+            # assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
 
             # Store epoch_days and prediction_norm on all days:
-            epoch_days.append(t[0].detach().numpy())
-            prediction_norm.append(out[0].detach().numpy())  # store normalized predictions
+            epoch_days.append(t.cpu().detach().numpy())
+            prediction_norm.append(out.cpu().detach().numpy())  # store normalized predictions
 
             # mask values:
             mask = ~torch.isnan(y)
-            masks.append(mask[0])
+            masks.append(mask.cpu().detach().numpy())
             # if mask.sum() == 0:
             #     continue  # skip if all is masked
 
-            # Store everything and mask later, so that we can aggregate later:
-            out = normalizer_wt.inverse_transform(out.detach().numpy().reshape(-1, 1))
-
             # Store values
-            actual.append(y.detach().numpy())  # original
-            prediction.append(out[:, 0])
+            actual.append(y.cpu().detach().numpy())  # original
 
-    # combine arrays:
-    epoch_days = np.concatenate(epoch_days, axis=0).flatten()
-    prediction_norm = np.concatenate(prediction_norm, axis=0).flatten()
-    masks = np.concatenate(masks, axis=0).flatten()
-    actual = np.concatenate(actual, axis=0).flatten()
-    prediction = np.concatenate(prediction, axis=0).flatten()
+    # combine arrays. We can simply combine everything together as there is only one station:
+    epoch_days = np.concatenate([i.flatten() for i in epoch_days], axis=0).flatten()
+    prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
+    masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
+    actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
 
     # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
     unique_epoch_days, aggregated_dict = aggregate_day_predictions(
         epoch_days,
-        {'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual, 'prediction': prediction},
+        {
+            'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual,
+        },
         method='longest_history'
     )
     # Store epoch_days, prediction_norm and masks on all days:
     epoch_days = unique_epoch_days
     prediction_norm = aggregated_dict['prediction_norm']
     masks = aggregated_dict['mask']
-    # Apply mask on actual and prediction:
     actual = aggregated_dict['actual']
-    prediction = aggregated_dict['prediction']
+
+    prediction = normalizer_wt.inverse_transform(prediction_norm.reshape(-1, 1)).flatten()
+    # Apply mask on actual and prediction:
     actual = actual[masks]
     prediction = prediction[masks]
 
