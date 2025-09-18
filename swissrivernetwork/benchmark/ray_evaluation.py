@@ -76,24 +76,108 @@ def compute_stats(df: pd.DataFrame):
     return df_stats
 
 
+def get_metrics_from_ray_trial(
+        trial: "ray.tune.experiment.trial.Trial", anchor_metric: str, metrics_to_extract: list[str], mode: str
+) -> (float, dict[str, float | None], int):
+    """
+    Extract specified metrics from a Ray Tune trial's Trial object with the same training steps as the best
+    ``anchor_metric.``
+
+    Args:
+        trial: A Ray Tune trial object.
+        anchor_metric: The metric used to identify the best trial (e.g., 'validation_mse') and the best training step.
+        metrics_to_extract: List of metric names to extract from the trial's metric analysis.
+        mode: indicates how to extract the anchor metric. One of ['min', 'max', 'avg', 'last', 'last-5-avg', 'last-10-avg'].
+
+    Returns:
+        A dictionary containing the extracted metrics.
+    """
+    best_anchor_metric = trial.metric_analysis.get(anchor_metric, {}).get(mode, None)
+    if best_anchor_metric is None:
+        raise ValueError(f"Anchor metric '{anchor_metric}' with mode '{mode}' not found in trial's metric analysis.")
+
+    # Load the results from the trial's log directory directly:
+    pgs_file_path = Path(trial.path) / 'progress.csv'
+    if not pgs_file_path.exists():
+        raise FileNotFoundError(f'Progress file not found at {pgs_file_path}.')
+
+    df = pd.read_csv(pgs_file_path)
+    if anchor_metric not in df.columns:
+        raise ValueError(f'Anchor metric "{anchor_metric}" not found in progress file columns.')
+
+    best_rows = df[np.abs(df[anchor_metric] - best_anchor_metric) < 1e-9]
+    if best_rows.empty:
+        raise ValueError(f'No matching rows found for best anchor metric value {best_anchor_metric}.')
+    best_row = best_rows.iloc[-1]  # Take the last occurrence if multiple
+    best_training_iteration = int(best_row['training_iteration'])
+    extracted_metrics = {}
+    for metric in metrics_to_extract:
+        if metric in df.columns:
+            extracted_metrics[metric] = best_row[metric]
+        else:
+            extracted_metrics[metric] = None
+
+    return best_anchor_metric, extracted_metrics, best_training_iteration
+
+    # # Unfortunately, this does not always work:
+    # # Find the training step corresponding to the best anchor metric:
+    # metric_n_steps = trial.metric_n_steps
+    # anchor_in_steps = metric_n_steps[anchor_metric]
+    # best_deque_key, best_step_in_deque = None, None
+    # # Seems that the deque with the key "n" correspond to last n training steps.
+    # max_deque_len = max([len(v) for v in anchor_in_steps.values()])
+    # for deque_key, values in anchor_in_steps.items():
+    #     if len(values) == max_deque_len:
+    #         best_deque_key = deque_key
+    #         best_step_in_deque = np.argwhere(np.abs(np.array(values) - best_anchor_metric) < 10e-9)[0][-1].item()
+    #         break
+    #
+    # extracted_metrics = {}
+    # for metric in metrics_to_extract:
+    #     if metric in metric_n_steps:
+    #         cur_best_metric = metric_n_steps[metric][best_deque_key][best_step_in_deque]
+    #         extracted_metrics[metric] = cur_best_metric
+    #     else:
+    #         extracted_metrics[metric] = None
+    #
+    # best_training_iteration = metric_n_steps['training_iteration'][best_deque_key][best_step_in_deque]
+    # return best_anchor_metric, extracted_metrics, best_training_iteration
+
+
 def show_best_trial(best_trial):
     best_all = best_trial.get('all', None)
     best_last = best_trial.get('last', None)
     if best_all is not None:
-        valid_mse = best_all.metric_analysis.get('validation_mse', {}).get('min', None)
-        train_loss = best_all.metric_analysis.get('train_loss', {}).get('min', None)
+        validation_mse, metrics, best_train_iter = get_metrics_from_ray_trial(
+            best_all, anchor_metric='validation_mse',
+            metrics_to_extract=['train_loss', 'validation_ave_rmse', 'validation_rmse'],
+            mode='min'
+        )
         print(f'\n{INFO_TAG}Best All Trial:')
         print(f'  - Trial ID: {best_all.trial_id}')
-        print(f'  - Validation MSE: {valid_mse:.6f}' if valid_mse is not None else '  - Validation MSE: N/A')
-        print(f'  - Training Loss: {train_loss:.6f}' if train_loss is not None else '  - Training Loss: N/A')
+        print(f'  - Validation MSE: {validation_mse:.6f}' if validation_mse is not None else '  - Validation MSE: N/A')
+        for metric_name, metric_value in metrics.items():
+            if metric_value is not None:
+                print(f'  - {metric_name.replace("_", " ").title()}: {metric_value:.6f}')
+            else:
+                print(f'  - {metric_name.replace("_", " ").title()}: N/A')
+        print(f'  - Best Training Iteration: {best_train_iter}')
         print(f'  - Epoch: {best_all.last_result["training_iteration"]}')
     if best_last is not None:
-        valid_mse = best_last.metric_analysis.get('validation_mse', {}).get('last', None)
-        train_loss = best_last.metric_analysis.get('train_loss', {}).get('last', None)
+        validation_mse, metrics, best_train_iter = get_metrics_from_ray_trial(
+            best_last, anchor_metric='validation_mse',
+            metrics_to_extract=['train_loss', 'validation_ave_rmse', 'validation_rmse'],
+            mode='last'
+        )
         print(f'\n{INFO_TAG}Best Last Trial:')
         print(f'  - Trial ID: {best_last.trial_id}')
-        print(f'  - Validation MSE: {valid_mse:.6f}' if valid_mse is not None else '  - Validation MSE: N/A')
-        print(f'  - Training Loss: {train_loss:.6f}' if train_loss is not None else '  - Training Loss: N/A')
+        print(f'  - Validation MSE: {validation_mse:.6f}' if validation_mse is not None else '  - Validation MSE: N/A')
+        for metric_name, metric_value in metrics.items():
+            if metric_value is not None:
+                print(f'  - {metric_name.replace("_", " ").title()}: {metric_value:.6f}')
+            else:
+                print(f'  - {metric_name.replace("_", " ").title()}: N/A')
+        print(f'  - Best Training Iteration: {best_train_iter}')
         print(f'  - Epoch: {best_last.last_result["training_iteration"]}')
 
 
@@ -262,7 +346,9 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
         return (*test_stgnn(graph_name, model, dump_dir=DUMP_DIR), total_params)
 
 
-def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_dir: Path | None = None):
+def evaluate_best_trial_isolated_station(
+        graph_name, method, station, i, output_dir: Path | None = None, settings: dict = {}
+):
     if 'lstm' == method or 'graphlet' == method:
         analysis = experiment_analysis_isolated_station(graph_name, method, station)
     if method in ['lstm_embedding', 'stgnn', 'transformer_embedding']:
@@ -307,6 +393,7 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
             d_model=best_config['d_model'] if best_config.get('d_model', None) else int(
                 best_config['ratio_heads_to_d_model'] * best_config['num_heads']
             ),
+            missing_value_method=settings.get('missing_value_method', None)
         )
 
     # move
@@ -320,6 +407,7 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
     total_params = parameter_count(model)
 
     best_trial = {'all': best_trial_all, 'last': best_trial_last}
+    window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'lstm' == method:
         return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR), total_params, best_trial)
@@ -328,13 +416,13 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
     elif 'lstm_embedding' == method:
         return (*test_lstm_embedding(
             graph_name, station, i, model,
-            window_len=None,  # best_config['window_len'],  # fixme: experiment
+            window_len=window_len,
             dump_dir=DUMP_DIR
         ), total_params, best_trial)
     elif 'transformer_embedding' == method:
         return (*test_transformer_embedding(
             graph_name, station, i, model,
-            window_len=90,  # best_config['window_len'], # fixme: experiment
+            window_len=window_len,
             dump_dir=DUMP_DIR
         ), total_params, best_trial)
     # Move
@@ -344,7 +432,7 @@ def evaluate_best_trial_isolated_station(graph_name, method, station, i, output_
         raise ValueError(f'Unknown method: {method}')
 
 
-def process_method(graph_name, method, output_dir: Path | None = None):
+def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
     print(f'~~~ Process {method} on {graph_name} ~~~')
 
     failed_stations = []
@@ -389,7 +477,7 @@ def process_method(graph_name, method, output_dir: Path | None = None):
             # if True:
             try:
                 rmse, mae, nse, n, preds, params, best_trial = evaluate_best_trial_isolated_station(
-                    graph_name, method, station, i, output_dir=output_dir
+                    graph_name, method, station, i, output_dir=output_dir, settings=settings
                 )
                 actual, prediction, epoch_days = preds
                 if math.isnan(rmse):
@@ -482,19 +570,35 @@ if __name__ == '__main__':
     GRAPH_NAMES = ['swiss-1990', 'swiss-2010', 'zurich']
     METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
 
+    window_len_map = {  # fixme: experiment
+        'lstm': None,
+        'graphlet': None,
+        'lstm_embedding': 90,
+        'stgnn': None,
+        'transformer_embedding': 90
+    }
+
     # Single Run
     SINGLE_RUN = False
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
         method = METHODS[3]
-        process_method(graph_name, method, output_dir=OUTPUT_DIR)
+        process_method(
+            graph_name, method, output_dir=OUTPUT_DIR, settings={
+                'window_len': window_len_map[method]
+            }
+        )
 
     # Graph Run
     GRAPH_RUN = True
     if GRAPH_RUN:
-        graph_name = GRAPH_NAMES[0]
+        graph_name = GRAPH_NAMES[2]
         for m in METHODS[2:3]:  # fixme: test only [2:3}
-            process_method(graph_name, m, output_dir=OUTPUT_DIR)
+            process_method(
+                graph_name, m, output_dir=OUTPUT_DIR, settings={
+                    'window_len': window_len_map[m]
+                }
+            )
 
     # plot graphs:
     plt.show()
