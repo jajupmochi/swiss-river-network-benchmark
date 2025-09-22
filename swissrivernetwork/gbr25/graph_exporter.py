@@ -23,7 +23,7 @@ def remove_node(x, e, node_to_remove):
 
 def plot_graph(
         nodes, e, information=None, color=None, vmin=None, vmax=None, colorbarlabel=None, noisy_node=None, cmap=None,
-        skipcolorbar=False, title=None, skipmargin=False, use_static_color=False
+        skipcolorbar=False, title=None, skipmargin=False, use_static_color=False, verbose: int = 2
 ):
     node_positions = nodes[:, :2].numpy()
     edges = e.numpy()
@@ -35,7 +35,7 @@ def plot_graph(
     if color is not None:
         min_color = min(list(color.values()))
         max_color = max(list(color.values()))
-        print('min_color', min_color, 'max_color', max_color)
+        verbose > 1 and print('min_color', min_color, 'max_color', max_color)
 
     # Plot Edges
     for start, end in e.T:
@@ -50,7 +50,7 @@ def plot_graph(
         y_coords = node_positions[:, 1]
         min_x, max_x = min(x_coords), max(x_coords)
         min_y, max_y = min(y_coords), max(y_coords)
-        print('margin ratio: (delta_x): ', max_x - min_x, 'delta y:', max_y - min_y)
+        verbose > 1 and print('margin ratio: (delta_x): ', max_x - min_x, 'delta y:', max_y - min_y)
         margin_x = margin * (max_x - min_x)
         margin_y = margin * (max_y - min_y)
         ax.set_xlim(min_x - margin_x, max_x + margin_x)

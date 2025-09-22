@@ -318,7 +318,7 @@ def test_lstm(graph_name, station, model, dump_dir: Path | str = 'swissrivernetw
 
 def test_lstm_embedding(
         graph_name, station, i, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
@@ -333,7 +333,7 @@ def test_lstm_embedding(
     # Compute errors:
     rmse, mae, nse = compute_errors(actual, prediction)
     title = summary(station, rmse, mae, nse)
-    print(title)
+    verbose > 1 and print(title)
 
     # Plot Figure of Test Data
     plot(
@@ -347,7 +347,7 @@ def test_lstm_embedding(
 
 def test_transformer_embedding(
         graph_name, station, i, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
@@ -362,7 +362,7 @@ def test_transformer_embedding(
     # Compute errors:
     rmse, mae, nse = compute_errors(actual, prediction)
     title = summary(station, rmse, mae, nse)
-    print(title)
+    verbose > 1 and print(title)
 
     # Plot Figure of Test Data
     plot(

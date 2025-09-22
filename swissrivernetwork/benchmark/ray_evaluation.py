@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -28,7 +29,7 @@ DUMP_DIR = (CUR_ABS_DIR / '../../' / 'swissrivernetwork/benchmark/dump/').resolv
 LOAD_LATEST_RESULTS = True
 
 
-def compute_stats(df: pd.DataFrame):
+def compute_stats(df: pd.DataFrame, verbose: int = 2):
     """
     Compute statistics (e.g., mean, median, max, min, std) for RMSE, MAE, NSE columns in the DataFrame.
 
@@ -69,8 +70,8 @@ def compute_stats(df: pd.DataFrame):
         ]
     }
     stats_df = pd.DataFrame(stats)
-    print(f'\n{INFO_TAG}STATISTICS:')
-    print(stats_df.to_string(index=False))
+    verbose > 1 and print(f'\n{INFO_TAG}STATISTICS:')
+    verbose > 1 and print(stats_df.to_string(index=False))
     # Append statistics to the original DataFrame
     df_stats = pd.concat([df, stats_df], ignore_index=True)
     return df_stats
@@ -410,20 +411,24 @@ def evaluate_best_trial_isolated_station(
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'lstm' == method:
-        return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR), total_params, best_trial)
+        return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)),
+                total_params, best_trial)
     elif 'graphlet' == method:
-        return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR), total_params, best_trial)
+        return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)),
+                total_params, best_trial)
     elif 'lstm_embedding' == method:
         return (*test_lstm_embedding(
             graph_name, station, i, model,
             window_len=window_len,
-            dump_dir=DUMP_DIR
+            dump_dir=DUMP_DIR,
+            verbose=settings.get('verbose', 2)
         ), total_params, best_trial)
     elif 'transformer_embedding' == method:
         return (*test_transformer_embedding(
             graph_name, station, i, model,
             window_len=window_len,
-            dump_dir=DUMP_DIR
+            dump_dir=DUMP_DIR,
+            verbose=settings.get('verbose', 2)
         ), total_params, best_trial)
     # Move
     # elif 'stgnn' == method:
@@ -433,7 +438,9 @@ def evaluate_best_trial_isolated_station(
 
 
 def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
-    print(f'~~~ Process {method} on {graph_name} ~~~')
+    verbose = settings['verbose'] if 'verbose' in settings else 2
+
+    verbose > 1 and print(f'~~~ Process {method} on {graph_name} ~~~')
 
     failed_stations = []
 
@@ -446,7 +453,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
     # Setup
     stations = read_stations(graph_name)
     # statistics:
-    print(f'{INFO_TAG}Expected Stations: ', len(stations))
+    verbose > 1 and print(f'{INFO_TAG}Expected Stations: ', len(stations))
 
     # visualize_all_isolated_experiments(graph_name, method)
     # exit()
@@ -454,18 +461,33 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
     total_params = 0
 
     if method in ['lstm', 'graphlet', 'lstm_embedding', 'transformer_embedding']:
-        spinner = Halo(
-            text='Processing Stations ->', spinner='pong', color='cyan', text_color='grey',
-            animation='bounce'
-        )
-        spinner.start()
+        if verbose > 1:
+            spinner = Halo(
+                text='Processing Stations ->', spinner='pong', color='cyan', text_color='grey',
+                animation='bounce'
+            )
+            spinner.start()
 
         actuals = []
         predictions = []
         epoch_day_list = []
 
-        for i, station in enumerate(stations):
-            spinner.text = f'Processing Stations: {i + 1}/{len(stations)} ->'
+        if verbose == 1:
+            running_env = settings.get('env', 'cli')
+            if running_env in ['jupyter', 'colab', 'notebook']:
+                from tqdm.notebook import tqdm
+            else:
+                from tqdm import tqdm
+            iterator = tqdm(
+                enumerate(stations), desc='Processing Stations', total=len(stations), file=sys.stdout,
+                colour='lightblue'
+            )
+        else:
+            iterator = enumerate(stations)
+
+        for i, station in iterator:
+            if verbose > 1:
+                spinner.text = f'Processing Stations: {i + 1}/{len(stations)} ->'
 
             if station in failed_stations:
                 continue  # fix this stations!
@@ -506,12 +528,13 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                 raise
                 failed_stations.append(station)
 
-        spinner.succeed(f'Processed {len(stations)} stations with {len(failed_stations)} failures.')
+        if verbose > 1:
+            spinner.succeed(f'Processed {len(stations)} stations with {len(failed_stations)} failures.')
 
-        plot_diff(
-            graph_name, method, epoch_day_list, actuals, predictions, 'Difference on all stations',
-            dump_dir=DUMP_DIR
-        )  # fixme: debug
+            plot_diff(
+                graph_name, method, epoch_day_list, actuals, predictions, 'Difference on all stations',
+                dump_dir=DUMP_DIR
+            )  # fixme: debug
 
     if 'stgnn' == method:
         # run model:
@@ -527,9 +550,9 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
             col_nse.append(nses[i])
             col_n.append(ns[i])
 
-    print('METHOD LEARNABLE PARAMETERS:', total_params)
+    verbose > 1 and print('METHOD LEARNABLE PARAMETERS:', total_params)
 
-    print('FAILED_STATIONS:', failed_stations)
+    verbose > 1 and print('FAILED_STATIONS:', failed_stations)
 
     df = pd.DataFrame(
         data={
@@ -541,28 +564,31 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         }
     )
 
-    df = compute_stats(df)
+    df = compute_stats(df, verbose=verbose)
 
-    show_best_trial(best_trial)
+    if verbose > 1:
+        verbose > 1 and show_best_trial(best_trial)
 
-    test_dir = DUMP_DIR / 'test_results/'
-    test_dir.mkdir(parents=True, exist_ok=True)
+        test_dir = DUMP_DIR / 'test_results/'
+        test_dir.mkdir(parents=True, exist_ok=True)
 
-    df.to_csv(test_dir / f'{graph_name}_{method}.csv', index=False)
+        verbose > 1 and df.to_csv(test_dir / f'{graph_name}_{method}.csv', index=False)
 
-    plt.close('all')
-    x, e = read_graph(graph_name)
-    information = dict()
-    color = dict()
-    for station, rmse in zip(col_station, col_rmse):
-        information[station] = f'{station} - (RMSE={rmse:.3f})'
-        color[station] = rmse
+        plt.close('all')
+        x, e = read_graph(graph_name)
+        information = dict()
+        color = dict()
+        for station, rmse in zip(col_station, col_rmse):
+            information[station] = f'{station} - (RMSE={rmse:.3f})'
+            color[station] = rmse
 
-    # For zurich:
-    plt.figure(figsize=(16, 10), layout='tight')
+        # For zurich:
+        plt.figure(figsize=(16, 10), layout='tight')
 
-    plot_graph(x, e, information=information, color=color, vmin=0.5, vmax=1.5)
-    plt.savefig(test_dir / f'figure_{graph_name}_{method}.png', dpi=150)
+        plot_graph(x, e, information=information, color=color, vmin=0.5, vmax=1.5, verbose=verbose)
+        plt.savefig(test_dir / f'figure_{graph_name}_{method}.png', dpi=150)
+
+    return df
 
 
 if __name__ == '__main__':
@@ -585,7 +611,7 @@ if __name__ == '__main__':
         method = METHODS[3]
         process_method(
             graph_name, method, output_dir=OUTPUT_DIR, settings={
-                'window_len': window_len_map[method]
+                'window_len': window_len_map[method], 'verbose': 2
             }
         )
 
@@ -596,7 +622,7 @@ if __name__ == '__main__':
         for m in METHODS[2:3]:  # fixme: test only [2:3}
             process_method(
                 graph_name, m, output_dir=OUTPUT_DIR, settings={
-                    'window_len': window_len_map[m]
+                    'window_len': window_len_map[m], 'verbose': 2
                 }
             )
 
