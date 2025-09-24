@@ -124,6 +124,8 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
         dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
     )
 
+    # print(f'{INFO_TAG}The positional encoding is set to:', config.get('positional_encoding', 'rope'), 'MUHAHA')
+    # exit()  # debug
     model = TransformerEmbeddingModel(
         1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
         embedding_size=config['embedding_size'],
@@ -134,6 +136,7 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
         d_model=config['d_model'] if config.get('d_model', None) else int(
             config['ratio_heads_to_d_model'] * config['num_heads']
         ),
+        positional_encoding=config.get('positional_encoding', 'rope'),
     )
 
     # Run Training Loop!
@@ -212,6 +215,7 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
         d_model=config['d_model'] if config.get('d_model', None) else int(
             config['ratio_heads_to_d_model'] * config['num_heads']
         ),
+        positional_encoding=config.get('positional_encoding', 'rope'),
     )
 
     # Run Training Loop!
@@ -263,9 +267,11 @@ if __name__ == '__main__':
             'dim_feedforward': 128,
             'dropout': 0.1,
             'use_station_embedding': True,
+            'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
+            # for masked_transformer_embedding:
             'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window
             'max_mask_consecutive': 1,  # maximum number of consecutive days to be masked in a window
         }
     )
-    # train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
-    train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+    train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+    # train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))

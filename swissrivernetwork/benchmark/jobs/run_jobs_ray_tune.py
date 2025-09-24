@@ -215,12 +215,14 @@ if __name__ == '__main__':
     device = 'gpu'
 
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
-    methods = ['transformer_embedding', 'lstm_embedding'][0:]
+    methods = ['transformer_embedding', 'lstm_embedding'][0:1]
     graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:]  # fixme
+    positional_encodings = ['none', 'learnable', 'sinusoidal', 'rope'][0:1]  # Only for transformer
 
     params_list = {
         'method': methods,
         'graph': graphs,
+        'positional_encoding': positional_encodings,
     }
 
     from sklearn.model_selection import ParameterGrid

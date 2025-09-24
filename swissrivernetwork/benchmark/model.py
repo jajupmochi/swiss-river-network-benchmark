@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch_geometric
 import torch_geometric.nn as gnn
 
+from swissrivernetwork.benchmark.transformer import SinusoidalPositionalEncoding, LearnablePositionalEncoding
+
 
 class LstmModel(nn.Module):
 
@@ -49,12 +51,15 @@ class TransformerEmbeddingModel(nn.Module):
             self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
             dim_feedforward: int, dropout: float = 0.1,
             d_model: int | None = None, ratio_heads_to_d_model: int = 8,
+            max_len: int = 500,
             missing_value_method: str = 'mask_embedding',  # 'mask_embedding' or None
-            use_current_x: bool = True
+            use_current_x: bool = True,
+            positional_encoding: str = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
     ):
         super().__init__()
         self.use_current_x = use_current_x
         self.use_mask_embedding = (missing_value_method == 'mask_embedding')
+        self.positional_encoding = positional_encoding
 
         # Optional station embedding:
         self.embedding = nn.Embedding(num_embeddings, embedding_size) if num_embeddings > 0 else None
@@ -63,7 +68,10 @@ class TransformerEmbeddingModel(nn.Module):
         self.input_proj = nn.Linear(input_size + (embedding_size if self.embedding else 0), d_model)
 
         # Positional Encoding:
-        self.pos_embedding = nn.Parameter(torch.zeros(500, d_model))
+        if positional_encoding == 'learnable':
+            self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
+        elif positional_encoding == 'sinusoidal':
+            self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
 
         # Transformer Encoder:
         if d_model is not None:
@@ -103,7 +111,8 @@ class TransformerEmbeddingModel(nn.Module):
 
         x = self.input_proj(x)  # [batch, seq_len, d_model]
         seq_len = x.size(1)
-        x = x + self.pos_embedding[:seq_len]
+        if self.positional_encoding in ['learnable', 'sinusoidal']:
+            x = self.pos_embedding(x)  # add positional encoding
         if time_masks is not None and self.use_mask_embedding:
             # Add mask embedding to the input at missing value positions:
             x = x + time_masks.unsqueeze(-1) * self.mask_embedding  # add mask

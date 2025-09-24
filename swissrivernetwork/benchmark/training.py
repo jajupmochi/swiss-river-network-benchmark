@@ -8,12 +8,13 @@ import wandb
 from benedict import benedict
 from ray.air import session
 from ray.tune import Checkpoint, report
+from ray.util.state.state_cli import ray_get
 from torchinfo import summary
 from tqdm import tqdm
 
 from swissrivernetwork.benchmark.dataset import SequenceWindowedDataset, SequenceFullDataset, \
     SequenceMaskedWindowedDataset
-from swissrivernetwork.benchmark.util import save, aggregate_day_predictions
+from swissrivernetwork.benchmark.util import save, aggregate_day_predictions, safe_get_ray_trial_id
 from swissrivernetwork.experiment.error import Error
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -48,8 +49,9 @@ def training_loop(
     # Login via command line: `wandb login <your_api_key>`
     disable_wandb = settings.get('dev_run', False) or wandb_project is None or not settings.get('enable_wandb', False)
     name = f'{config["graph_name"]}_{model.__class__.__name__}'
-    if session.get_trial_id():
-        name += f'_{session.get_trial_id()}'
+    ray_trial_id = safe_get_ray_trial_id()
+    if ray_trial_id:
+        name += f'_{ray_trial_id}'
     wandb.init(
         project=wandb_project,
         name=name,
@@ -293,8 +295,9 @@ def training_loop(
             # save(normalizer_wt, checkpoint_dir, 'normalizer_wt.pth')
             checkpoint = Checkpoint.from_directory(checkpoint_dir)
 
-            # report epoch loss. The reported metrics for Ray Tune must be a number, it can not be a numpy.adarray!!
-            report(metrics_to_report, checkpoint=checkpoint)
+            # report epoch loss. The reported metrics for Ray Tune must be a number, it can not be a numpy.ndarray!!
+            if ray_trial_id:
+                report(metrics_to_report, checkpoint=checkpoint)
             # print(
             #     f'{SUCCESS_TAG}I have reported to Ray!, where validation_mse is {metrics_to_report["validation_mse"]}'
             #     f' of type {type(metrics_to_report["validation_mse"])}.'

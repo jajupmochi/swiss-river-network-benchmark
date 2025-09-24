@@ -147,3 +147,11 @@ def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.
         return unique_vals, first_indices
     else:
         return unique_vals
+
+
+def safe_get_ray_trial_id():
+    from ray.air import session
+    sess = session.get_session()
+    if sess is not None and session.get_trial_id():
+        return session.get_trial_id()
+    return None

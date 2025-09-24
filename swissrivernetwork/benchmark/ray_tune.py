@@ -215,6 +215,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     if 'transformer_embedding' == method:
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
+        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
 
         trainer = partial(train_transformer, settings=config, verbose=verbose)
 
@@ -273,6 +274,7 @@ def parse_config():
     parser.add_argument('-c', '--config', required=False, type=str, help='Path to config file (YAML)')
     parser.add_argument('-m', '--method', required=False, choices=methods)
     parser.add_argument('-g', '--graph', required=False, choices=graphs)
+    # Ray Tune specific:
     parser.add_argument(
         '-n', '--num_samples', required=False, type=int,
         help='The amount of hyperparameter combination random search samples for ray tune.', default=200  # 200 debug
@@ -280,6 +282,12 @@ def parse_config():
     parser.add_argument(
         '-s', '--storage_path', required=False, type=str, help='Path to store results.', default=None
     )
+    # Transformers specific:
+    parser.add_argument(
+        '-pe', '--positional_encoding', required=False, type=str, choices=['none', 'sinusoidal', 'rope', 'learnable'],
+        default='none', help='Type of positional encoding to use in the transformer model.'
+    )
+    # General:
     parser.add_argument('-v', '--verbose', required=False, type=int, help='Verbosity level.')
     parser.add_argument(
         '-d', '--dev_run', type=bool, default=False, required=False,
@@ -296,6 +304,9 @@ def parse_config():
             if not hasattr(args, k) or getattr(args, k) is None:
                 setattr(args, k, v)
 
+    if args.positional_encoding == 'none':
+        args.positional_encoding = None
+
     return args
 
 
@@ -308,7 +319,8 @@ if __name__ == '__main__':
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
-            'dev_run': False,  # fixme: debug
+            'dev_run': True,  # fixme: debug
+            'positional_encoding': 'sinusoidal'  # fixme: debug
         }
 
         # Set the cfg as the input args:
