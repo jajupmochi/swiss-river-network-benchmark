@@ -4,7 +4,10 @@ import torch.nn.functional as F
 import torch_geometric
 import torch_geometric.nn as gnn
 
-from swissrivernetwork.benchmark.transformer import SinusoidalPositionalEncoding, LearnablePositionalEncoding
+from swissrivernetwork.benchmark.transformer import (
+    SinusoidalPositionalEncoding,
+    LearnablePositionalEncoding
+)
 
 
 class LstmModel(nn.Module):
@@ -67,24 +70,39 @@ class TransformerEmbeddingModel(nn.Module):
         # Project input to d_model:
         self.input_proj = nn.Linear(input_size + (embedding_size if self.embedding else 0), d_model)
 
-        # Positional Encoding:
-        if positional_encoding == 'learnable':
-            self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
-        elif positional_encoding == 'sinusoidal':
-            self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
-
-        # Transformer Encoder:
         if d_model is not None:
             assert d_model % num_heads == 0, 'd_model must be multiple of num_heads.'
         else:
             assert d_model is None and ratio_heads_to_d_model is not None
             d_model = int(num_heads * ratio_heads_to_d_model)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
-        )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        # Final linear layer to predict:
+        # Positional Encoding:
+        if positional_encoding == 'rope':
+            from transformers import RoFormerModel, RoFormerConfig
+            config = RoFormerConfig(
+                hidden_size=d_model,
+                num_attention_heads=num_heads,
+                num_hidden_layers=num_layers,
+                intermediate_size=dim_feedforward,
+                hidden_dropout_prob=dropout,
+                attention_probs_dropout_prob=dropout,
+                max_position_embeddings=max_len,
+                rotary_value=True,  # Use RoPE for both K and Q
+                pad_token_id=0
+            )
+            self.transformer = RoFormerModel(config)
+        else:
+            if positional_encoding == 'learnable':
+                self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)
+            elif positional_encoding == 'sinusoidal':
+                self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)
+
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
+            )
+            self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        # Final linear layer
         self.linear = nn.Sequential(
             nn.ReLU(),
             nn.Linear(d_model, 1)
@@ -103,16 +121,17 @@ class TransformerEmbeddingModel(nn.Module):
         if x.isnan().any():
             raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
 
+        # Station embedding:
         if self.embedding:
             emb = self.embedding(e)  # [batch, seq_len, embedding_size]
             x = torch.cat((emb, x), dim=-1)  # fuse embedding
-        else:
-            pass  # no embedding
 
         x = self.input_proj(x)  # [batch, seq_len, d_model]
         seq_len = x.size(1)
+
         if self.positional_encoding in ['learnable', 'sinusoidal']:
             x = self.pos_embedding(x)  # add positional encoding
+
         if time_masks is not None and self.use_mask_embedding:
             # Add mask embedding to the input at missing value positions:
             x = x + time_masks.unsqueeze(-1) * self.mask_embedding  # add mask
@@ -121,19 +140,34 @@ class TransformerEmbeddingModel(nn.Module):
 
         # Mask the future positions (causal) - True means to ignore / to mask:
         if self.use_current_x:
-            mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
+            causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
         else:
-            mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
+            causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
 
         # Check mask validity:
         if not self.use_mask_embedding:
-            self.check_mask_validity(mask, time_masks, x.size(0), seq_len)
+            self.check_mask_validity(causal_mask, time_masks, x.size(0), seq_len)
 
         # For both ``mask`` and ``src_key_padding_mask``, True values are positions that will be ignored.
         # Notice that the values at the masked positions in ``out`` will still be computed, which should be
         # ignored in some subsequent process and the loss calculation:
         src_key_padding_mask = None if self.use_mask_embedding else time_masks
-        out = self.transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)  # [batch, seq_len, d_model]
+
+        if self.positional_encoding == 'rope':
+            # HuggingFace RoFormer expects input_ids or embeddings:
+            hf_causal_mask = (~causal_mask).long()  # 1 = keep, 0 = mask
+            # Combine with time_masks (padding/missing mask) todo: is needed?
+            if time_masks is not None and not self.use_mask_embedding:
+                # 1 = keep, 0 = mask
+                hf_mask = (~time_masks).long().unsqueeze(1) * hf_causal_mask.unsqueeze(0)
+            else:
+                hf_mask = hf_causal_mask.unsqueeze(0).expand(x.size(0), -1, -1)  # [batch, seq_len, seq_len]
+
+            # [batch, seq_len, d_model]:
+            out = self.transformer(inputs_embeds=x, attention_mask=hf_mask).last_hidden_state
+        else:
+            out = self.transformer(x, mask=causal_mask, src_key_padding_mask=src_key_padding_mask)
+
         # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
         target = self.linear(out)
         return target
@@ -187,6 +221,109 @@ class TransformerEmbeddingModel(nn.Module):
                 else:
                     last += 1.
                     time_since[b, t] = last
+
+
+# # The self defined version for RoPE:
+# class TransformerEmbeddingModel(nn.Module):
+#     def __init__(
+#             self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
+#             dim_feedforward: int, dropout: float = 0.1,
+#             d_model: int | None = None, ratio_heads_to_d_model: int = 8,
+#             max_len: int = 500,
+#             missing_value_method: str = 'mask_embedding',  # 'mask_embedding' or None
+#             use_current_x: bool = True,
+#             positional_encoding: str = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
+#     ):
+#         super().__init__()
+#         self.use_current_x = use_current_x
+#         self.use_mask_embedding = (missing_value_method == 'mask_embedding')
+#         self.positional_encoding = positional_encoding
+#
+#         # Optional station embedding:
+#         self.embedding = nn.Embedding(num_embeddings, embedding_size) if num_embeddings > 0 else None
+#
+#         # Project input to d_model:
+#         self.input_proj = nn.Linear(input_size + (embedding_size if self.embedding else 0), d_model)
+#
+#         # Positional Encoding:
+#         if positional_encoding == 'learnable':
+#             self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
+#         elif positional_encoding == 'sinusoidal':
+#             self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
+#
+#         # Transformer Encoder:
+#         if d_model is not None:
+#             assert d_model % num_heads == 0, 'd_model must be multiple of num_heads.'
+#         else:
+#             assert d_model is None and ratio_heads_to_d_model is not None
+#             d_model = int(num_heads * ratio_heads_to_d_model)
+#         if positional_encoding == 'rope':
+#             self_attn = FlexibleMultiheadAttention
+#             self_attn_kwargs = {'multi_head_attention_forward': multi_head_attention_forward_with_rope}
+#             encoder_layer = FlexibleTransformerEncoderLayer(
+#                 d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward,
+#                 self_attn=self_attn, self_attn_kwargs=self_attn_kwargs,
+#                 dropout=dropout, batch_first=True
+#             )
+#         else:
+#             encoder_layer = nn.TransformerEncoderLayer(
+#                 d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
+#             )
+#         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+#
+#         # Final linear layer to predict:
+#         self.linear = nn.Sequential(
+#             nn.ReLU(),
+#             nn.Linear(d_model, 1)
+#         )
+#
+#         if self.use_mask_embedding:
+#             # Learnable embedding for missing values:
+#             self.mask_embedding = nn.Parameter(torch.zeros(1, 1, d_model))
+#
+#
+#     def forward(self, e, x, time_masks=None):
+#         """
+#         e: [batch, seq_len] (station id)
+#         x: [batch, seq_len, input_size] (features per time step)
+#         """
+#         if x.isnan().any():
+#             raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
+#
+#         if self.embedding:
+#             emb = self.embedding(e)  # [batch, seq_len, embedding_size]
+#             x = torch.cat((emb, x), dim=-1)  # fuse embedding
+#         else:
+#             pass  # no embedding
+#
+#         x = self.input_proj(x)  # [batch, seq_len, d_model]
+#         seq_len = x.size(1)
+#         if self.positional_encoding in ['learnable', 'sinusoidal']:
+#             x = self.pos_embedding(x)  # add positional encoding
+#         if time_masks is not None and self.use_mask_embedding:
+#             # Add mask embedding to the input at missing value positions:
+#             x = x + time_masks.unsqueeze(-1) * self.mask_embedding  # add mask
+#             # Replace missing values with mask embedding:
+#             # x = torch.where(time_masks.unsqueeze(-1), self.mask_embedding, x)  # substitute missing values
+#
+#         # Mask the future positions (causal) - True means to ignore / to mask:
+#         if self.use_current_x:
+#             mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
+#         else:
+#             mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
+#
+#         # Check mask validity:
+#         if not self.use_mask_embedding:
+#             self.check_mask_validity(mask, time_masks, x.size(0), seq_len)
+#
+#         # For both ``mask`` and ``src_key_padding_mask``, True values are positions that will be ignored.
+#         # Notice that the values at the masked positions in ``out`` will still be computed, which should be
+#         # ignored in some subsequent process and the loss calculation:
+#         src_key_padding_mask = None if self.use_mask_embedding else time_masks
+#         out = self.transformer(x, mask=mask, src_key_padding_mask=src_key_padding_mask)  # [batch, seq_len, d_model]
+#         # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
+#         target = self.linear(out)
+#         return target
 
 
 class SpatioTemporalEmbeddingModel(nn.Module):
