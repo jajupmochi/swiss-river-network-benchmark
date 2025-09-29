@@ -238,7 +238,7 @@ if __name__ == '__main__':
         # else:
         #     raise NotImplementedError(f'Method {params["method"]} not implemented.')
 
-        exp_key = f"{params['method']}_{params['graph']}"
+        exp_key = '__'.join([f'{v}' for _, v in params.items()])
         print(f'[{i + 1}/{len(params_list)}] Experiment: {exp_key}')
 
         config = f'{cur_path}/../configs/{params["method"]}.yaml'
