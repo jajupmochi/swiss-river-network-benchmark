@@ -84,11 +84,13 @@ class TransformerEmbeddingModel(nn.Module):
                 num_attention_heads=num_heads,
                 num_hidden_layers=num_layers,
                 intermediate_size=dim_feedforward,
-                hidden_dropout_prob=dropout,
-                attention_probs_dropout_prob=dropout,
+                hidden_dropout_prob=dropout,  # dropout for fully connected layers. Default 0.1
+                attention_probs_dropout_prob=dropout,  # dropout for attention probabilities. Default 0.1
                 max_position_embeddings=max_len,
-                rotary_value=True,  # Use RoPE for both K and Q
-                pad_token_id=0
+                is_decoder=False,  # True for decoder, False for encoder. Default False.
+                use_cache=True,  # Whether the model should return the last key/values attentions. Default True.
+                rotary_value=False,  # If True, Use RoPE for value as well. Default False.
+                pad_token_id=0  # Padding token id. Default 0.
             )
             self.transformer = RoFormerModel(config)
         else:
