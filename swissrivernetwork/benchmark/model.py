@@ -252,6 +252,8 @@ class TransformerEmbeddingModel(nn.Module):
 #             self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
 #         elif positional_encoding == 'sinusoidal':
 #             self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
+#         # elif positional_encoding == 'rope':  # test
+#         #     self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)  # [1, max_len, d_model]
 #
 #         # Transformer Encoder:
 #         if d_model is not None:
@@ -260,10 +262,15 @@ class TransformerEmbeddingModel(nn.Module):
 #             assert d_model is None and ratio_heads_to_d_model is not None
 #             d_model = int(num_heads * ratio_heads_to_d_model)
 #         if positional_encoding == 'rope':
+#             from swissrivernetwork.benchmark.transformer import (
+#                 FlexibleMultiheadAttention, FlexibleTransformerEncoderLayer,
+#             )
 #             self_attn = FlexibleMultiheadAttention
-#             self_attn_kwargs = {'multi_head_attention_forward': multi_head_attention_forward_with_rope}
+#             self_attn_kwargs = {
+#                 'multi_head_attention_forward': FlexibleMultiheadAttention.multi_head_attention_forward_with_rope
+#             }
 #             encoder_layer = FlexibleTransformerEncoderLayer(
-#                 d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward,
+#                 d_model=d_model, nhead=num_heads, max_len=max_len, dim_feedforward=dim_feedforward,
 #                 self_attn=self_attn, self_attn_kwargs=self_attn_kwargs,
 #                 dropout=dropout, batch_first=True
 #             )
@@ -302,6 +309,8 @@ class TransformerEmbeddingModel(nn.Module):
 #         seq_len = x.size(1)
 #         if self.positional_encoding in ['learnable', 'sinusoidal']:
 #             x = self.pos_embedding(x)  # add positional encoding
+#         # if self.positional_encoding in ['rope']:  # test
+#         #     x = self.pos_embedding(x)  # add positional encoding
 #         if time_masks is not None and self.use_mask_embedding:
 #             # Add mask embedding to the input at missing value positions:
 #             x = x + time_masks.unsqueeze(-1) * self.mask_embedding  # add mask
