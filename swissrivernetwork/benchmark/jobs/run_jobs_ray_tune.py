@@ -75,7 +75,7 @@ def get_job_script(
     #     script += r"""
     # python3 """ + py_file
     script += r"""
-python3 """ + py_file + ' ' + ' '.join([r"""--""" + k + r""" """ + v for k, v in params.items()])
+python3 """ + py_file + ' ' + ' '.join([r"""--""" + k + r""" """ + str(v) for k, v in params.items()])
     script = script.strip()
     script = re.sub('\n\t+', '\n', script)
     script = re.sub('\n +', '\n', script)
