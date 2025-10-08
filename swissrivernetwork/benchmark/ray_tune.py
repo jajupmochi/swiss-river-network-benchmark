@@ -11,7 +11,9 @@ from ray.tune import uniform, randint, run, choice, Callback
 from ray.tune.schedulers import ASHAScheduler
 
 from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_stations, train_graphlet
-from swissrivernetwork.benchmark.train_single_model import train_lstm_embedding, train_stgnn, train_transformer
+from swissrivernetwork.benchmark.train_single_model import (
+    train_lstm_embedding, train_stgnn, train_transformer, train_masked_transformer
+)
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -131,6 +133,23 @@ def scheduler_single_model_hard():
     )
 
 
+def get_run_name(method: str, graph_name: str, now: str, config: benedict) -> str:
+    run_name = f'{method}-{graph_name}'
+
+    if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
+        run_name += f'-next_tokens'
+    if 'window_len' in config and config.window_len is not None:
+        run_name += f'-wl{config.window_len}'
+    if 'missing_value_method' in config and config.missing_value_method is not None:
+        run_name += f'-{config.missing_value_method}'
+    if 'positional_encoding' in config:
+        run_name += f'-{config.positional_encoding}'.lower()  # None -> none
+
+    run_name += f'-{now}'
+
+    return run_name
+
+
 def run_experiment(method, graph_name, num_samples, storage_path: str | None, config: benedict, verbose: int):
     """
     Run a Ray Tune experiment for the given method and graph.
@@ -163,6 +182,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     print(f'{INFO_TAG}Cluster resources detected by Ray: {ray.cluster_resources()}.')
     print(f'{INFO_TAG}Available / Idle resources detected by Ray: {ray.available_resources()}.')
 
+    run_name = get_run_name(method, graph_name, now, config)
+
     # update search space (!)
     if 'lstm' == method or 'graphlet' == method:
 
@@ -180,7 +201,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
             analysis = run(
                 trainer,
-                name=f'{method}_{station}-{now}',
+                name=run_name,
                 config=search_space,
                 # scheduler = scheduler_soft(), # ASHA is quite a speedup
                 scheduler=scheduler(),
@@ -202,7 +223,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
         analysis = run(
             trainer,
-            name=f'{method}-{graph_name}-{now}',
+            name=run_name,
             config=search_space,
             scheduler=scheduler_soft(),  # ASHA is quite a speedup
             num_samples=num_samples,
@@ -215,13 +236,25 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     if 'transformer_embedding' == method:
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
+        search_space['max_len'] = config.max_len
+        # 'mask_embedding' or 'interpolation' or 'zero' or None:
+        search_space['missing_value_method'] = config.missing_value_method
+        search_space['use_current_x'] = config.use_current_x
         search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+        search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+        search_space['max_mask_ratio'] = config.max_mask_ratio
 
-        trainer = partial(train_transformer, settings=config, verbose=verbose)
+        if config.missing_value_method is None:
+            trainer = partial(train_transformer, settings=config, verbose=verbose)
+        elif config.missing_value_method == 'mask_embedding':
+            trainer = partial(train_masked_transformer, settings=config, verbose=verbose)
+        else:
+            raise NotImplementedError(f'Missing value method {config.missing_value_method} not implemented.')
 
         analysis = run(
             trainer,
-            name=f'{method}-{graph_name}-{now}',
+            name=run_name,
             config=search_space,
             scheduler=scheduler_soft(),  # ASHA is quite a speedup
             num_samples=num_samples,
@@ -245,7 +278,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
         analysis = run(
             trainer,
-            name=f'{method}-{graph_name}-{now}',
+            name=run_name,
             config=search_space,
             scheduler=scheduler_single_model_hard(),  # ASHA is quite a speedup
             num_samples=num_samples,
@@ -274,6 +307,10 @@ def parse_config():
     parser.add_argument('-c', '--config', required=False, type=str, help='Path to config file (YAML)')
     parser.add_argument('-m', '--method', required=False, choices=methods)
     parser.add_argument('-g', '--graph', required=False, choices=graphs)
+    parser.add_argument(
+        '-wl', '--window_len', required=False, type=int, default=90,
+        help='Window length (in days) of historical data used for prediction. Default is 90 days.'
+    )
     # Ray Tune specific:
     parser.add_argument(
         '-n', '--num_samples', required=False, type=int,
@@ -284,8 +321,33 @@ def parse_config():
     )
     # Transformers specific:
     parser.add_argument(
+        '-ucx', '--use_current_x', required=False, type=bool, default=True,
+        help='Whether to use the current time step feature in transformer models. If False, only past features are used, which corresponds to next-token prediction.'
+    )
+    parser.add_argument(
+        '-mvm', '--missing_value_method', required=False, type=str,
+        choices=['mask_embedding', 'interpolation', 'zero', 'none'],
+        default='none', help='Method to handle missing values in the input data for transformer models.'
+    )
+    parser.add_argument(
         '-pe', '--positional_encoding', required=False, type=str, choices=['none', 'sinusoidal', 'rope', 'learnable'],
         default='none', help='Type of positional encoding to use in the transformer model.'
+    )
+    parser.add_argument(
+        '-mmc', '--max_mask_consecutive', required=False, type=int, default=12,
+        help='Maximum number of consecutive time steps to mask when using mask_embedding for missing values. Default is 12.'
+    )
+    parser.add_argument(
+        '-mmr', '--max_mask_ratio', required=False, type=float, default=0.5,
+        help='Maximum ratio of time steps to mask when using mask_embedding for missing values. Default is 0.5.'
+    )
+    parser.add_argument(
+        '-ssm', '--short_subsequence_method', required=False, type=str, choices=['pad', 'drop'],
+        default='pad', help='How to handle short subsequences that are shorter than window_len in transformer models.'
+    )
+    parser.add_argument(
+        '-ml', '--max_len', required=False, type=int, default=90,
+        help='Maximum sequence length for transformer models. If less than window_len, will be set to window_len. Default is 90.'
     )
     # General:
     parser.add_argument('-v', '--verbose', required=False, type=int, help='Verbosity level.')
@@ -304,8 +366,9 @@ def parse_config():
             if not hasattr(args, k) or getattr(args, k) is None:
                 setattr(args, k, v)
 
-    if args.positional_encoding == 'none':
-        args.positional_encoding = None
+    for keys in ['missing_value_method', 'positional_encoding']:
+        if hasattr(args, keys) and getattr(args, keys) == 'none':
+            setattr(args, keys, None)
 
     return args
 
@@ -320,7 +383,13 @@ if __name__ == '__main__':
             'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
-            'positional_encoding': 'sinusoidal'  # fixme: debug
+            'positional_encoding': 'sinusoidal',  # fixme: debug
+            'window_len': 366,
+            'missing_value_method': 'mask_embedding',  # 'mask_embedding', 'interpolation
+            'short_subsequence_method': 'pad',  # 'pad' or 'drop'
+            'use_current_x': True,  # True or False (next-token prediction)
+            'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
+            'max_mask_ratio': 0.5,
         }
 
         # Set the cfg as the input args:

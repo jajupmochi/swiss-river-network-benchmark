@@ -91,16 +91,20 @@ def training_loop(
             # Notice that shuffling is applied for training, so the order of samples is different from
             # the original time order.
             for step, content in enumerate(iterator):
-                if len(content) == 4:
+                if len(content) == 4:  # fixme: revise other places too. search for "e, x, y"
                     _, e, x, y = content
-                    time_masks = None
+                    time_masks, pad_masks = None, None
                     kwargs = {}
                 elif len(content) == 5:
                     _, e, x, y, time_masks = content
-                    time_masks = time_masks.to(device)
+                    time_masks, pad_masks = time_masks.to(device), None
                     kwargs = {'time_masks': time_masks}
+                elif len(content) == 6:
+                    _, e, x, y, time_masks, pad_masks = content
+                    time_masks, pad_masks = time_masks.to(device), pad_masks.to(device)
+                    kwargs = {'time_masks': time_masks, 'pad_masks': pad_masks}
                 else:
-                    raise ValueError('The dataloader must return (t, e, x, y) or (t, e, x, y, time_masks)!')
+                    raise ValueError('The dataloader must return (t, e, x, y, [time_masks], [pad_masks])!')
 
                 e, x, y = e.to(device), x.to(device), y.to(device)
                 optimizer.zero_grad()
@@ -111,9 +115,11 @@ def training_loop(
                 else:
                     out = model(x, **kwargs)
                 mask = ~torch.isnan(y)  # mask NaNs.
+                # Mask also the padded time steps. This was not done in the Transformer outputs:
                 if time_masks is not None:
-                    # also mask the padded time steps. This was not done in the Transformer outputs:
-                    mask &= (~time_masks).unsqueeze(-1)
+                    mask &= (~time_masks).unsqueeze(-1)  # True for valid values
+                if pad_masks is not None:
+                    mask &= (~pad_masks).unsqueeze(-1)  # True for valid values
                 loss = criterion(out[mask], y[mask])
                 loss.backward()
                 optimizer.step()
@@ -143,14 +149,18 @@ def training_loop(
                 for content in iterator_valid:
                     if len(content) == 4:
                         t, e, x, y = content
-                        time_masks = None
+                        time_masks, pad_masks = None, None
                         kwargs = {}
                     elif len(content) == 5:
                         t, e, x, y, time_masks = content
-                        time_masks = time_masks.to(device)
+                        time_masks, pad_masks = time_masks.to(device), None
                         kwargs = {'time_masks': time_masks}
+                    elif len(content) == 6:
+                        t, e, x, y, time_masks, pad_masks = content
+                        time_masks, pad_masks = time_masks.to(device), pad_masks.to(device)
+                        kwargs = {'time_masks': time_masks, 'pad_masks': pad_masks}
                     else:
-                        raise ValueError('The dataloader must return (t, e, x, y) or (t, e, x, y, time_masks)!')
+                        raise ValueError('The dataloader must return (t, e, x, y, [time_masks], [pad_masks])!')
 
                     t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
                     if edges is not None:
@@ -159,10 +169,12 @@ def training_loop(
                         out = model(e, x, **kwargs)
                     else:
                         out = model(x, **kwargs)
-                    mask = ~torch.isnan(y)  # mask NaNs
+                    mask = ~torch.isnan(y)  # mask NaNs. True for valid values.
                     if time_masks is not None:
                         # also mask the padded time steps. This was not done in the Transformer outputs:
                         mask &= (~time_masks).unsqueeze(-1)
+                    if pad_masks is not None:
+                        mask &= (~pad_masks).unsqueeze(-1)
 
                     # Record everything (not masked) for possible aggregation later:
                     epoch_days.append(t)

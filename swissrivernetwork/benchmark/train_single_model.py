@@ -40,7 +40,10 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     )
 
 
-def create_dataset_embedding(config, df, i, valid_use_window: bool = False, dev_run: bool = False):
+def create_dataset_embedding(
+        config, df, i, valid_use_window: bool = False, short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+        dev_run: bool = False
+):
     # Normalize
     df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
 
@@ -110,7 +113,8 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
-            config, df_station, i, valid_use_window=True, dev_run=settings.get('dev_run', False)
+            config, df_station, i, valid_use_window=True, short_subsequence_method=config['short_subsequence_method'],
+            dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
@@ -136,6 +140,9 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
         d_model=config['d_model'] if config.get('d_model', None) else int(
             config['ratio_heads_to_d_model'] * config['num_heads']
         ),
+        max_len=config['max_len'],
+        missing_value_method=config['missing_value_method'],
+        use_current_x=config['use_current_x'],
         positional_encoding=config.get('positional_encoding', 'rope'),
     )
 
@@ -148,6 +155,7 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
 
 def create_masked_dataset_embedding(
         config, df, i, valid_use_window: bool = False, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
+        short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
         dev_run: bool = False
 ):
     # Normalize
@@ -160,12 +168,14 @@ def create_masked_dataset_embedding(
     dataset_train = SequenceMaskedWindowedDataset(
         config['window_len'], df_train, embedding_idx=i,
         max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+        short_subsequence_method=short_subsequence_method,
         dev_run=dev_run
     )
     if valid_use_window:
         dataset_valid = SequenceMaskedWindowedDataset(
             config['window_len'], df_valid, embedding_idx=i,
             max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+            short_subsequence_method=short_subsequence_method,
             dev_run=dev_run  # debug
         )
     else:
@@ -191,6 +201,7 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_masked_dataset_embedding(
             config, df_station, i, valid_use_window=True,
             max_mask_ratio=config['max_mask_ratio'], max_mask_consecutive=config['max_mask_consecutive'],
+            short_subsequence_method=config['short_subsequence_method'],
             dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
@@ -199,7 +210,7 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
     dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
     dataloader_train = torch.utils.data.DataLoader(
-        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=True
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False  # fixme: drop was True. Should be False for long win_lens? check the other codes that use this.
     )
     dataloader_valid = torch.utils.data.DataLoader(
         dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
@@ -215,6 +226,9 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
         d_model=config['d_model'] if config.get('d_model', None) else int(
             config['ratio_heads_to_d_model'] * config['num_heads']
         ),
+        max_len=config['max_len'],
+        missing_value_method=config['missing_value_method'],
+        use_current_x=config['use_current_x'],
         positional_encoding=config.get('positional_encoding', 'rope'),
     )
 
@@ -237,7 +251,7 @@ if __name__ == '__main__':
     config = {
         'graph_name': graph_name,
         'batch_size': 256,
-        'window_len': 90,
+        'window_len': 366,  # fixme: test 90, 366, 365+366=731, inf (all past data)
         'train_split': 0.8,
         'learning_rate': 0.001,
         'epochs': 30,
@@ -267,11 +281,23 @@ if __name__ == '__main__':
             'dim_feedforward': 128,
             'dropout': 0.1,
             'use_station_embedding': True,
-            'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
             # for masked_transformer_embedding:
-            'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window
-            'max_mask_consecutive': 1,  # maximum number of consecutive days to be masked in a window
+            'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window todo: not used yet.
+            # maximum number of consecutive days to be masked in a window # fixme: test. based on if win_len == inf:
+            'max_mask_consecutive': 12,  # 12
+            'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
+            # 'mask_embedding' or 'interpolation' or 'zero' or None  # fixme: test. based on lstm or transformer:
+            'missing_value_method': 'mask_embedding',
+            'use_current_x': True,  # whether to use the current day's features as input to predict next day
+            'positional_encoding': 'rope',  # 'sinusoidal' or 'rope' or 'learnable' or None
+            # what to do if subsequence is shorter than window_len, 'pad' or 'drop'.
+            # Applied on both training and validation sets:
+            'short_subsequence_method': 'pad',
         }
     )
-    train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
-    # train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+    if config['missing_value_method'] is None:
+        train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+    elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
+        train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+    else:
+        raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')

@@ -32,8 +32,8 @@ class LearnablePositionalEncoding(nn.Module):
         """
         seq_len = x.size(1)
         if seq_len > self.max_len:
-            raise ValueError(f"Sequence length {seq_len} exceeds maximum length {self.max_len}")
-        pos_encoding = self.pos_embedding[:seq_len, :]  # shape (seq_len, dim)
+            raise ValueError(f'Sequence length {seq_len} exceeds maximum length {self.max_len}.')
+        pos_encoding = self.pe[:seq_len, :]  # shape (seq_len, dim)
         pos_encoding = pos_encoding.unsqueeze(0)  # shape (1, seq_len, dim)
         return x + pos_encoding
 
@@ -480,6 +480,15 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
         """
         Copied from [``transformers.models.roformer.modeling_roformer.RoFormerModel.apply_rotary_position_embeddings``](
         https://github.com/huggingface/transformers/blob/main/src/transformers/models/roformer/modeling_roformer.py#L234).
+
+        hidden_states [256, 90, 32]
+
+        sinusoidal_pos [1, 1, 90, 8]
+        query_layer key_layer [256, 4, 90 ,8]
+        sin cos [1, 1, 90, 4]
+        sin_pos cos_pos [1, 1, 90, 8]
+        rotate_half_query_layer rotate_half_key_layer [256, 4, 90, 8]
+        query_layer key_layer [256, 4, 90, 8]
         """
         # https://kexue.fm/archives/8265
         # sin [batch_size, num_heads, sequence_length, embed_size_per_head//2]

@@ -217,12 +217,24 @@ if __name__ == '__main__':
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
     methods = ['transformer_embedding', 'lstm_embedding'][0:1]
     graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:]  # fixme
-    positional_encodings = ['none', 'learnable', 'sinusoidal', 'rope'][0:1]  # Only for transformer
+    positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:]  # Only for transformer
+    window_lens = [366]  # [90, 366, 731, 10000]
+    # max_len = [500]
+    missing_value_methods = ['mask_embedding']  # 'mask_embedding' or 'interpolation' or 'zero' or 'none'
+    use_current_xs = [True]  # whether to use current time step features (e.g., air temperature) as input
+    short_subsequence_methods = ['pad']  # 'pad' or 'drop', how to deal with short subsequences
+    max_mask_consecutives = [12]  # only used when missing_value_method is 'mask_embedding'
+    # max_mask_ratios = [0.5]  # only used when missing_value_method is 'mask_embedding'
 
     params_list = {
         'method': methods,
         'graph': graphs,
         'positional_encoding': positional_encodings,
+        'window_len': window_lens,
+        'missing_value_method': missing_value_methods,
+        'use_current_x': use_current_xs,
+        'short_subsequence_method': short_subsequence_methods,
+        'max_mask_consecutive': max_mask_consecutives,
     }
 
     from sklearn.model_selection import ParameterGrid

@@ -1,3 +1,5 @@
+# These settings will be overridden by command line arguments when running the ``ray_tune.py`` script.
+
 method: "lstm_embedding"
 graph: "swiss-1990"
 

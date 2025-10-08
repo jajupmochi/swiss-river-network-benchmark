@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -155,3 +156,11 @@ def safe_get_ray_trial_id():
     if sess is not None and session.get_trial_id():
         return session.get_trial_id()
     return None
+
+
+def is_valid_datetime(s: str) -> bool:
+    try:
+        datetime.strptime(s, "%Y-%m-%d_%H-%M-%S")
+        return True
+    except ValueError:
+        return False

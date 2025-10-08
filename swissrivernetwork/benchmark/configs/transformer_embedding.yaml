@@ -1,3 +1,5 @@
+# These settings will be overridden by command line arguments when running the ``ray_tune.py`` script.
+
 method: "transformer_embedding"
 graph: "swiss-1990"
 
@@ -6,6 +8,9 @@ verbose: 1  # verbosity level for ray tuner
 enable_wandb: False
 
 # Transformer settings:
+max_len: 500  # maximum length of the input sequence (number of time steps). Sequences longer than this will be truncated.
+missing_value_method: null  # method to handle missing values, 'mask_embedding' or 'interpolation' or 'zero' or None
+use_current_x: True  # whether to use the current node features as input to the transformer. If False, only past features are used, which corresponds to next-token prediction.
 positional_encoding: 'rope'  # positional encoding method, 'learnable', 'sinusoidal', 'rope', or None
 
 # ray tuner settings:

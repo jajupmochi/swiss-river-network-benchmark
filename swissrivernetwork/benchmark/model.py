@@ -1,3 +1,5 @@
+from typing import Any, Mapping
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -50,15 +52,28 @@ class LstmEmbeddingModel(nn.Module):
 
 
 class TransformerEmbeddingModel(nn.Module):
+    """
+    Transformer model.
+    """
+
+
     def __init__(
             self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
             dim_feedforward: int, dropout: float = 0.1,
-            d_model: int | None = None, ratio_heads_to_d_model: int = 8,
+            d_model: int | None = None, ratio_heads_to_d_model: int | None = 8,
             max_len: int = 500,
-            missing_value_method: str = 'mask_embedding',  # 'mask_embedding' or None
+            # 'mask_embedding' or 'interpolation' or 'zero' or None:
+            missing_value_method: str | None = 'mask_embedding',
             use_current_x: bool = True,
             positional_encoding: str = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
     ):
+        """
+        Parameters
+        ----------
+        ratio_heads_to_d_model : int | None
+            If d_model is None, then d_model = num_heads * ratio_heads_to_d_model.
+            If d_model is given, then ratio_heads_to_d_model is ignored.
+        """
         super().__init__()
         self.use_current_x = use_current_x
         self.use_mask_embedding = (missing_value_method == 'mask_embedding')
@@ -112,13 +127,19 @@ class TransformerEmbeddingModel(nn.Module):
 
         if self.use_mask_embedding:
             # Learnable embedding for missing values:
+            # Caution: it is possible that ``mask_embedding`` is not used but still in the state_dict (e.g., when
+            # ``missing_value_method`` is set incorrectly). Make sure to match this with the correct dataset settings
+            # (e.g., the ones that generate the corresponding ``time_masks``).
             self.mask_embedding = nn.Parameter(torch.zeros(1, 1, d_model))
 
 
-    def forward(self, e, x, time_masks=None):
+    def forward(self, e, x, time_masks=None, pad_masks=None):
         """
         e: [batch, seq_len] (station id)
         x: [batch, seq_len, input_size] (features per time step)
+        time_masks: [batch, seq_len] (Masks for missing time stamps (at the middle) along the consecutive time series.
+        True means missing value, optional)
+        pad_masks: [batch, seq_len] (Padding masks for short sequences. True means padding position, optional)
         """
         if x.isnan().any():
             raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
@@ -150,29 +171,62 @@ class TransformerEmbeddingModel(nn.Module):
         if not self.use_mask_embedding:
             self.check_mask_validity(causal_mask, time_masks, x.size(0), seq_len)
 
-        # For both ``mask`` and ``src_key_padding_mask``, True values are positions that will be ignored.
-        # Notice that the values at the masked positions in ``out`` will still be computed, which should be
-        # ignored in some subsequent process and the loss calculation:
-        src_key_padding_mask = None if self.use_mask_embedding else time_masks
-
         if self.positional_encoding == 'rope':
             # HuggingFace RoFormer expects input_ids or embeddings:
-            hf_causal_mask = (~causal_mask).long()  # 1 = keep, 0 = mask
-            # Combine with time_masks (padding/missing mask) todo: is needed?
+
+            # Construct attention mask for HuggingFace:
+            # - For causal mask of shape [B, L, L], it will be expanded to [B, 1, L, L] internally by
+            # function ``get_extended_attention_mask`` in ``RoFormerModel.forward()``, and then added to attention
+            # scores after attention before softmax in ``RoFormerSelfAttention.forward()``.
+            # - For padding mask of shape [B, L], it will be expanded to [B, 1, 1, L] internally by
+            # function ``get_extended_attention_mask`` in ``RoFormerModel.forward()``, and then added to attention
+            # scores after attention before softmax in ``RoFormerSelfAttention.forward()``.
+            # Use boolean mask instead of int / float mask to benefit from potential lazy broadcasting.
+            # This does not work for now because RoFormerModel still expands the mask with full size memory.
+            hf_causal_mask = (~causal_mask).bool()  # [L, L], 1 = keep, 0 = mask
+            hf_mask = hf_causal_mask[None, :, :]  # [1, seq_len, seq_len]
+            # Combine with time_masks (missing mask)
             if time_masks is not None and not self.use_mask_embedding:
                 # 1 = keep, 0 = mask
-                hf_mask = (~time_masks).long().unsqueeze(1) * hf_causal_mask.unsqueeze(0)
-            else:
-                hf_mask = hf_causal_mask.unsqueeze(0).expand(x.size(0), -1, -1)  # [batch, seq_len, seq_len]
+                hf_time_mask = (~time_masks).bool().unsqueeze(1)
+                hf_mask = hf_mask & hf_time_mask  # [batch, seq_len, seq_len]
+            if pad_masks is not None:
+                # 1 = keep, 0 = mask
+                hf_pad_mask = (~pad_masks).bool().unsqueeze(1)
+                hf_mask = hf_mask & hf_pad_mask  # [batch, seq_len, seq_len]
 
             # [batch, seq_len, d_model]:
             out = self.transformer(inputs_embeds=x, attention_mask=hf_mask).last_hidden_state
         else:
+            # For both ``mask`` and ``src_key_padding_mask``, True values are positions that will be ignored.
+            # False = keep, True = mask
+            # Notice that the values at the masked positions in ``out`` will still be computed, which should be
+            # ignored in some subsequent process and the loss calculation:
+            src_key_padding_mask = None if self.use_mask_embedding else time_masks
+            if pad_masks is not None:
+                if src_key_padding_mask is None:
+                    src_key_padding_mask = pad_masks
+                else:
+                    src_key_padding_mask = src_key_padding_mask | pad_masks
+
             out = self.transformer(x, mask=causal_mask, src_key_padding_mask=src_key_padding_mask)
 
         # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
         target = self.linear(out)
         return target
+
+
+    def load_state_dict(
+            self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False
+    ):
+        if 'pos_embedding' in state_dict and 'pos_embedding.pe' not in state_dict:
+            # Convert old positional encoding to new format:
+            state_dict['pos_embedding.pe'] = state_dict.pop('pos_embedding')
+        if not self.use_mask_embedding and 'mask_embedding' in state_dict:
+            # Remove mask embedding if not used:
+            # CAUTION: this is a monkey patch. Make sure this is what you want.
+            state_dict.pop('mask_embedding')
+        super().load_state_dict(state_dict, strict, assign)
 
 
     @staticmethod

@@ -8,6 +8,10 @@ from sklearn.preprocessing import MinMaxScaler
 CUR_ABS_DIR = Path(__file__).parent.resolve()
 PROJ_DIR = (CUR_ABS_DIR / '../../').resolve()
 
+ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
+INFO_TAG = "\033[94m[info]\033[0m "  # Blue
+SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
+
 
 # Utility functions
 
@@ -82,10 +86,14 @@ def train_valid_split(config, df):
 
 class SequenceDataset(torch.utils.data.Dataset):
 
-    def __init__(self, window_len, df, embedding_idx):
+    def __init__(
+            self, window_len, df, embedding_idx,
+            short_subsequence_method: str = 'drop',  # 'pad' or 'drop'
+    ):
         self.window_len = window_len
         self.df = df
         self.embedding_idx = embedding_idx
+        self.short_subsequence_method = short_subsequence_method
 
         self.stations = None
         self.sequences = []
@@ -98,15 +106,115 @@ class SequenceDataset(torch.utils.data.Dataset):
         breaks = day_diff != 1
         sequence_id = breaks.cumsum()
         sequences = self.df.index[breaks].values
-        if self.window_len <= 0:
+        if self.window_len <= 0:  # Full sequences
             sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values
         else:
             sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values - self.window_len + 1
 
+        df, sequences, sequence_lengths = self.process_short_subsequences(
+            self.df, sequences, sequence_lengths, self.window_len, self.short_subsequence_method
+        )
+        self.df = df
+        self.sequences = sequences
+        self.sequence_lengths = sequence_lengths
+
+
+    @staticmethod
+    def process_short_subsequences(
+            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int,
+            short_subsequence_method: str,
+    ):
+        """
+        Process sequences that are shorter than the window length.
+
+        Args:
+            sequences (list[int]): List of subsequences, each represented by its start index at df.
+        """
+        if short_subsequence_method == 'drop':
+            return SequenceDataset.process_short_subsequences_drop(df, sequences, sequence_lengths, window_len)
+        elif short_subsequence_method == 'pad':
+            return SequenceDataset.process_short_subsequences_pad(df, sequences, sequence_lengths, window_len)
+        else:
+            raise ValueError(f'Unknown short_subsequence_method: {short_subsequence_method}.')
+
+
+    @staticmethod
+    def process_short_subsequences_drop(
+            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
+    ):
         # remove short sequences
         drop_sequences = sequence_lengths < 0
-        self.sequences = sequences[~drop_sequences]
-        self.sequence_lengths = sequence_lengths[~drop_sequences]
+        sequences = sequences[~drop_sequences]
+        sequence_lengths = sequence_lengths[~drop_sequences]
+        return df, sequences, sequence_lengths
+
+
+    @staticmethod
+    def process_short_subsequences_pad(
+            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
+    ):
+        """
+        Pad short sequences with nan values at the end to reach the desired window length. (Add and) revise the
+        ``pad_mask`` column in the dataframe accordingly.
+
+        Notice that ``pad_mask`` is separate from ``time_mask`` because some mask embeddings (e.g., for transformers)
+        may be used for ``time_mask``.
+
+        Args:
+            df (pd.DataFrame): The original dataframe.
+            sequences (list[int]): List of subsequences, each represented by its start index at df.
+            sequence_lengths (list[int]): List of lengths of the subsequences. Notice if window_len > 0, these lengths
+                are already adjusted to be `length - window_len + 1`.
+        """
+        drop_sequences = sequence_lengths < 0
+        if not drop_sequences.any():  # No short sequences to pad
+            return df, sequences, sequence_lengths
+
+        if window_len > 0:
+            sequence_lengths = sequence_lengths - 1 + window_len
+
+        # Initialize padded df:
+        dtype_dict = {col: df[col].dtype for col in df.columns}
+        if 'pad_mask' in dtype_dict:
+            columns = df.columns.tolist()
+        else:
+            columns = df.columns.tolist() + ['pad_mask']
+            dtype_dict['pad_mask'] = bool
+        df_padded = pd.DataFrame(columns=columns).astype(dtype_dict)
+
+        # Pad with nan rows at the end of each short sequence:
+        starts = sequences  # idx list
+        ends = sequences + sequence_lengths  # idx list, exclusive
+        padded_lens = []
+        for i_seq, (start, end) in enumerate(zip(starts, ends)):
+            if end - start < 5:
+                print(f'{ISSUE_TAG}Removing sequence of length {ends - start} < 5 starting at index {start}!')
+                # continue  todo: or raise error?
+                raise ValueError('Sequence too short!')
+
+            df_sequence = df.iloc[start:end].copy()
+            if 'pad_mask' not in df_sequence.columns:
+                df_sequence['pad_mask'] = False  # False means we have a value, not a mask
+            seq_len = len(df_sequence)
+            if seq_len < window_len:
+                # pad with 0 rows at the end. This may be better than nan for MLP and attention steps:
+                df_pad = pd.DataFrame(0, index=range(window_len - seq_len), columns=df.columns)
+                df_pad['epoch_day'] = -1  # Use -1 instead of nan, because epoch_day is int type.
+                # Don't mask padded rows in time_mask, because these masks may be used for mask embeddings:
+                df_pad['time_mask'] = False
+                df_pad['pad_mask'] = True  # True means we have a mask / missing value to be ignored
+                df_sequence = pd.concat([df_sequence, df_pad], ignore_index=True)
+                padded_lens.append(len(df_pad))
+            else:
+                padded_lens.append(0)  # Keep original length if the sequence is long enough
+            df_padded = pd.concat([df_padded, df_sequence], ignore_index=True)
+
+        df_padded = df_padded.reset_index(drop=True)
+        sequences = sequences + np.concat(([0], np.cumsum(padded_lens)))[:-1]  # adjust start indices
+        sequence_lengths = sequence_lengths + np.array(padded_lens)  # adjust lengths
+        if window_len > 0:
+            sequence_lengths = sequence_lengths - window_len + 1
+        return df_padded, sequences, sequence_lengths
 
 
     def as_tensors(self, df):
@@ -209,11 +317,14 @@ class SequenceWindowedDataset(SequenceDataset):
 
 class SequenceMaskedDataset(SequenceDataset):
 
-    def __init__(self, window_len, df, embedding_idx, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10):
+    def __init__(
+            self, window_len, df, embedding_idx, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
+            short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+    ):
         self.max_mask_ratio = max_mask_ratio
         self.max_mask_consecutive = max_mask_consecutive
         # self.time_masks = None  # will be set in extract_sequences
-        super().__init__(window_len, df, embedding_idx)
+        super().__init__(window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method)
 
 
     def extract_sequences(self):
@@ -261,17 +372,19 @@ class SequenceMaskedDataset(SequenceDataset):
 
         sequence_id = breaks.cumsum()  # int, starting from 1
         sequences = self.df.index[breaks].values  # idx list
-        if self.window_len <= 0:
+        if self.window_len <= 0:  # full sequences
             sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values
         else:
             sequence_lengths = sequence_id.value_counts(sort=False).sort_index().values - self.window_len + 1
 
-        # remove short sequences:
-        drop_sequences = sequence_lengths < 0
+        df, sequences, sequence_lengths = self.process_short_subsequences(
+            self.df, sequences, sequence_lengths, self.window_len, self.short_subsequence_method
+        )
+        self.df = df
+        self.sequences = sequences
+        self.sequence_lengths = sequence_lengths
         # todo: Consider max_mask_ratio here
         # drop_sequences = drop_sequences | (self.masks.groupby(sequence_id).sum().values > self.max_mask_ratio * sequence_lengths)
-        self.sequences = sequences[~drop_sequences]
-        self.sequence_lengths = sequence_lengths[~drop_sequences]
 
 
     def as_tensors(self, df: pd.DataFrame):
@@ -295,7 +408,11 @@ class SequenceMaskedDataset(SequenceDataset):
         if t is None or embs is None or x is None or y is None:
             print('haaaaaalt!')
 
-        return (t, embs, x, y, time_masks)
+        if 'pad_mask' in df.columns:
+            pad_masks = torch.BoolTensor(df['pad_mask'].values)  # [seq_len], True means to ignore / to mask
+            return t, embs, x, y, time_masks, pad_masks
+        else:
+            return t, embs, x, y, time_masks
 
 
     def as_stgnn_tensors(self, df):
@@ -325,10 +442,12 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
     def __init__(
             self, window_len, df, embedding_idx=None,
             max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
+            short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
             dev_run: bool = False
     ):
         super().__init__(
-            window_len, df, embedding_idx, max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive
+            window_len, df, embedding_idx, max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+            short_subsequence_method=short_subsequence_method
         )
         self.dev_run = dev_run
 

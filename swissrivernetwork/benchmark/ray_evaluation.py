@@ -15,6 +15,7 @@ from swissrivernetwork.benchmark.test_isolated_station import (
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
 from swissrivernetwork.benchmark.train_isolated_station import read_stations, extract_neighbors, read_graph
+from swissrivernetwork.benchmark.util import is_valid_datetime
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -259,7 +260,7 @@ def experiment_analysis_isolated_station(graph_name, method, station):
     return ExperimentAnalysis(f'{directory}/{matching_items[0]}')
 
 
-def experiment_analysis_single_model(graph_name, method, output_dir: Path | None = None):
+def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = '', output_dir: Path | None = None):
     if method not in ['transformer_embedding', 'lstm_embedding', 'stgnn']:
         raise ValueError(f'Method {method} does not use single model training.')
 
@@ -269,10 +270,10 @@ def experiment_analysis_single_model(graph_name, method, output_dir: Path | None
     directory = '/home/benjamin/ray_results' if output_dir is None else output_dir
 
     if LOAD_LATEST_RESULTS:
-        path_prefix = f'{method}-{graph_name}-'
+        path_prefix = f'{method}-{graph_name}-{path_extra_keys}-'
         all_paths = sorted(
             [path for path in directory.iterdir() if
-             path.is_dir() and path.name.startswith(path_prefix)]
+             path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
         )
         assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}.'
         latest_path = all_paths[-1]
@@ -353,7 +354,9 @@ def evaluate_best_trial_isolated_station(
     if 'lstm' == method or 'graphlet' == method:
         analysis = experiment_analysis_isolated_station(graph_name, method, station)
     if method in ['lstm_embedding', 'stgnn', 'transformer_embedding']:
-        analysis = experiment_analysis_single_model(graph_name, method, output_dir=output_dir)
+        analysis = experiment_analysis_single_model(
+            graph_name, method, path_extra_keys=settings.get('path_extra_keys', ''), output_dir=output_dir
+        )
 
     # df = analysis.dataframe()
     # Get the best Trial:
@@ -394,7 +397,10 @@ def evaluate_best_trial_isolated_station(
             d_model=best_config['d_model'] if best_config.get('d_model', None) else int(
                 best_config['ratio_heads_to_d_model'] * best_config['num_heads']
             ),
-            missing_value_method=settings.get('missing_value_method', None)
+            max_len=settings['max_len'],  # todo: should these be set in config?
+            missing_value_method=settings['missing_value_method'],
+            use_current_x=settings['use_current_x'],
+            positional_encoding=settings['positional_encoding'],
         )
 
     # move
@@ -604,6 +610,15 @@ if __name__ == '__main__':
         'transformer_embedding': 90
     }
 
+    settings = {
+        'max_len': 500,
+        'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
+        'use_current_x': True,
+        'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
+        'verbose': 2,
+    }
+    settings['path_extra_keys'] = settings['positional_encoding']
+
     # Single Run
     SINGLE_RUN = False
     if SINGLE_RUN:
@@ -611,7 +626,9 @@ if __name__ == '__main__':
         method = METHODS[3]
         process_method(
             graph_name, method, output_dir=OUTPUT_DIR, settings={
-                'window_len': window_len_map[method], 'verbose': 2
+                **settings, **{
+                    'window_len': window_len_map[method]
+                }
             }
         )
 
@@ -619,10 +636,12 @@ if __name__ == '__main__':
     GRAPH_RUN = True
     if GRAPH_RUN:
         graph_name = GRAPH_NAMES[2]
-        for m in METHODS[2:3]:  # fixme: test only [2:3}
+        for m in METHODS[4:5]:  # fixme: test only [2:3}
             process_method(
                 graph_name, m, output_dir=OUTPUT_DIR, settings={
-                    'window_len': window_len_map[m], 'verbose': 2
+                    **settings, **{
+                        'window_len': window_len_map[m]
+                    }
                 }
             )
 
