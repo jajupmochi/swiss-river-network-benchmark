@@ -71,7 +71,7 @@ def normalize_columns(df):
     cols = df.columns.difference(['epoch_day', 'has_nan'])
     df_normalized = df.copy()
     df_normalized[cols] = pd.DataFrame(normalizer.fit_transform(df[cols]), columns=cols)
-    return df_normalized
+    return df_normalized, normalizer
 
 
 def train_valid_split(config, df):
@@ -312,7 +312,7 @@ class SequenceWindowedDataset(SequenceDataset):
             return self.as_tensors(df)
 
 
-# %%
+# %% Masked Datasets without station connections
 
 
 class SequenceMaskedDataset(SequenceDataset):
@@ -473,6 +473,9 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
             return self.as_tensors(df)
 
 
+# %% STGNN Datasets
+
+
 class STGNNSequenceFullDataset(SequenceFullDataset):
 
     def __init__(self, df, stations):
@@ -486,8 +489,8 @@ class STGNNSequenceFullDataset(SequenceFullDataset):
 
 class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
 
-    def __init__(self, window_len, df, stations):
-        super().__init__(window_len, df)
+    def __init__(self, window_len, df, stations, dev_run: bool = False):
+        super().__init__(window_len, df, dev_run=dev_run)
         self.stations = stations
 
 

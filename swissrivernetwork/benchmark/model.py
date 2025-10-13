@@ -409,7 +409,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         self.num_heads = num_heads
 
         # Validate input        
-        assert self.num_convs > 0
+        assert self.num_convs > 0, 'num_convs must be positive.'
 
         # Temporal Module: based on an LSTMEmbeddingModel per Node
         self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
@@ -453,7 +453,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         hs = []
         for i in range(self.stations):
             x_node = x[:, i, :, :]
-            e = torch.full((x_node.shape[0], x_node.shape[1]), i, dtype=torch.long)
+            e = torch.full((x_node.shape[0], x_node.shape[1]), i, dtype=torch.long).to(x.device)
             out_node = self.temporal(e, x_node)
             hs.append(out_node)
         return torch.stack(hs, dim=1)  # [batch x node x sequence x latent]
@@ -473,7 +473,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         # Use undirected edges
         edge_index = torch_geometric.utils.to_undirected(edge_index)
         edge_index, _ = torch_geometric.utils.add_self_loops(edge_index)
-        # TODO: what about selfloops?
+        # TODO: what about selfloops?  why?
 
         # print('[DEBUG]: ', hs.shape, hs.dtype)
         # print('[DEBUG]: ', edge_index.shape, edge_index.dtype)

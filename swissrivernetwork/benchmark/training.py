@@ -1,21 +1,20 @@
 import sys
 import tempfile
+from typing import Callable, Iterable
 
 import numpy as np
 import torch
 import torch.nn as nn
 import wandb
 from benedict import benedict
-from ray.air import session
 from ray.tune import Checkpoint, report
-from ray.util.state.state_cli import ray_get
+from sklearn.base import BaseEstimator
 from torchinfo import summary
 from tqdm import tqdm
 
-from swissrivernetwork.benchmark.dataset import SequenceWindowedDataset, SequenceFullDataset, \
-    SequenceMaskedWindowedDataset
 from swissrivernetwork.benchmark.util import save, aggregate_day_predictions, safe_get_ray_trial_id
 from swissrivernetwork.experiment.error import Error
+from swissrivernetwork.util.scaler import DimSplitScaler
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -24,21 +23,30 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 def training_loop(
         config, dataloader_train, dataloader_valid, model, n_valid, use_embedding, edges=None,
-        normalizer_at: object = None, normalizer_wt: object = None,
+        normalizer_at: list[BaseEstimator] | DimSplitScaler = None,
+        normalizer_wt: list[BaseEstimator] | DimSplitScaler = None,
         wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
+    if edges is not None:
+        edges = edges.to(device)
 
     if verbose >= 2:
         # Print data info:
         print(f'{INFO_TAG}Training sample size: {len(dataloader_train.dataset)}.')
-        for ds in dataloader_train.dataset.datasets:
-            print(f'  - Station {ds.embedding_idx}: {len(ds)} samples, sequence lengths: {ds.sequence_lengths}')
+        if isinstance(dataloader_train.dataset, torch.utils.data.ConcatDataset):
+            for ds in dataloader_train.dataset.datasets:
+                print(f'  - Station {ds.embedding_idx}: {len(ds)} samples, sequence lengths: {ds.sequence_lengths}')
+        else:
+            print(f'  Sequence lengths: {dataloader_train.dataset.sequence_lengths}')
         print(f'{INFO_TAG}Validation samples size: {len(dataloader_valid.dataset)}.')
-        for ds in dataloader_valid.dataset.datasets:
-            print(f'  - Station {ds.embedding_idx}: {len(ds)} samples, sequence lengths: {ds.sequence_lengths}')
+        if isinstance(dataloader_valid.dataset, torch.utils.data.ConcatDataset):
+            for ds in dataloader_valid.dataset.datasets:
+                print(f'  - Station {ds.embedding_idx}: {len(ds)} samples, sequence lengths: {ds.sequence_lengths}')
+        else:
+            print(f'  Sequence lengths: {dataloader_valid.dataset.sequence_lengths}')
 
         # Print model summary:
         print(f'{INFO_TAG}Model Summary:')
@@ -120,6 +128,10 @@ def training_loop(
                     mask &= (~time_masks).unsqueeze(-1)  # True for valid values
                 if pad_masks is not None:
                     mask &= (~pad_masks).unsqueeze(-1)  # True for valid values
+
+                # Shapes of ``out``, ``y``, ``mask`` are as follows:
+                # - For SeqWindowed[Masked]Dataset: [B, win_len, 1]
+                # - For STGNNSequenceWindowed[Masked}Dataset: [B, n_stations, win_len, 1].
                 loss = criterion(out[mask], y[mask])
                 loss.backward()
                 optimizer.step()
@@ -182,120 +194,12 @@ def training_loop(
                     preds.append(out)  # Both preds and targets are normalized
                     targets.append(y)
 
-            epoch_days = [i for t in epoch_days for i in t]  # Can not torch.cat here as sequence lengths may vary
-            masks = [i for m in masks for i in m]
-            preds = [i for p in preds for i in p]
-            targets = [i for tg in targets for i in tg]
-
-            # preds, targets, masks, etc. are lists of tensors in shape [B, sub_seq_len, 1].
-            # For SequenceFullDataset, each tensor corresponds to one station;
-            # For SequenceWindowedDataset, each tensor corresponds to one sub-sequence of a station.
-            # - For valid loss, we concatenate all samples and compute the total mse over all samples. **It is the same as
-            #   the training loss** when window_len keeps unchanged and no masking is applied for training.
-            #   Notice this may favor stations with more samples.
-            # - For valid evaluation, we compute two metrics:
-            #   (1) RMSE over all samples (**same as valid loss**).
-            #   (2) Averaged RMSE over stations (to treat each station equally). For SequenceWindowedDataset,
-            #       this requires to aggregate predictions for each station first, e.g., by the 'longest_history' method,
-            #       so that each day has only one prediction per station, the same as using SequenceFullDataset.
-            #       Then compute the RMSE for each station, and finally average the RMSEs over all stations.
-            #       **This is the same metric as in Ray tuner evaluation for test sets**.4950
-            all_masks, all_preds, all_targets, all_preds_norm, all_targets_norm = [], [], [], [], []
-            valid_ave_rmses = []
-            cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
-            for start, end in zip(cumulative_sizes[:-1], cumulative_sizes[1:]):
-                station_epoch_days = torch.cat(epoch_days[start:end], dim=0).flatten()
-                station_masks = torch.cat(masks[start:end], dim=0).flatten()
-                station_preds_norm = torch.cat(preds[start:end], dim=0).flatten()
-                station_targets_norm = torch.cat(targets[start:end], dim=0).flatten()
-                # todo: upgrade with aggregation method in config or full/windowed dataset
-                # if settings.method in ['transformer_embedding']:
-                # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
-                # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
-                if any(
-                        [isinstance(dataloader_valid.dataset.datasets[0], dataset_type) for dataset_type in
-                         [SequenceWindowedDataset, SequenceMaskedWindowedDataset]]
-                ):
-                    unique_epoch_days, aggregated_dict = aggregate_day_predictions(
-                        station_epoch_days,
-                        {
-                            'masks': station_masks, 'preds_norm': station_preds_norm,
-                            'targets_norm': station_targets_norm
-                        },
-                        method='longest_history'
-                    )
-                    station_masks = aggregated_dict['masks']
-                    station_preds_norm = aggregated_dict['preds_norm'][station_masks]  # masked tensor
-                    station_targets_norm = aggregated_dict['targets_norm'][station_masks]  # masked tensor
-                elif isinstance(dataloader_valid.dataset.datasets[0], SequenceFullDataset):
-                    station_preds_norm = station_preds_norm[station_masks]
-                    station_targets_norm = station_targets_norm[station_masks]
-                else:
-                    raise NotImplementedError('Unknown dataset type!')
-
-                station_preds = normalizer_wt.inverse_transform(
-                    station_preds_norm.cpu().numpy().reshape(-1, 1)
-                ).flatten()  # masked array
-                station_targets = normalizer_wt.inverse_transform(
-                    station_targets_norm.cpu().numpy().reshape(-1, 1)
-                ).flatten()  # masked array
-
-                valid_ave_rmse = Error.rmse(station_preds, station_targets)
-                valid_ave_rmses.append(valid_ave_rmse)
-
-                all_preds_norm.append(station_preds_norm)
-                all_targets_norm.append(station_targets_norm)
-                all_masks.append(station_masks.cpu().numpy())  # array
-                all_preds.append(station_preds)
-                all_targets.append(station_targets)
-
-            all_preds_norm = torch.concatenate(all_preds_norm, dim=0)
-            all_targets_norm = torch.concatenate(all_targets_norm, dim=0)
-            all_masks = np.concatenate(all_masks, axis=0)
-            all_preds = np.concatenate(all_preds, axis=0)
-            all_targets = np.concatenate(all_targets, axis=0)
-            n_valid = np.sum(all_masks)
-            if n_valid == 0:
-                print(f'{ISSUE_TAG}Warning: No valid samples in validation set after masking NaNs!')
-                raise StopIteration
-
-            validation_mse = validation_criterion(all_preds_norm, all_targets_norm).cpu().numpy().item()
-            validation_rmse = Error.rmse(all_preds, all_targets)
-            validation_ave_rmse = np.mean(valid_ave_rmses)
-
-            # # This is another way to compute the same metrics for SequenceFullDataset: (needs repair)
-            # all_masks = torch.cat(masks, dim=0).flatten()  # `dim` considers first dim as batch dim
-            # all_preds_norm = torch.cat(preds, dim=0).flatten()
-            # all_targets_norm = torch.cat(targets, dim=0).flatten()
-            # n_valid = all_masks.sum().item()
-            # if n_valid == 0:
-            #     print(f'{ISSUE_TAG}Warning: No valid samples in validation set after masking NaNs!')
-            #     raise StopIteration
-            # validation_mse = validation_criterion(all_preds_norm[all_masks], all_targets_norm[all_masks]).cpu().numpy()
-            #
-            # all_preds = normalizer_wt.inverse_transform(all_preds_norm[all_masks].cpu().numpy().reshape(-1, 1).flatten())
-            # all_targets = normalizer_wt.inverse_transform(all_targets_norm[all_masks].cpu().numpy().reshape(-1, 1).flatten())
-            # validation_rmse = Error.rmse(all_preds, all_targets)
-            # valid_ave_rmses = []
-            #
-            # cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
-            # for start, end in zip(cumulative_sizes[:-1], cumulative_sizes[1:]):
-            #     station_epoch_days = torch.cat(epoch_days[start:end], dim=0).flatten()
-            #     station_masks = torch.cat(masks[start:end], dim=0).flatten()
-            #     station_preds = torch.cat(preds[start:end], dim=0).flatten()
-            #     station_targets = torch.cat(targets[start:end], dim=0).flatten()
-            #     valid_ave_rmse = Error.rmse(
-            #         station_preds[station_masks].cpu().numpy(), station_targets[station_masks].cpu().numpy()
-            #     )
-            #     valid_ave_rmses.append(valid_ave_rmse)
-            # validation_ave_rmse = np.mean(valid_ave_rmses)
-
-            print(f'{INFO_TAG}cumulative_sizes: {cumulative_sizes}')
-            print(f'{INFO_TAG}len(validation_ave_rmses): {len(valid_ave_rmses)}')
-            print(f'{INFO_TAG}n_valid: {n_valid}')
+            validation_mse, validation_ave_rmse, validation_rmse = compute_all_metrics(
+                epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
+                is_stg=dataloader_valid.dataset.__class__.__name__.startswith('STGNN')
+            )
 
             # Log everything:
-
             metrics_to_report['validation_mse'] = validation_mse
             metrics_to_report['validation_ave_rmse'] = validation_ave_rmse
             metrics_to_report['validation_rmse'] = validation_rmse
@@ -328,3 +232,230 @@ def training_loop(
             raise
 
     wandb.finish()
+
+
+def compute_all_metrics(
+        epoch_days: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        preds: list[torch.Tensor],
+        targets: list[torch.Tensor],
+        dataloader_valid: torch.utils.data.DataLoader,
+        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        validation_criterion: nn.Module,
+        is_stg: bool
+):
+    # Shapes of items in lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
+    # - For SeqFull[Masked]Dataset: [B, seq_len, 1]. ``seq_len`` may vary.
+    # - For SeqWindowed[Masked]Dataset: [B, win_len, 1]. ``win_len`` is fixed.
+    # - For STGNNSequenceFullDataset: [B, n_stations, seq_len, 1]. ``seq_len`` may vary.
+    # - For STGNNSequenceWindowedDataset: [B, n_stations, win_len, 1]. ``win_len`` is fixed.
+    epoch_days = [i for t in epoch_days for i in t]  # Can not torch.cat here as sequence lengths may vary
+    masks = [i for m in masks for i in m]
+    preds = [i for p in preds for i in p]
+    targets = [i for tg in targets for i in tg]
+
+    if is_stg:
+        return compute_all_metrics_stg(
+            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion
+        )
+    else:
+        return compute_all_metrics_isolated_station(
+            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion
+        )
+
+
+def compute_all_metrics_stg(
+        epoch_days: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        preds: list[torch.Tensor],
+        targets: list[torch.Tensor],
+        dataloader_valid: torch.utils.data.DataLoader,
+        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        validation_criterion: nn.Module,
+):
+    def station_data_extractor(input, iter_idx):
+        return input[:, iter_idx, :].flatten()
+
+
+    # For STGNNs. Shapes after concatenation are all [n_samples_per_station / total_days, n_stations, 1]:
+    epoch_days = torch.concat([i.transpose(0, 1) for i in epoch_days], dim=0)
+    masks = torch.concat([i.transpose(0, 1) for i in masks], dim=0)
+    preds = torch.concat([i.transpose(0, 1) for i in preds], dim=0)
+    targets = torch.concat([i.transpose(0, 1) for i in targets], dim=0)
+
+    station_iterator = range(preds.shape[1])
+
+    metrics = compute_all_metrics_unified(
+        epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
+        station_iterator=station_iterator,
+        station_data_extractor=station_data_extractor
+    )
+    return metrics
+
+
+def compute_all_metrics_isolated_station(
+        epoch_days: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        preds: list[torch.Tensor],
+        targets: list[torch.Tensor],
+        dataloader_valid: torch.utils.data.DataLoader,
+        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        validation_criterion: nn.Module,
+):
+    def station_data_extractor(input, iter_idx):
+        start, end = iter_idx
+        return torch.cat(input[start:end], dim=0).flatten()
+
+
+    cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulate # of sub-sequences per station
+    station_iterator = zip(cumulative_sizes[:-1], cumulative_sizes[1:])
+
+    metrics = compute_all_metrics_unified(
+        epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
+        station_iterator=station_iterator,
+        station_data_extractor=station_data_extractor
+    )
+    print(f'{INFO_TAG}cumulative_sizes: {cumulative_sizes}')
+    return metrics
+
+
+def compute_all_metrics_unified(
+        epoch_days: list[torch.Tensor],
+        masks: list[torch.Tensor],
+        preds: list[torch.Tensor],
+        targets: list[torch.Tensor],
+        dataloader_valid: torch.utils.data.DataLoader,
+        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        validation_criterion: nn.Module,
+        station_iterator: Iterable,
+        station_data_extractor: Callable,
+
+):
+    """
+    A unified function to compute validation metrics for both isolated stations and STGNNs.
+
+    Args:
+        epoch_days, masks, preds, targets (list[torch.Tensor]): Lists of tensors containing epoch days, masks, predictions,
+            and targets for the validation set.
+            Shapes of items in lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
+            - For SeqFull[Masked]Dataset: [seq_len, 1]. ``seq_len`` may vary.
+            - For SeqWindowed[Masked]Dataset: [win_len, 1]. ``win_len`` is fixed.
+            - For STGNNSequenceFullDataset: [total_days, n_stations, 1]. ``total_days`` is the same for each station.
+            - For STGNNSequenceWindowedDataset: [n_samples_per_station, n_stations, 1]. ``n_samples_per_station`` is the
+                same for each station.
+
+        station_iterator (Iterable): An iterable that yields station indices.
+
+        station_data_extractor (Callable): A function that takes in epoch_days, masks, preds, or targets and returns
+            the corresponding data for the given station index.
+    """
+    # preds, targets, masks, etc. are lists of tensors in shape [B, sub_seq_len, 1].
+    # For SequenceFullDataset, each tensor corresponds to one station;
+    # For SequenceWindowedDataset, each tensor corresponds to one sub-sequence of a station.
+    # - For valid loss, we concatenate all samples and compute the total mse over all samples. **It is the same as
+    #   the training loss** when window_len keeps unchanged and no masking is applied for training.
+    #   Notice this may favor stations with more samples.
+    # - For valid evaluation, we compute two metrics:
+    #   (1) RMSE over all samples (**same as valid loss**).
+    #   (2) Averaged RMSE over stations (to treat each station equally). For SequenceWindowedDataset,
+    #       this requires to aggregate predictions for each station first, e.g., by the 'longest_history' method,
+    #       so that each day has only one prediction per station, the same as using SequenceFullDataset.
+    #       Then compute the RMSE for each station, and finally average the RMSEs over all stations.
+    #       **This is the same metric as in Ray tuner evaluation for test sets**.4950
+    all_masks, all_preds, all_targets, all_preds_norm, all_targets_norm = [], [], [], [], []
+    valid_ave_rmses = []
+
+    for i_station, iter_idx in enumerate(station_iterator):
+        station_epoch_days = station_data_extractor(epoch_days, iter_idx)
+        station_masks = station_data_extractor(masks, iter_idx)
+        station_preds_norm = station_data_extractor(preds, iter_idx)
+        station_targets_norm = station_data_extractor(targets, iter_idx)
+
+        if check_is_aggregation_needed(dataloader_valid):  # windowed dataset:
+            unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+                station_epoch_days,
+                {
+                    'masks': station_masks, 'preds_norm': station_preds_norm,
+                    'targets_norm': station_targets_norm
+                },
+                method='longest_history'
+            )
+            station_masks = aggregated_dict['masks']
+            station_preds_norm = aggregated_dict['preds_norm'][station_masks]  # masked tensor
+            station_targets_norm = aggregated_dict['targets_norm'][station_masks]  # masked tensor
+        else:  # Full sequence dataset:
+            station_preds_norm = station_preds_norm[station_masks]
+            station_targets_norm = station_targets_norm[station_masks]
+
+        station_preds = normalizer_wt[i_station].inverse_transform(  # fixme: i_station or -1? i_station seems to have a bed v rmse
+            station_preds_norm.cpu().numpy().reshape(-1, 1)
+        ).flatten()  # masked array
+        station_targets = normalizer_wt[i_station].inverse_transform(
+            station_targets_norm.cpu().numpy().reshape(-1, 1)
+        ).flatten()  # masked array
+
+        valid_ave_rmse = Error.rmse(station_preds, station_targets)
+        valid_ave_rmses.append(valid_ave_rmse)
+
+        all_preds_norm.append(station_preds_norm)
+        all_targets_norm.append(station_targets_norm)
+        all_masks.append(station_masks.cpu().numpy())  # array
+        all_preds.append(station_preds)
+        all_targets.append(station_targets)
+
+    all_preds_norm = torch.concatenate(all_preds_norm, dim=0)
+    all_targets_norm = torch.concatenate(all_targets_norm, dim=0)
+    all_masks = np.concatenate(all_masks, axis=0)
+    all_preds = np.concatenate(all_preds, axis=0)
+    all_targets = np.concatenate(all_targets, axis=0)
+    n_valid = np.sum(all_masks)
+    if n_valid == 0:
+        print(f'{ISSUE_TAG}Warning: No valid samples in validation set after masking NaNs!')
+        raise StopIteration
+
+    validation_mse = validation_criterion(all_preds_norm, all_targets_norm).cpu().numpy().item()
+    validation_rmse = Error.rmse(all_preds, all_targets)
+    validation_ave_rmse = np.mean(valid_ave_rmses)
+
+    # # This is another way to compute the same metrics for SequenceFullDataset: (needs repair)
+    # all_masks = torch.cat(masks, dim=0).flatten()  # `dim` considers first dim as batch dim
+    # all_preds_norm = torch.cat(preds, dim=0).flatten()
+    # all_targets_norm = torch.cat(targets, dim=0).flatten()
+    # n_valid = all_masks.sum().item()
+    # if n_valid == 0:
+    #     print(f'{ISSUE_TAG}Warning: No valid samples in validation set after masking NaNs!')
+    #     raise StopIteration
+    # validation_mse = validation_criterion(all_preds_norm[all_masks], all_targets_norm[all_masks]).cpu().numpy()
+    #
+    # all_preds = normalizer_wt.inverse_transform(all_preds_norm[all_masks].cpu().numpy().reshape(-1, 1).flatten())
+    # all_targets = normalizer_wt.inverse_transform(all_targets_norm[all_masks].cpu().numpy().reshape(-1, 1).flatten())
+    # validation_rmse = Error.rmse(all_preds, all_targets)
+    # valid_ave_rmses = []
+    #
+    # cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulat # of sub-sequences per station
+    # for start, end in zip(cumulative_sizes[:-1], cumulative_sizes[1:]):
+    #     station_epoch_days = torch.cat(epoch_days[start:end], dim=0).flatten()
+    #     station_masks = torch.cat(masks[start:end], dim=0).flatten()
+    #     station_preds = torch.cat(preds[start:end], dim=0).flatten()
+    #     station_targets = torch.cat(targets[start:end], dim=0).flatten()
+    #     valid_ave_rmse = Error.rmse(
+    #         station_preds[station_masks].cpu().numpy(), station_targets[station_masks].cpu().numpy()
+    #     )
+    #     valid_ave_rmses.append(valid_ave_rmse)
+    # validation_ave_rmse = np.mean(valid_ave_rmses)
+
+    print(f'{INFO_TAG}len(validation_ave_rmses): {len(valid_ave_rmses)}')
+    print(f'{INFO_TAG}n_valid: {n_valid}')
+
+    return validation_mse, validation_ave_rmse, validation_rmse
+
+
+def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader) -> bool:
+    # todo: upgrade with aggregation method in config or full/windowed dataset
+    if isinstance(dataloader.dataset, torch.utils.data.ConcatDataset):
+        # if settings.method in ['transformer_embedding']:
+        # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
+        # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
+        return dataloader.dataset.datasets[0].window_len > 0
+    else:
+        return dataloader.dataset.window_len > 0
