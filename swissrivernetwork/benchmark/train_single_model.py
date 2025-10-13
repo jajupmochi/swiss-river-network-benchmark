@@ -284,16 +284,16 @@ if __name__ == '__main__':
         'num_convs': 1,
         'num_heads': 0,
         # --- Dataset specific:
-        # for masked model such as masked_transformer_embedding:  # fixme: test
+        # for masked model such as masked_transformer_embedding:
         'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window todo: not used yet.
-        # maximum number of consecutive days to be masked in a window # fixme: test. based on if win_len == inf:
-        'max_mask_consecutive': 12,  # 12
+        # maximum number of consecutive days to be masked in a window
+        'max_mask_consecutive': 12,  # 12   # fixme: test. based on if win_len == inf:
         # what to do if subsequence is shorter than window_len, 'pad' or 'drop'.
         # Applied on both training and validation sets:
-        'short_subsequence_method': 'pad',
+        'short_subsequence_method': 'drop',  # fixme: debug: only 'pad' for win len > 90
         # --- Exp configs used for all models:
-        # 'mask_embedding' or 'interpolation' or 'zero' or None  # fixme: test. based on lstm or transformer:
-        'missing_value_method': None,
+        # 'mask_embedding' or 'interpolation' or 'zero' or None
+        'missing_value_method': None,  # fixme: test. based on lstm or transformer
         'use_current_x': True,  # whether to use the current day's features as input to predict next day
     }
 
@@ -316,8 +316,9 @@ if __name__ == '__main__':
             'dropout': 0.1,
             'use_station_embedding': True,
             'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
-            # 'mask_embedding' or 'interpolation' or 'zero' or None  # fixme: test. based on lstm or transformer:
-            'missing_value_method': None,  # 'mask_embedding',  # fixme: mask_embedding  # fixme: debug: when using None the computation becomes extremely slow
+            # 'mask_embedding' or 'interpolation' or 'zero' or None
+            'missing_value_method': None,  # fixme: test. based on lstm or transformer
+            # 'mask_embedding',  # fixme: mask_embedding
             'use_current_x': True,  # whether to use the current day's features as input to predict next day
             'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
 

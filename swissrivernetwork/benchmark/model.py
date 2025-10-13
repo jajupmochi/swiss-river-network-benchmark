@@ -167,9 +167,9 @@ class TransformerEmbeddingModel(nn.Module):
         else:
             causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
 
-        # Check mask validity:
-        if not self.use_mask_embedding:
-            self.check_mask_validity(causal_mask, time_masks, x.size(0), seq_len)
+        # # Check mask validity:  comment this out for now because it is too slow. todo: optimize it.
+        # if not self.use_mask_embedding:
+        #     self.check_mask_validity(causal_mask, time_masks, x.size(0), seq_len)
 
         if self.positional_encoding == 'rope':
             # HuggingFace RoFormer expects input_ids or embeddings:
