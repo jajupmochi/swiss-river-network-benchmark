@@ -268,6 +268,12 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     if 'stgnn' == method:
         search_space = search_space_stgnn.copy()
         search_space['graph_name'] = graph_name
+        # 'mask_embedding' or 'interpolation' or 'zero' or None:
+        search_space['missing_value_method'] = config.missing_value_method
+        search_space['use_current_x'] = config.use_current_x
+        search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+        search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+        search_space['max_mask_ratio'] = config.max_mask_ratio
 
         # add GAT Heads
         search_space['num_heads'] = 0
@@ -374,13 +380,14 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = False  # fixme: debug
+    debug_mode = True  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'stgnn.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
             'positional_encoding': 'sinusoidal',  # fixme: debug

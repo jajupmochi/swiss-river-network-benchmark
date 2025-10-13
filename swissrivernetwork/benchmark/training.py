@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from swissrivernetwork.benchmark.util import save, aggregate_day_predictions, safe_get_ray_trial_id
 from swissrivernetwork.experiment.error import Error
-from swissrivernetwork.util.scaler import DimSplitScaler
+from swissrivernetwork.util.scaler import StationSplitScaler
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -23,8 +23,8 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 def training_loop(
         config, dataloader_train, dataloader_valid, model, n_valid, use_embedding, edges=None,
-        normalizer_at: list[BaseEstimator] | DimSplitScaler = None,
-        normalizer_wt: list[BaseEstimator] | DimSplitScaler = None,
+        normalizer_at: list[BaseEstimator] | StationSplitScaler = None,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler = None,
         wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
@@ -240,7 +240,7 @@ def compute_all_metrics(
         preds: list[torch.Tensor],
         targets: list[torch.Tensor],
         dataloader_valid: torch.utils.data.DataLoader,
-        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
         is_stg: bool
 ):
@@ -270,7 +270,7 @@ def compute_all_metrics_stg(
         preds: list[torch.Tensor],
         targets: list[torch.Tensor],
         dataloader_valid: torch.utils.data.DataLoader,
-        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
 ):
     def station_data_extractor(input, iter_idx):
@@ -283,7 +283,7 @@ def compute_all_metrics_stg(
     preds = torch.concat([i.transpose(0, 1) for i in preds], dim=0)
     targets = torch.concat([i.transpose(0, 1) for i in targets], dim=0)
 
-    station_iterator = range(preds.shape[1])
+    station_iterator = zip(dataloader_valid.dataset.stations, range(preds.shape[1]))
 
     metrics = compute_all_metrics_unified(
         epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
@@ -299,7 +299,7 @@ def compute_all_metrics_isolated_station(
         preds: list[torch.Tensor],
         targets: list[torch.Tensor],
         dataloader_valid: torch.utils.data.DataLoader,
-        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
 ):
     def station_data_extractor(input, iter_idx):
@@ -307,15 +307,23 @@ def compute_all_metrics_isolated_station(
         return torch.cat(input[start:end], dim=0).flatten()
 
 
-    cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulate # of sub-sequences per station
-    station_iterator = zip(cumulative_sizes[:-1], cumulative_sizes[1:])
+    def construct_station_iterator():
+        assert len(dataloader_valid.dataset.datasets) == len(dataloader_valid.dataset.cumulative_sizes), (
+            'Mismatch between number of stations and cumulative sizes!'
+        )
+        station_names = [ds.name for ds in dataloader_valid.dataset.datasets]
+        cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulate # of sub-sequences per station
+        return zip(station_names, zip(cumulative_sizes[:-1], cumulative_sizes[1:]))
+
+
+    station_iterator = construct_station_iterator()
 
     metrics = compute_all_metrics_unified(
         epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
         station_iterator=station_iterator,
         station_data_extractor=station_data_extractor
     )
-    print(f'{INFO_TAG}cumulative_sizes: {cumulative_sizes}')
+    print(f'{INFO_TAG}cumulative_sizes: {[0] + dataloader_valid.dataset.cumulative_sizes}')
     return metrics
 
 
@@ -325,7 +333,7 @@ def compute_all_metrics_unified(
         preds: list[torch.Tensor],
         targets: list[torch.Tensor],
         dataloader_valid: torch.utils.data.DataLoader,
-        normalizer_wt: list[BaseEstimator] | DimSplitScaler,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
         station_iterator: Iterable,
         station_data_extractor: Callable,
@@ -365,7 +373,7 @@ def compute_all_metrics_unified(
     all_masks, all_preds, all_targets, all_preds_norm, all_targets_norm = [], [], [], [], []
     valid_ave_rmses = []
 
-    for i_station, iter_idx in enumerate(station_iterator):
+    for i_station, iter_idx in station_iterator:
         station_epoch_days = station_data_extractor(epoch_days, iter_idx)
         station_masks = station_data_extractor(masks, iter_idx)
         station_preds_norm = station_data_extractor(preds, iter_idx)
@@ -387,7 +395,7 @@ def compute_all_metrics_unified(
             station_preds_norm = station_preds_norm[station_masks]
             station_targets_norm = station_targets_norm[station_masks]
 
-        station_preds = normalizer_wt[i_station].inverse_transform(  # fixme: i_station or -1? i_station seems to have a bed v rmse
+        station_preds = normalizer_wt[i_station].inverse_transform(
             station_preds_norm.cpu().numpy().reshape(-1, 1)
         ).flatten()  # masked array
         station_targets = normalizer_wt[i_station].inverse_transform(

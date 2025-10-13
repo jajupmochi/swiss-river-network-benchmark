@@ -89,7 +89,9 @@ class SequenceDataset(torch.utils.data.Dataset):
     def __init__(
             self, window_len, df, embedding_idx,
             short_subsequence_method: str = 'drop',  # 'pad' or 'drop'
+            name: str = ''
     ):
+        self.name = name
         self.window_len = window_len
         self.df = df
         self.embedding_idx = embedding_idx
@@ -268,8 +270,8 @@ class SequenceFullDataset(SequenceDataset):
     '''
 
 
-    def __init__(self, df, embedding_idx=None):
-        super().__init__(0, df, embedding_idx)
+    def __init__(self, df, embedding_idx=None, name: str = ''):
+        super().__init__(0, df, embedding_idx, name=name)  # window_len=0 means full sequences
 
 
     def __len__(self):
@@ -286,8 +288,8 @@ class SequenceFullDataset(SequenceDataset):
 
 class SequenceWindowedDataset(SequenceDataset):
 
-    def __init__(self, window_len, df, embedding_idx=None, dev_run: bool = False):
-        super().__init__(window_len, df, embedding_idx)
+    def __init__(self, window_len, df, embedding_idx=None, name: str = '', dev_run: bool = False):
+        super().__init__(window_len, df, embedding_idx, name=name)
         self.dev_run = dev_run
 
 
@@ -320,11 +322,12 @@ class SequenceMaskedDataset(SequenceDataset):
     def __init__(
             self, window_len, df, embedding_idx, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
             short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+            name: str = ''
     ):
         self.max_mask_ratio = max_mask_ratio
         self.max_mask_consecutive = max_mask_consecutive
         # self.time_masks = None  # will be set in extract_sequences
-        super().__init__(window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method)
+        super().__init__(window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method, name=name)
 
 
     def extract_sequences(self):
@@ -443,11 +446,13 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
             self, window_len, df, embedding_idx=None,
             max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
             short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+            name: str = '',
             dev_run: bool = False
     ):
         super().__init__(
             window_len, df, embedding_idx, max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
-            short_subsequence_method=short_subsequence_method
+            short_subsequence_method=short_subsequence_method,
+            name=name
         )
         self.dev_run = dev_run
 

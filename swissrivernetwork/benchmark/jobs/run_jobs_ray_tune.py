@@ -215,15 +215,15 @@ if __name__ == '__main__':
     device = 'gpu'
 
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
-    methods = ['transformer_embedding', 'lstm_embedding'][0:1]
-    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:]  # fixme
-    positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:]  # Only for transformer
-    window_lens = [366]  # [90, 366, 731, 10000]
+    methods = ['transformer_embedding', 'lstm_embedding', 'stgnn'][2:]
+    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:1]  # fixme
+    positional_encodings = ['none']  # ['learnable', 'sinusoidal', 'rope', 'none'][0:1]  # Only for transformer
+    window_lens = [90]  # [90, 366, 731, 10000]
     # max_len = [500]
-    missing_value_methods = ['mask_embedding']  # 'mask_embedding' or 'interpolation' or 'zero' or 'none'
+    missing_value_methods = ['none']  # ['mask_embedding']  # 'mask_embedding' or 'interpolation' or 'zero' or 'none'
     use_current_xs = [True]  # whether to use current time step features (e.g., air temperature) as input
-    short_subsequence_methods = ['pad']  # 'pad' or 'drop', how to deal with short subsequences
-    max_mask_consecutives = [12]  # only used when missing_value_method is 'mask_embedding'
+    short_subsequence_methods = ['drop']  # 'pad' or 'drop', how to deal with short subsequences
+    max_mask_consecutives = [0]  # only used when missing_value_method is 'mask_embedding'
     # max_mask_ratios = [0.5]  # only used when missing_value_method is 'mask_embedding'
 
     params_list = {

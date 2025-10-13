@@ -3,7 +3,7 @@ from benedict import benedict
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.training import training_loop
-from swissrivernetwork.util.scaler import DimSplitScaler
+from swissrivernetwork.util.scaler import StationSplitScaler
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -22,7 +22,7 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
-            config, df_station, i, valid_use_window=False,
+            config, df_station, i, valid_use_window=False, name=station,
             dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
@@ -47,6 +47,7 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
 
 def create_dataset_embedding(
         config, df, i, valid_use_window: bool = False, short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+        name: str = '',  # station name
         dev_run: bool = False
 ):
     # Normalize
@@ -57,14 +58,14 @@ def create_dataset_embedding(
 
     # Create datasets
     dataset_train = SequenceWindowedDataset(
-        config['window_len'], df_train, embedding_idx=i, dev_run=dev_run
+        config['window_len'], df_train, embedding_idx=i, name=name, dev_run=dev_run
     )
     if valid_use_window:
         dataset_valid = SequenceWindowedDataset(
-            config['window_len'], df_valid, embedding_idx=i, dev_run=dev_run
+            config['window_len'], df_valid, embedding_idx=i, name=name, dev_run=dev_run
         )
     else:
-        dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i)
+        dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i, name=name)
     return dataset_train, dataset_valid, normalizer_at, normalizer_wt
 
 
@@ -78,8 +79,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     # Read and prepare data
     df = read_csv_train(graph_name)
     df, normalizer = normalize_columns(df)
-    dims_kept = np.array([i for i, n in enumerate(normalizer.feature_names_in_) if n.endswith('_wt')])
-    normalizer_wt = DimSplitScaler(normalizer, dims_kept=dims_kept)
+    normalizer_wt = StationSplitScaler(normalizer, feat_suffix='_wt')
 
     # Create Datasets
     df_train, df_valid = train_valid_split(config, df)
@@ -93,7 +93,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
 
     dataloader_train = torch.utils.data.DataLoader(
         # ``drop_last`` was True. Changed to default (False) to allow dev run with small dataset:
-        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False  # todo: USE True?
     )
     batch_size = 1 if isinstance(dataset_valid, STGNNSequenceFullDataset) else config['batch_size']
     dataloader_valid = torch.utils.data.DataLoader(
@@ -125,17 +125,18 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     df = read_csv_train(graph_name)
     datasets_train = []
     datasets_valid = []
-    normalizers_at, normalizers_wt = [], []
+    normalizers_at, normalizers_wt = {}, {}
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
             config, df_station, i, valid_use_window=True, short_subsequence_method=config['short_subsequence_method'],
+            name=station,
             dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
-        normalizers_at.append(normalizer_at)
-        normalizers_wt.append(normalizer_wt)
+        normalizers_at[station] = normalizer_at
+        normalizers_wt[station] = normalizer_wt
     dataset_train = torch.utils.data.ConcatDataset(datasets_train)
     dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
@@ -174,6 +175,7 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
 def create_masked_dataset_embedding(
         config, df, i, valid_use_window: bool = False, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
         short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
+        name: str = '',  # station name
         dev_run: bool = False
 ):
     # Normalize
@@ -187,6 +189,7 @@ def create_masked_dataset_embedding(
         config['window_len'], df_train, embedding_idx=i,
         max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
         short_subsequence_method=short_subsequence_method,
+        name=name,
         dev_run=dev_run
     )
     if valid_use_window:
@@ -194,11 +197,12 @@ def create_masked_dataset_embedding(
             config['window_len'], df_valid, embedding_idx=i,
             max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
             short_subsequence_method=short_subsequence_method,
+            name=name,
             dev_run=dev_run  # debug
         )
     else:
         raise NotImplementedError('Validation without window not implemented for masked dataset.')
-        dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i)
+        dataset_valid = SequenceFullDataset(df_valid, embedding_idx=i, name=name)
     return dataset_train, dataset_valid, normalizer_at, normalizer_wt
 
 
@@ -214,19 +218,20 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
     df = read_csv_train(graph_name)
     datasets_train = []
     datasets_valid = []
-    normalizers_at, normalizers_wt = [], []
+    normalizers_at, normalizers_wt = {}, {}
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_masked_dataset_embedding(
             config, df_station, i, valid_use_window=True,
             max_mask_ratio=config['max_mask_ratio'], max_mask_consecutive=config['max_mask_consecutive'],
             short_subsequence_method=config['short_subsequence_method'],
+            name=station,
             dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
-        normalizers_at.append(normalizer_at)
-        normalizers_wt.append(normalizer_wt)
+        normalizers_at[station] = normalizer_at
+        normalizers_wt[station] = normalizer_wt
     dataset_train = torch.utils.data.ConcatDataset(datasets_train)
     dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
@@ -304,53 +309,53 @@ if __name__ == '__main__':
     }
 
     # # train_lstm_embedding(config, settings=benedict({**settings, 'method': 'lstm_embedding'}))
-    # train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
+    train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
 
-    # Transformer specific:
-    config.update(
-        {
-            'd_model': 32,
-            'num_heads': 4,
-            'num_layers': 4,
-            'dim_feedforward': 128,
-            'dropout': 0.1,
-            'use_station_embedding': True,
-            'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
-            # 'mask_embedding' or 'interpolation' or 'zero' or None
-            'missing_value_method': None,  # fixme: test. based on lstm or transformer
-            # 'mask_embedding',  # fixme: mask_embedding
-            'use_current_x': True,  # whether to use the current day's features as input to predict next day
-            'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
-
-        }
-    )
-
-    if config['missing_value_method'] is None:
-        train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
-    elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
-        train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
-    else:
-        raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
-
-    # # this is the best config for swiss-1990 with transformer sinusoidal:
+    # # Transformer specific:
     # config.update(
     #     {
-    #         'batch_size': 160,
-    #         'window_len': 90,
-    #         'learning_rate': 0.003399,
-    #         'epochs': 30,
-    #         'embedding_size': 10,
     #         'd_model': 32,
     #         'num_heads': 4,
-    #         'num_layers': 3,
-    #         'dim_feedforward': 116,
-    #         'dropout': 0.0899,
+    #         'num_layers': 4,
+    #         'dim_feedforward': 128,
+    #         'dropout': 0.1,
     #         'use_station_embedding': True,
     #         'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
     #         # 'mask_embedding' or 'interpolation' or 'zero' or None
-    #         'missing_value_method': 'mask_embedding',
+    #         'missing_value_method': None,  # fixme: test. based on lstm or transformer
+    #         # 'mask_embedding',  # fixme: mask_embedding
     #         'use_current_x': True,  # whether to use the current day's features as input to predict next day
     #         'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
     #
     #     }
     # )
+    #
+    # if config['missing_value_method'] is None:
+    #     train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+    # elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
+    #     train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+    # else:
+    #     raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
+
+    # # # this is the best config for swiss-1990 with transformer sinusoidal:
+    # # config.update(
+    # #     {
+    # #         'batch_size': 160,
+    # #         'window_len': 90,
+    # #         'learning_rate': 0.003399,
+    # #         'epochs': 30,
+    # #         'embedding_size': 10,
+    # #         'd_model': 32,
+    # #         'num_heads': 4,
+    # #         'num_layers': 3,
+    # #         'dim_feedforward': 116,
+    # #         'dropout': 0.0899,
+    # #         'use_station_embedding': True,
+    # #         'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
+    # #         # 'mask_embedding' or 'interpolation' or 'zero' or None
+    # #         'missing_value_method': 'mask_embedding',
+    # #         'use_current_x': True,  # whether to use the current day's features as input to predict next day
+    # #         'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
+    # #
+    # #     }
+    # # )
