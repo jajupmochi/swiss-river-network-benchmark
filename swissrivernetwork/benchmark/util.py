@@ -164,7 +164,7 @@ def safe_get_ray_trial_id():
 
 def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict) -> str:
     run_name = f'{method}-{graph_name}'
-    run_name += get_run_name(config)
+    run_name += get_run_extra_key(config)
     run_name += f'-{now}'
 
     return run_name
