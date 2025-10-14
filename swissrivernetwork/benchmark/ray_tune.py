@@ -96,7 +96,8 @@ search_space_stgnn = {
     "hidden_size": randint(16, 128 + 1),  # 128
     "num_layers": randint(1, 3 + 1),  # more layers!
     # "gnn_conv": choice(['GCN', 'GIN']),
-    "gnn_conv": choice(['GraphSAGE']),
+    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE']),  # fixme: test
+    # "gnn_conv": choice(['GraphSAGE']),
     "num_convs": randint(1, 7 + 1)
 }
 
