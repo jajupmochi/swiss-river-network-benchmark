@@ -14,6 +14,7 @@ from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_
 from swissrivernetwork.benchmark.train_single_model import (
     train_lstm_embedding, train_stgnn, train_transformer, train_masked_transformer
 )
+from swissrivernetwork.benchmark.util import get_run_name
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -131,23 +132,6 @@ def scheduler_single_model_hard():
         grace_period=3,
         reduction_factor=2
     )
-
-
-def get_run_name(method: str, graph_name: str, now: str, config: benedict) -> str:
-    run_name = f'{method}-{graph_name}'
-
-    if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
-        run_name += f'-next_tokens'
-    if 'window_len' in config and config.window_len is not None:
-        run_name += f'-wl{config.window_len}'
-    if 'missing_value_method' in config and config.missing_value_method is not None:
-        run_name += f'-{config.missing_value_method}'
-    if 'positional_encoding' in config:
-        run_name += f'-{config.positional_encoding}'.lower()  # None -> none
-
-    run_name += f'-{now}'
-
-    return run_name
 
 
 def run_experiment(method, graph_name, num_samples, storage_path: str | None, config: benedict, verbose: int):
@@ -380,7 +364,7 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = True  # fixme: debug
+    debug_mode = False  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:
@@ -392,7 +376,7 @@ if __name__ == '__main__':
             'dev_run': True,  # fixme: debug
             'positional_encoding': 'sinusoidal',  # fixme: debug
             'window_len': 366,
-            'missing_value_method': 'mask_embedding',  # 'mask_embedding', 'interpolation
+            'missing_value_method': 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'pad',  # 'pad' or 'drop'
             'use_current_x': True,  # True or False (next-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'

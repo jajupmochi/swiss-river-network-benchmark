@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch
+from benedict import benedict
 from torch_geometric.utils import k_hop_subgraph, to_undirected
 
 from swissrivernetwork.benchmark.dataset import read_graph
@@ -150,12 +151,41 @@ def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.
         return unique_vals
 
 
+# %% Ray Tune related utils:
+
+
 def safe_get_ray_trial_id():
     from ray.air import session
     sess = session.get_session()
     if sess is not None and session.get_trial_id():
         return session.get_trial_id()
     return None
+
+
+def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict) -> str:
+    run_name = f'{method}-{graph_name}'
+    run_name += get_run_name(config)
+    run_name += f'-{now}'
+
+    return run_name
+
+
+def get_run_extra_key(config: benedict | dict):
+    if isinstance(config, dict):
+        config = benedict(config)
+    extra_key = ''
+    if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
+        extra_key += f'-next_tokens'
+    if 'window_len' in config and config.window_len is not None:
+        extra_key += f'-wl{config.window_len}'
+    if 'missing_value_method' in config and config.missing_value_method is not None:
+        extra_key += f'-{config.missing_value_method}'
+    if 'positional_encoding' in config:
+        extra_key += f'-{config.positional_encoding}'.lower()  # None -> none
+    return extra_key
+
+
+# %% Date time related utils:
 
 
 def is_valid_datetime(s: str) -> bool:

@@ -15,7 +15,7 @@ from swissrivernetwork.benchmark.test_isolated_station import (
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
 from swissrivernetwork.benchmark.train_isolated_station import read_stations, extract_neighbors, read_graph
-from swissrivernetwork.benchmark.util import is_valid_datetime
+from swissrivernetwork.benchmark.util import is_valid_datetime, get_run_extra_key
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -270,7 +270,7 @@ def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = 
     directory = '/home/benjamin/ray_results' if output_dir is None else output_dir
 
     if LOAD_LATEST_RESULTS:
-        path_prefix = f'{method}-{graph_name}-{path_extra_keys}-'
+        path_prefix = f'{method}-{graph_name}' + (f'{path_extra_keys}-' if path_extra_keys else '')
         all_paths = sorted(
             [path for path in directory.iterdir() if
              path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
@@ -317,15 +317,20 @@ def parameter_count(model):
     return pytorch_total_params
 
 
-def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None = None):
+def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
     if 'stgnn' == method:
-        analysis = experiment_analysis_single_model(graph_name, method, output_dir=output_dir)
+        analysis = experiment_analysis_single_model(
+            graph_name, method, path_extra_keys=settings.get('path_extra_keys', ''), output_dir=output_dir
+        )
+    else:
+        raise ValueError(f'Method {method} does not use single model training.')
 
     # Get Best Trial:
-    best_trial = analysis.get_best_trial(metric="validation_mse", mode="min", scope="all")
-    best_config = best_trial.config
-    best_checkpoint = analysis.get_best_checkpoint(best_trial, metric="validation_mse", mode="min")
-    VERBOSE and print(f'Best Trial Configuration: {best_config}')
+    best_trial_all = analysis.get_best_trial(metric="validation_mse", mode="min", scope="all")
+    best_trial_last = analysis.get_best_trial(metric="validation_mse", mode="min", scope="last")
+    best_config = best_trial_all.config
+    best_checkpoint = analysis.get_best_checkpoint(best_trial_all, metric="validation_mse", mode="min")
+    VERBOSE and print(f'{INFO_TAG}Best Trial Configuration: {best_config}')
 
     # Prepare Model
     if 'stgnn' == method:
@@ -333,8 +338,10 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
         num_embeddings = len(read_stations(graph_name))
         model = SpatioTemporalEmbeddingModel(
             best_config['gnn_conv'], 1, num_embeddings, best_config['embedding_size'], best_config['hidden_size'],
-            best_config['num_layers'], best_config['num_convs']
+            best_config['num_layers'], best_config['num_convs'], best_config['num_heads']
         )
+    else:
+        raise ValueError(f'Method {method} does not use single model training.')
 
     # Load Model
     model_file = sorted(os.listdir(best_checkpoint.path))[0]
@@ -344,8 +351,15 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
     # Model summary
     total_params = parameter_count(model)
 
+    best_trial = {'all': best_trial_all, 'last': best_trial_last}
+    window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
+
     if 'stgnn' == method:
-        return (*test_stgnn(graph_name, model, dump_dir=DUMP_DIR), total_params)
+        return (*test_stgnn(
+            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
+    else:
+        raise ValueError(f'Unknown method: {method}')
 
 
 def evaluate_best_trial_isolated_station(
@@ -544,9 +558,10 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
 
     if 'stgnn' == method:
         # run model:
-        rmses, maes, nses, ns, total_params = evaluate_best_trial_single_model(
-            graph_name, method, output_dir=output_dir
+        rmses, maes, nses, ns, preds, total_params, best_trial = evaluate_best_trial_single_model(
+            graph_name, method, output_dir=output_dir, settings=settings
         )
+        actuals, predictions, epoch_day_list = preds
 
         # collect per station
         for i, station in enumerate(stations):
@@ -606,23 +621,32 @@ if __name__ == '__main__':
         'lstm': None,
         'graphlet': None,
         'lstm_embedding': 90,
-        'stgnn': None,
+        'stgnn': 90,
         'transformer_embedding': 90
     }
 
+    # settings = {
+    #     'max_len': 500,
+    #     'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
+    #     'use_current_x': True,
+    #     'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
+    #     'verbose': 2,
+    # }
+
+    # fixme: test for the stgnn:
     settings = {
-        'max_len': 500,
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         'use_current_x': True,
-        'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
+        'window_len': 366,  # fixme: debug
         'verbose': 2,
     }
-    settings['path_extra_keys'] = settings['positional_encoding']
+
+    settings['path_extra_keys'] = get_run_extra_key(settings)
 
     # Single Run
-    SINGLE_RUN = False
+    SINGLE_RUN = True
     if SINGLE_RUN:
-        graph_name = GRAPH_NAMES[2]
+        graph_name = GRAPH_NAMES[0]
         method = METHODS[3]
         process_method(
             graph_name, method, output_dir=OUTPUT_DIR, settings={
@@ -633,9 +657,9 @@ if __name__ == '__main__':
         )
 
     # Graph Run
-    GRAPH_RUN = True
+    GRAPH_RUN = False
     if GRAPH_RUN:
-        graph_name = GRAPH_NAMES[2]
+        graph_name = GRAPH_NAMES[0]
         for m in METHODS[4:5]:  # fixme: test only [2:3}
             process_method(
                 graph_name, m, output_dir=OUTPUT_DIR, settings={

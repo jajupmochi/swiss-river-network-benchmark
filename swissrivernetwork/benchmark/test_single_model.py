@@ -1,20 +1,11 @@
-import os
-
-import torch
-import torch.nn as nn
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
 from ray.tune import ExperimentAnalysis
-from sklearn.preprocessing import MinMaxScaler
 
+from swissrivernetwork.benchmark.dataset import *
 # from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.benchmark.model import *
-from swissrivernetwork.benchmark.dataset import *
+from swissrivernetwork.benchmark.test_isolated_station import summary
+from swissrivernetwork.benchmark.training import check_is_aggregation_needed
 from swissrivernetwork.benchmark.util import *
-
-from swissrivernetwork.benchmark.test_isolated_station import plot, summary
 from swissrivernetwork.experiment.error import compute_errors
 
 
@@ -29,7 +20,13 @@ def fit_column_normalizers(df):
     return normalizers
 
 
-def test_stgnn(graph_name, model, dump_dir: Path | str = 'swissrivernetwork/journal/dump'):
+def test_stgnn(
+        graph_name, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
     # TODO:
     # Read Train Data for normalizer
     df_train = read_csv_train(graph_name)
@@ -43,64 +40,85 @@ def test_stgnn(graph_name, model, dump_dir: Path | str = 'swissrivernetwork/jour
     _, edges = read_graph(graph_name)
     df = read_csv_test(graph_name)
 
+    edges = edges.to(device)
+
     # Normalize Input Values:
     for station in stations:
         df[f'{station}_at'] = normalizers[f'{station}_at'].transform(df[f'{station}_at'].values.reshape(-1, 1))
     # TODO: test if equal to column wise normalizer.. (but should)
 
     # Create Dataset
-    dataset = STGNNSequenceFullDataset(df, stations)
-    dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
+    if window_len is None:
+        dataset = STGNNSequenceFullDataset(df, stations)
+        dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)  # fixme: drop_last? and the other locations?
+    else:
+        dataset = STGNNSequenceWindowedDataset(window_len, df, stations)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
 
     # Compute this:
     # epoch_days, prediction_norm, mask, actual, prediction
-    epoch_days = [[] for _ in range(n_stations)]
-    prediction_norm = [[] for _ in range(n_stations)]
-    masks = [[] for _ in range(n_stations)]
-    actual = [[] for _ in range(n_stations)]
-    prediction = [[] for _ in range(n_stations)]
+    epoch_days, prediction_norm, actual, masks = [], [], [], []
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
+            t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
 
             # Run Model
             out = model(x, edges)
 
-            # Check for only one batch:
-            assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
+            # # Check for only one batch:
+            # assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
 
             # Split the predictions per station:
             mask = ~torch.isnan(y)
             # y = y[mask]
             # out_masked = out[mask]
-            for i, station in enumerate(stations):
 
-                # Store epoch_days and prediction_norm on all days:
-                epoch_days[i].append(t[0, i].detach().numpy())
-                prediction_norm[i].append(out[0, i].detach().numpy())  # store normalized predictions
+            epoch_days.append(t.cpu().detach().numpy())
+            prediction_norm.append(out.cpu().detach().numpy())
+            actual.append(y.cpu().detach().numpy())
+            masks.append(mask.cpu().detach().numpy())
 
-                # mask values:             
-                mask_i = mask[0, i]
-                masks[i].append(mask_i)
-                if mask_i.sum() == 0:
-                    continue  # skip if all is masked
-
-                # Denormalize (masked output)
-                ys = y[0, i][mask_i]
-                outs = out[0, i][mask_i]
-                outs = normalizers[f'{station}_wt'].inverse_transform(outs.detach().numpy().reshape(-1, 1))
-
-                # Store values            
-                actual[i].append(ys.detach().numpy())  # Original
-                prediction[i].append(outs.flatten())  # Denormalized Prediction
+    # Shape before: [[B, n_stations, seq_len / win_len, 1], ...]
+    # Shape after:  [n_subsequences, n_stations, seq_len / win_len, 1]
+    epoch_days = np.array([i for t in epoch_days for i in t])
+    prediction_norm = np.array([i for p in prediction_norm for i in p])
+    actual = np.array([i for a in actual for i in a])
+    masks = np.array([i for m in masks for i in m])
 
     # Combine arrays:
-    for i in range(n_stations):
-        epoch_days[i] = np.concatenate(epoch_days[i], axis=0).flatten()
-        prediction_norm[i] = np.concatenate(prediction_norm[i], axis=0).flatten()
-        masks[i] = np.concatenate(masks[i], axis=0).flatten()
-        actual[i] = np.concatenate(actual[i], axis=0).flatten()
-        prediction[i] = np.concatenate(prediction[i], axis=0).flatten()
+    all_epoch_days, all_actual, all_prediction, all_masks = [], [], [], []
+    for i, station in enumerate(stations):
+        station_epoch_days = np.concatenate(epoch_days[:, i], axis=0).flatten()
+        station_prediction_norm = np.concatenate(prediction_norm[:, i], axis=0).flatten()
+        station_masks = np.concatenate(masks[:, i], axis=0).flatten()
+        station_actual = np.concatenate(actual[:, i], axis=0).flatten()
+
+        if check_is_aggregation_needed(dataloader):
+            station_epoch_days, aggregated_dict = aggregate_day_predictions(
+                station_epoch_days,
+                {
+                    'prediction_norm': station_prediction_norm,
+                    'mask': station_masks,
+                    'actual': station_actual,
+                },
+                method='longest_history'
+            )
+            station_masks = aggregated_dict['mask']
+            station_prediction_norm = aggregated_dict['prediction_norm'][station_masks]
+            station_actual = aggregated_dict['actual'][station_masks]
+        else:
+            station_prediction_norm = station_prediction_norm[station_masks]
+            station_actual = station_actual[station_masks]
+
+        # Denormalize predictions
+        station_prediction = normalizers[f'{station}_wt'].inverse_transform(
+            station_prediction_norm.reshape(-1, 1)
+        ).flatten()
+
+        all_epoch_days.append(station_epoch_days[station_masks])  # masked
+        all_actual.append(station_actual)  # masked
+        all_prediction.append(station_prediction)  # masked
 
     # Compute errors
     rmses = []
@@ -108,19 +126,23 @@ def test_stgnn(graph_name, model, dump_dir: Path | str = 'swissrivernetwork/jour
     nses = []
     ns = []
     for i, station in enumerate(stations):
-        rmse, mae, nse = compute_errors(actual[i], prediction[i])
+        rmse, mae, nse = compute_errors(all_actual[i], all_prediction[i])
         title = summary(station, rmse, mae, nse)
-        print(title)
+        verbose > 1 and print(title)
 
-        # Plot Figure of Test Data
-        plot(graph_name, 'stgnn', station, epoch_days[i][masks[i]], actual[i], prediction[i], title, dump_dir=dump_dir)
+        # # Plot Figure of Test Data  # fixme: enable plotting as needed
+        # plot(
+        #     graph_name, 'stgnn', station, all_epoch_days[i], all_actual[i], all_prediction[i], title,
+        #     plot_diff=True, # debug
+        #     dump_dir=dump_dir
+        # )
 
         rmses.append(rmse)
         maes.append(mae)
         nses.append(nse)
-        ns.append(len(prediction))
+        ns.append(len(all_prediction[i]))
 
-    return rmses, maes, nses, ns
+    return rmses, maes, nses, ns, (all_actual, all_prediction, all_epoch_days)
 
 
 if __name__ == '__main__':
