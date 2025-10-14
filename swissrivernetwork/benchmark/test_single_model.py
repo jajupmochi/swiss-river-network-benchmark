@@ -48,6 +48,8 @@ def test_stgnn(
     # TODO: test if equal to column wise normalizer.. (but should)
 
     # Create Dataset
+    # dataset = STGNNSequenceFullDataset(df, stations)   # debug
+    # dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     if window_len is None:
         dataset = STGNNSequenceFullDataset(df, stations)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)  # fixme: drop_last? and the other locations?
@@ -80,19 +82,19 @@ def test_stgnn(
             masks.append(mask.cpu().detach().numpy())
 
     # Shape before: [[B, n_stations, seq_len / win_len, 1], ...]
-    # Shape after:  [n_subsequences, n_stations, seq_len / win_len, 1]
-    epoch_days = np.array([i for t in epoch_days for i in t])
-    prediction_norm = np.array([i for p in prediction_norm for i in p])
-    actual = np.array([i for a in actual for i in a])
-    masks = np.array([i for m in masks for i in m])
+    # Shape after:  [[n_stations, seq_len / win_len, 1], ...] (n_subsequences)
+    epoch_days = [i for t in epoch_days for i in t]
+    prediction_norm = [i for p in prediction_norm for i in p]
+    actual = [i for a in actual for i in a]
+    masks = [i for m in masks for i in m]
 
     # Combine arrays:
     all_epoch_days, all_actual, all_prediction, all_masks = [], [], [], []
     for i, station in enumerate(stations):
-        station_epoch_days = np.concatenate(epoch_days[:, i], axis=0).flatten()
-        station_prediction_norm = np.concatenate(prediction_norm[:, i], axis=0).flatten()
-        station_masks = np.concatenate(masks[:, i], axis=0).flatten()
-        station_actual = np.concatenate(actual[:, i], axis=0).flatten()
+        station_epoch_days = np.concatenate([e[i] for e in epoch_days], axis=0).flatten()
+        station_prediction_norm = np.concatenate([p[i] for p in prediction_norm], axis=0).flatten()
+        station_masks = np.concatenate([m[i] for m in masks], axis=0).flatten()
+        station_actual = np.concatenate([a[i] for a in actual], axis=0).flatten()
 
         if check_is_aggregation_needed(dataloader):
             station_epoch_days, aggregated_dict = aggregate_day_predictions(
