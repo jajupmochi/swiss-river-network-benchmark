@@ -310,7 +310,7 @@ def parse_config():
     parser.add_argument(
         '-s', '--storage_path', required=False, type=str, help='Path to store results.', default=None
     )
-    # Transformers specific:
+    # Dataset specific:
     parser.add_argument(
         '-ucx', '--use_current_x', required=False, type=bool, default=True,
         help='Whether to use the current time step feature in transformer models. If False, only past features are used, which corresponds to next-token prediction.'
@@ -319,10 +319,6 @@ def parse_config():
         '-mvm', '--missing_value_method', required=False, type=str,
         choices=['mask_embedding', 'interpolation', 'zero', 'none'],
         default='none', help='Method to handle missing values in the input data for transformer models.'
-    )
-    parser.add_argument(
-        '-pe', '--positional_encoding', required=False, type=str, choices=['none', 'sinusoidal', 'rope', 'learnable'],
-        default='none', help='Type of positional encoding to use in the transformer model.'
     )
     parser.add_argument(
         '-mmc', '--max_mask_consecutive', required=False, type=int, default=12,
@@ -336,8 +332,13 @@ def parse_config():
         '-ssm', '--short_subsequence_method', required=False, type=str, choices=['pad', 'drop'],
         default='pad', help='How to handle short subsequences that are shorter than window_len in transformer models.'
     )
+    # Transformers specific:
     parser.add_argument(
-        '-ml', '--max_len', required=False, type=int, default=90,
+        '-pe', '--positional_encoding', required=False, type=str, choices=['none', 'sinusoidal', 'rope', 'learnable'],
+        default=None, help='Type of positional encoding to use in the transformer model.'
+    )
+    parser.add_argument(
+        '-ml', '--max_len', required=False, type=int, default=None,
         help='Maximum sequence length for transformer models. If less than window_len, will be set to window_len. Default is 90.'
     )
     # General:
@@ -356,6 +357,12 @@ def parse_config():
         for k, v in cfg_from_file.items():
             if not hasattr(args, k) or getattr(args, k) is None:
                 setattr(args, k, v)
+
+    # Remove positional encoding if set to None:
+    # This means no positional encoding will be used, e.g., for LSTM models. Remove it so that some name generation
+    # functions do not consider it.
+    if args.positional_encoding is None:
+        delattr(args, 'positional_encoding')
 
     for keys in ['missing_value_method', 'positional_encoding']:
         if hasattr(args, keys) and getattr(args, keys) == 'none':

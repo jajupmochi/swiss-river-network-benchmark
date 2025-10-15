@@ -113,6 +113,8 @@ class TransformerEmbeddingModel(nn.Module):
                 self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)
             elif positional_encoding == 'sinusoidal':
                 self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)
+            else:
+                raise ValueError(f'Unknown positional_encoding: {positional_encoding}.')
 
             encoder_layer = nn.TransformerEncoderLayer(
                 d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
