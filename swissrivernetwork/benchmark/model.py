@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch_geometric
 import torch_geometric.nn as gnn
 
+from swissrivernetwork.benchmark.nn import TemporalNNConv
 from swissrivernetwork.benchmark.transformer import (
     SinusoidalPositionalEncoding,
     LearnablePositionalEncoding
@@ -396,7 +397,8 @@ class TransformerEmbeddingModel(nn.Module):
 class SpatioTemporalEmbeddingModel(nn.Module):
 
     def __init__(
-            self, method, input_size, num_embeddings, embedding_size, hidden_size, num_layers, num_convs, num_heads
+            self, method, input_size, num_embeddings, embedding_size, hidden_size, num_layers, num_convs, num_heads,
+            **kwargs
     ):
         super().__init__()
         self.method = method
@@ -426,11 +428,11 @@ class SpatioTemporalEmbeddingModel(nn.Module):
                 [gnn.GCNConv(hidden_size, hidden_size, normalize=True, add_self_loops=True) for _ in range(num_convs)]
             )
 
-        if self.method == 'GIN':
+        elif self.method == 'GIN':
             nn_gin = nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.ReLU())
             self.gconvs = nn.ModuleList([gnn.GINConv(nn_gin) for _ in range(num_convs)])
 
-        if self.method == 'GAT':
+        elif self.method == 'GAT':
             assert False, 'GAT is not supported'
             convs = []
             for i in range(num_convs):
@@ -445,8 +447,22 @@ class SpatioTemporalEmbeddingModel(nn.Module):
             # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size*num_heads, 1)) # fix linear layer
             self.linear = nn.Linear(hidden_size * num_heads, 1)  # fix linear layer
 
-        if self.method == 'GraphSAGE':
+        elif self.method == 'GraphSAGE':
             self.gconvs = nn.ModuleList([gnn.SAGEConv(hidden_size, hidden_size) for _ in range(num_convs)])
+
+        elif self.method == 'MPNN':
+            self.edge_hidden_size = kwargs.get('edge_hidden_size')
+            edge_network = nn.Sequential(
+                nn.Linear(1, self.edge_hidden_size),
+                nn.ReLU(),
+                nn.Linear(self.edge_hidden_size, hidden_size * hidden_size)
+            )
+            self.gconvs = nn.ModuleList(
+                [TemporalNNConv(hidden_size, hidden_size, edge_network) for _ in range(num_convs)]
+            )
+
+        else:
+            raise ValueError(f'Unknown method: {self.method}.')
 
 
     def apply_temporal_model(self, x):
@@ -480,12 +496,20 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         # print('[DEBUG]: ', hs.shape, hs.dtype)
         # print('[DEBUG]: ', edge_index.shape, edge_index.dtype)
 
+        extra_inputs = {}
+        if self.method == 'MPNN':
+            # For MPNN, we need edge attributes, e.g., edge lengths.
+            # edge_attr should be of shape [num_edges, num_edge_features] (Static for all samples and time steps).
+            # Here we use a dummy edge_attr of ones
+            edge_attr = torch.ones((edge_index.size(1), 1), device=edge_index.device)
+            extra_inputs['edge_attr'] = edge_attr
+
         for g in range(0, self.num_convs):
             hs = F.relu(hs)
-            hs = self.gconvs[g](hs, edge_index)  # GAT
+            hs = self.gconvs[g](hs, edge_index, **extra_inputs)  # GAT
 
         # Restore dimensions:
-        hs = torch.transpose(hs, 1, 2)
+        hs = torch.transpose(hs, 1, 2)  # [B, n_stations, T, hidden_size]
 
         # Predict water temperatures
         target = self.linear(hs)

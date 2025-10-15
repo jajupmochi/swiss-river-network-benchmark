@@ -7,7 +7,7 @@ from pathlib import Path
 
 import ray
 from benedict import benedict
-from ray.tune import uniform, randint, run, choice, Callback
+from ray.tune import uniform, randint, run, choice, Callback, sample_from
 from ray.tune.schedulers import ASHAScheduler
 
 from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_stations, train_graphlet
@@ -96,9 +96,11 @@ search_space_stgnn = {
     "hidden_size": randint(16, 128 + 1),  # 128
     "num_layers": randint(1, 3 + 1),  # more layers!
     # "gnn_conv": choice(['GCN', 'GIN']),
-    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE']),  # fixme: test
+    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN']),  # fixme: test
     # "gnn_conv": choice(['GraphSAGE']),
-    "num_convs": randint(1, 7 + 1)
+    "num_convs": randint(1, 7 + 1),
+    "num_heads": sample_from(lambda spec: randint(1, 8 + 1).func(None) if spec.config.gnn_conv == "GAT" else 0),
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).func(None) if spec.config.gnn_conv == "MPNN" else None)
 }
 
 
@@ -260,10 +262,12 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
 
-        # add GAT Heads
-        search_space['num_heads'] = 0
-        if search_space['gnn_conv'] == 'GAT':
-            search_space['num_heads'] = randint(1, 8)
+        # # add GAT Heads
+        # search_space['num_heads'] = 0
+        # if search_space['gnn_conv'] == 'GAT':
+        #     search_space['num_heads'] = randint(1, 8)
+        # if search_space['gnn_conv'] == 'MPNN':
+        #     search_space['edge_hidden_size'] = randint(4, 64 + 1)
 
         trainer = partial(train_stgnn, settings=config, verbose=verbose)
 

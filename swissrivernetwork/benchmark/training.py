@@ -227,6 +227,7 @@ def training_loop(
 
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
+            print(f'{ISSUE_TAG}WARNING: ran out of memory, skipping this trial!')
             report(done=True, status="OOM")
         else:
             raise

@@ -102,7 +102,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
 
     model = SpatioTemporalEmbeddingModel(
         config['gnn_conv'], 1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
-        config['num_convs'], config['num_heads']
+        config['num_convs'], config['num_heads'], edge_hidden_size=config.get('edge_hidden_size'),
     )
 
     # Run Training Loop!
@@ -277,15 +277,16 @@ if __name__ == '__main__':
 
     config = {
         'graph_name': graph_name,
-        'batch_size': 256,
+        'batch_size': 64,  # fixme: default 256, which is too large for stgnn with MPNN conv
         'window_len': 90,  # fixme: test 90, 366, 365+366=731, inf (all past data)
         'train_split': 0.8,
         'learning_rate': 0.001,
         'epochs': 30,
         'embedding_size': 5,
         'hidden_size': 32,
+        'edge_hidden_size': 8,  # for gnn edge network only
         'num_layers': 1,
-        'gnn_conv': 'GraphSAGE',
+        'gnn_conv': 'MPNN',  # GraphSAGE
         'num_convs': 1,
         'num_heads': 0,
         # --- Dataset specific:
