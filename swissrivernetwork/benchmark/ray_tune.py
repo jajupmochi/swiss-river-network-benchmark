@@ -99,8 +99,8 @@ search_space_stgnn = {
     "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN']),  # fixme: test
     # "gnn_conv": choice(['GraphSAGE']),
     "num_convs": randint(1, 7 + 1),
-    "num_heads": sample_from(lambda spec: randint(1, 8 + 1).func(None) if spec.config.gnn_conv == "GAT" else 0),
-    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).func(None) if spec.config.gnn_conv == "MPNN" else None)
+    "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None)
 }
 
 
@@ -262,7 +262,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
 
-        # # add GAT Heads
+        # # Add GAT Heads
         # search_space['num_heads'] = 0
         # if search_space['gnn_conv'] == 'GAT':
         #     search_space['num_heads'] = randint(1, 8)
@@ -376,7 +376,7 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = False  # fixme: debug
+    debug_mode = True  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:

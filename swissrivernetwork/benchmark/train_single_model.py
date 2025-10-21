@@ -70,6 +70,10 @@ def create_dataset_embedding(
 
 
 def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
+    # # test only
+    # print(config)
+    # print(settings)
+
     # Setup Dataset
     graph_name = config['graph_name']
     stations = read_stations(graph_name)
