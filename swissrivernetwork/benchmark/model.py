@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch_geometric
 import torch_geometric.nn as gnn
 
-from swissrivernetwork.benchmark.nn import TemporalNNConv
+from swissrivernetwork.benchmark.nn import TemporalNNConv, TemporalGATConv
 from swissrivernetwork.benchmark.transformer import (
     SinusoidalPositionalEncoding,
     LearnablePositionalEncoding
@@ -433,16 +433,16 @@ class SpatioTemporalEmbeddingModel(nn.Module):
             self.gconvs = nn.ModuleList([gnn.GINConv(nn_gin) for _ in range(num_convs)])
 
         elif self.method == 'GAT':
-            assert False, 'GAT is not supported'
+            # assert False, 'GAT is not supported'
             convs = []
             for i in range(num_convs):
-                concat = (i != num_convs - 1)  # concat last layer
-                if i == 0:
-                    # First Layer
-                    convs.append(gnn.GATConv(hidden_size, hidden_size, heads=num_heads, concat=concat))
-                else:
-                    # Mid Layer
-                    convs.append(gnn.GATConv(hidden_size * num_heads, hidden_size, heads=num_heads, concat=concat))
+                concat = (i == (num_convs - 1))  # concat last layer
+                convs.append(
+                    TemporalGATConv(
+                        hidden_size, hidden_size, heads=num_heads, concat=concat,
+                        add_self_loops=False  # self-loops are already added
+                    )
+                )
             self.gconvs = nn.ModuleList(convs)
             # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size*num_heads, 1)) # fix linear layer
             self.linear = nn.Linear(hidden_size * num_heads, 1)  # fix linear layer

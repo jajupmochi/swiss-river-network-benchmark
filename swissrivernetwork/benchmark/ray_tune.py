@@ -96,7 +96,7 @@ search_space_stgnn = {
     "hidden_size": randint(16, 128 + 1),  # 128
     "num_layers": randint(1, 3 + 1),  # more layers!
     # "gnn_conv": choice(['GCN', 'GIN']),
-    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN']),  # fixme: test
+    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN', 'GAT']),
     # "gnn_conv": choice(['GraphSAGE']),
     "num_convs": randint(1, 7 + 1),
     "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
@@ -262,7 +262,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
 
-        # # Add GAT Heads
+        # # Add GAT Heads: this does not work since these settings will not be settled until Ray's call.
         # search_space['num_heads'] = 0
         # if search_space['gnn_conv'] == 'GAT':
         #     search_space['num_heads'] = randint(1, 8)
