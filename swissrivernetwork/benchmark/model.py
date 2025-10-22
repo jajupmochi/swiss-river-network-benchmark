@@ -398,6 +398,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
 
     def __init__(
             self, method, input_size, num_embeddings, embedding_size, hidden_size, num_layers, num_convs, num_heads,
+            temporal_func: str = 'lstm_embedding',  # 'lstm_embedding' or 'transformer_embedding'
             **kwargs
     ):
         super().__init__()
@@ -416,7 +417,23 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         assert self.num_convs > 0, 'num_convs must be positive.'
 
         # Temporal Module: based on an LSTMEmbeddingModel per Node
-        self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
+        if temporal_func == 'lstm_embedding':
+            self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
+        elif temporal_func == 'transformer_embedding':
+            self.temporal = TransformerEmbeddingModel(
+                input_size=input_size,
+                num_embeddings=num_embeddings,  # num_embeddings if kwargs.get('use_station_embedding', True) else 0,
+                embedding_size=embedding_size,
+                num_heads=kwargs['num_t_heads'],
+                num_layers=num_layers,
+                dim_feedforward=kwargs['dim_feedforward'],
+                dropout=kwargs['dropout'],
+                d_model=hidden_size,
+                max_len=kwargs['max_len'],
+                missing_value_method=kwargs['missing_value_method'],
+                use_current_x=kwargs['use_current_x'],
+                positional_encoding=kwargs.get('positional_encoding', 'rope')
+            )
         self.temporal.linear = nn.Identity()  # remove linear layer
 
         # predefine linear layer

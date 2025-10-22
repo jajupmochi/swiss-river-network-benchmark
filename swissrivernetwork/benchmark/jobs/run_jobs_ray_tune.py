@@ -215,9 +215,10 @@ if __name__ == '__main__':
     device = 'gpu'
 
     # methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
-    methods = ['transformer_embedding', 'lstm_embedding', 'stgnn'][2:]
-    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:1]  # fixme
-    positional_encodings = ['none']  # ['learnable', 'sinusoidal', 'rope', 'none'][0:1]  # Only for transformer
+    methods = ['transformer_embedding', 'lstm_embedding', 'stgnn', 'transformer_stgnn'][3:]
+    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:]  # fixme
+    # positional_encodings = ['none']  # for lstm
+    positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:2]  # Only for transformer
     window_lens = [90]  # [90, 366, 731, 10000]
     # max_len = [500]
     missing_value_methods = ['none']  # ['mask_embedding']  # 'mask_embedding' or 'interpolation' or 'zero' or 'none'

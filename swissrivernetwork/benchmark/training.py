@@ -196,7 +196,7 @@ def training_loop(
 
             validation_mse, validation_ave_rmse, validation_rmse = compute_all_metrics(
                 epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
-                is_stg=dataloader_valid.dataset.__class__.__name__.startswith('STGNN')
+                is_stg=dataloader_valid.dataset.__class__.__name__.startswith('STGNN')  # todo: startswith or include?
             )
 
             # Log everything:

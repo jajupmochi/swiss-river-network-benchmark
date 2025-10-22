@@ -12,7 +12,7 @@ from ray.tune.schedulers import ASHAScheduler
 
 from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_stations, train_graphlet
 from swissrivernetwork.benchmark.train_single_model import (
-    train_lstm_embedding, train_stgnn, train_transformer, train_masked_transformer
+    train_lstm_embedding, train_stgnn, train_transformer, train_masked_transformer, train_transformer_stgnn
 )
 from swissrivernetwork.benchmark.util import get_run_name
 
@@ -75,11 +75,11 @@ search_space_transformer_embedding = {
     # "epochs": randint(30, 50), # 30-50
     "epochs": 30,
     "embedding_size": randint(1, 30 + 1),
-    # "hidden_size": randint(16, 128 + 1),  # 128
+    # "hidden_size": randint(16, 128 + 1),  # 128  determined by num_t_heads * ratio_heads_to_d_model
     "num_layers": randint(1, 4 + 1),  # more layers!
     "dropout": uniform(0.0, 0.5),
-    "num_heads": randint(2, 8 + 1),
-    "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_heads
+    "num_t_heads": randint(2, 8 + 1),
+    "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_t_heads
     # "d_model": randint(16, 256 + 1),  # 128
     "dim_feedforward": randint(32, 256 + 1),
     "use_station_embedding": True
@@ -100,7 +100,33 @@ search_space_stgnn = {
     # "gnn_conv": choice(['GraphSAGE']),
     "num_convs": randint(1, 7 + 1),
     "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
-    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None)
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
+    "use_station_embedding": True
+}
+
+search_space_transformer_stgnn = {
+    "batch_size": randint(1, 10),  # Batch size is times |Nodes| 30-50 bigger
+    "window_len": 90,
+    "train_split": 0.8,
+    "learning_rate": uniform(0.00001, 0.01),  # 10x less
+    # "epochs": randint(30, 50), # 30-50
+    "epochs": 30,
+    "embedding_size": randint(1, 30 + 1),
+    # "hidden_size": randint(16, 128 + 1),  # 128  determined by num_t_heads * ratio_heads_to_d_model
+    "num_layers": randint(1, 3 + 1),  # more layers!
+    # "gnn_conv": choice(['GCN', 'GIN']),
+    "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN', 'GAT']),
+    # "gnn_conv": choice(['GraphSAGE']),
+    "num_convs": randint(1, 7 + 1),
+    "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
+    # Transformer specific:
+    "dropout": uniform(0.0, 0.5),
+    "num_t_heads": randint(2, 8 + 1),
+    "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_t_heads
+    # "d_model": randint(16, 256 + 1),  # 128
+    "dim_feedforward": randint(32, 256 + 1),
+    "use_station_embedding": True
 }
 
 
@@ -223,11 +249,13 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     if 'transformer_embedding' == method:
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
+        # Transformer specific:
         search_space['max_len'] = config.max_len
+        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
         # 'mask_embedding' or 'interpolation' or 'zero' or None:
         search_space['missing_value_method'] = config.missing_value_method
+        # dataset specific:
         search_space['use_current_x'] = config.use_current_x
-        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
         search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
@@ -262,13 +290,6 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
 
-        # # Add GAT Heads: this does not work since these settings will not be settled until Ray's call.
-        # search_space['num_heads'] = 0
-        # if search_space['gnn_conv'] == 'GAT':
-        #     search_space['num_heads'] = randint(1, 8)
-        # if search_space['gnn_conv'] == 'MPNN':
-        #     search_space['edge_hidden_size'] = randint(4, 64 + 1)
-
         trainer = partial(train_stgnn, settings=config, verbose=verbose)
 
         analysis = run(
@@ -284,7 +305,41 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             resources_per_trial=resources_per_trial
         )
 
-    if method in ['lstm_embedding', 'stgnn', 'transformer_embedding']:
+    if 'transformer_stgnn' == method:
+        search_space = search_space_transformer_stgnn.copy()
+        search_space['graph_name'] = graph_name
+        # Transformer specific:
+        search_space['max_len'] = config.max_len
+        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        # 'mask_embedding' or 'interpolation' or 'zero' or None:
+        search_space['missing_value_method'] = config.missing_value_method
+        # dataset specific:
+        search_space['use_current_x'] = config.use_current_x
+        search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+        search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+        search_space['max_mask_ratio'] = config.max_mask_ratio
+
+        if config.missing_value_method is None:
+            trainer = partial(train_transformer_stgnn, settings=config, verbose=verbose)
+        elif config.missing_value_method == 'mask_embedding':
+            trainer = partial(train_masked_transformer_stgnn, settings=config, verbose=verbose)
+        else:
+            raise NotImplementedError(f'Missing value method {config.missing_value_method} not implemented.')
+
+        analysis = run(
+            trainer,
+            name=run_name,
+            config=search_space,
+            scheduler=scheduler_single_model_hard(),  # ASHA is quite a speedup
+            num_samples=num_samples,
+            metric='validation_mse',
+            mode='min',
+            max_concurrent_trials=20,  # Fix memory issues
+            storage_path=storage_path,
+            resources_per_trial=resources_per_trial
+        )
+
+    if method in ['lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']:
         # print(f'trials: {analysis.trials}')  # debug
         # print(f'last results: {[t.last_result for t in analysis.trials]}')  # debug
         # print(f'configs: {[t.config for t in analysis.trials]}')  # debug
@@ -295,7 +350,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
 
 def parse_config():
-    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
+    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']
     graphs = ['swiss-1990', 'swiss-2010', 'zurich']
 
     parser = argparse.ArgumentParser()
@@ -376,19 +431,19 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = True  # fixme: debug
+    debug_mode = False  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'stgnn.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
             'positional_encoding': 'sinusoidal',  # fixme: debug
             'window_len': 366,
-            'missing_value_method': 'mask_embedding',  # 'mask_embedding', 'interpolation'
+            'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'pad',  # 'pad' or 'drop'
             'use_current_x': True,  # True or False (next-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'

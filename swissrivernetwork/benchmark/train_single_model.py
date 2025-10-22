@@ -107,6 +107,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     model = SpatioTemporalEmbeddingModel(
         config['gnn_conv'], 1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
         config['num_convs'], config['num_heads'], edge_hidden_size=config.get('edge_hidden_size'),
+        temporal_func='lstm_embedding',
     )
 
     # Run Training Loop!
@@ -115,6 +116,9 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
         normalizer_wt=normalizer_wt,
         settings=settings, verbose=verbose
     )
+
+
+# %% Transformer Embedding:
 
 
 def train_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
@@ -156,12 +160,12 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
     model = TransformerEmbeddingModel(
         1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
         embedding_size=config['embedding_size'],
-        num_heads=config['num_heads'],
+        num_heads=config['num_t_heads'],
         num_layers=config['num_layers'],
         dim_feedforward=config['dim_feedforward'],
         dropout=config['dropout'],
         d_model=config['d_model'] if config.get('d_model', None) else int(
-            config['ratio_heads_to_d_model'] * config['num_heads']
+            config['ratio_heads_to_d_model'] * config['num_t_heads']
         ),
         max_len=config['max_len'],
         missing_value_method=config['missing_value_method'],
@@ -250,12 +254,12 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
     model = TransformerEmbeddingModel(
         1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
         embedding_size=config['embedding_size'],
-        num_heads=config['num_heads'],
+        num_heads=config['num_t_heads'],
         num_layers=config['num_layers'],
         dim_feedforward=config['dim_feedforward'],
         dropout=config['dropout'],
         d_model=config['d_model'] if config.get('d_model', None) else int(
-            config['ratio_heads_to_d_model'] * config['num_heads']
+            config['ratio_heads_to_d_model'] * config['num_t_heads']
         ),
         max_len=config['max_len'],
         missing_value_method=config['missing_value_method'],
@@ -270,10 +274,81 @@ def train_masked_transformer(config, settings: benedict = benedict({}), verbose:
     )
 
 
+# %% Transformer + STGNN:
+
+
+def train_transformer_stgnn(config, settings: benedict = benedict({}), valid_use_window: bool = True, verbose: int = 2):
+    # # test only
+    # print(config)
+    # print(settings)
+
+    # Setup Dataset
+    graph_name = config['graph_name']
+    stations = read_stations(graph_name)
+    num_embeddings = len(stations)
+    _, edges = read_graph(graph_name)
+
+    # Read and prepare data
+    df = read_csv_train(graph_name)
+    df, normalizer = normalize_columns(df)
+    normalizer_wt = StationSplitScaler(normalizer, feat_suffix='_wt')
+
+    # Create Datasets
+    df_train, df_valid = train_valid_split(config, df)
+    dataset_train = STGNNSequenceWindowedDataset(
+        config['window_len'], df_train, stations, dev_run=settings.get('dev_run', False)
+    )
+    if valid_use_window:
+        dataset_valid = STGNNSequenceWindowedDataset(config['window_len'], df_valid, stations)
+    else:
+        dataset_valid = STGNNSequenceFullDataset(df_valid, stations)
+
+    dataloader_train = torch.utils.data.DataLoader(
+        # ``drop_last`` was True. Changed to default (False) to allow dev run with small dataset:
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False  # todo: USE True?
+    )
+    batch_size = 1 if isinstance(dataset_valid, STGNNSequenceFullDataset) else config['batch_size']
+    dataloader_valid = torch.utils.data.DataLoader(
+        dataset_valid, batch_size=batch_size, shuffle=False, drop_last=False
+    )
+
+    model = SpatioTemporalEmbeddingModel(
+        config['gnn_conv'], 1, num_embeddings, config['embedding_size'],
+        config['hidden_size'] if config.get('hidden_size', None) else int(
+            config['ratio_heads_to_d_model'] * config['num_t_heads']
+        ),
+        config['num_layers'],
+        # Graph NN params:
+        config['num_convs'], config['num_heads'], edge_hidden_size=config.get('edge_hidden_size'),
+        # Transformer params:
+        temporal_func='transformer_embedding',
+        num_t_heads=config['num_t_heads'],
+        dim_feedforward=config['dim_feedforward'],
+        dropout=config['dropout'],
+        max_len=config['max_len'],
+        # Dataset related:
+        missing_value_method=config['missing_value_method'],
+        use_current_x=config['use_current_x'],
+        positional_encoding=config.get('positional_encoding', 'rope'),
+    )
+
+    # Run Training Loop!
+    training_loop(
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=False, edges=edges,
+        normalizer_wt=normalizer_wt,
+        settings=settings, verbose=verbose
+    )
+
+
+# %%
+
+
 if __name__ == '__main__':
     # fix 2010 bug:
     # graph_name = 'swiss-2010'
     graph_name = 'swiss-1990'
+
+    method = 'transformer_stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -281,7 +356,7 @@ if __name__ == '__main__':
 
     config = {
         'graph_name': graph_name,
-        'batch_size': 64,  # fixme: default 256, which is too large for stgnn with MPNN conv
+        'batch_size': 64,  # fixme: default 256, which is too large for stgnn with MPNN conv or transformer_stgnn
         'window_len': 90,  # fixme: test 90, 366, 365+366=731, inf (all past data)
         'train_split': 0.8,
         'learning_rate': 0.001,
@@ -290,9 +365,9 @@ if __name__ == '__main__':
         'hidden_size': 32,
         'edge_hidden_size': 8,  # for gnn edge network only
         'num_layers': 1,
-        'gnn_conv': 'MPNN',  # GraphSAGE
+        'gnn_conv': 'GAT',  # GraphSAGE
         'num_convs': 1,
-        'num_heads': 0,
+        'num_heads': 4,  # fixme: only used for GAT when using stgnn
         # --- Dataset specific:
         # for masked model such as masked_transformer_embedding:
         'max_mask_ratio': 0.5,  # maximum ratio of days to be masked in a window todo: not used yet.
@@ -309,58 +384,76 @@ if __name__ == '__main__':
 
     # Extra config:
     settings = {
-        'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
+        'dev_run': True,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
         'enable_wandb': True,  # fixme: debug Enable wandb logging
     }
 
-    # # train_lstm_embedding(config, settings=benedict({**settings, 'method': 'lstm_embedding'}))
-    train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
+    if method == 'lstm_embedding':
+        train_lstm_embedding(config, settings=benedict({**settings, 'method': 'lstm_embedding'}))
+    elif method == 'stgnn':
+        train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
 
-    # # Transformer specific:
-    # config.update(
-    #     {
-    #         'd_model': 32,
-    #         'num_heads': 4,
-    #         'num_layers': 4,
-    #         'dim_feedforward': 128,
-    #         'dropout': 0.1,
-    #         'use_station_embedding': True,
-    #         'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
-    #         # 'mask_embedding' or 'interpolation' or 'zero' or None
-    #         'missing_value_method': None,  # fixme: test. based on lstm or transformer
-    #         # 'mask_embedding',  # fixme: mask_embedding
-    #         'use_current_x': True,  # whether to use the current day's features as input to predict next day
-    #         'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
-    #
-    #     }
-    # )
-    #
-    # if config['missing_value_method'] is None:
-    #     train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
-    # elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
-    #     train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
-    # else:
-    #     raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
+    if not method.startswith('transformer'):
+        exit()
 
-    # # # this is the best config for swiss-1990 with transformer sinusoidal:
-    # # config.update(
-    # #     {
-    # #         'batch_size': 160,
-    # #         'window_len': 90,
-    # #         'learning_rate': 0.003399,
-    # #         'epochs': 30,
-    # #         'embedding_size': 10,
-    # #         'd_model': 32,
-    # #         'num_heads': 4,
-    # #         'num_layers': 3,
-    # #         'dim_feedforward': 116,
-    # #         'dropout': 0.0899,
-    # #         'use_station_embedding': True,
-    # #         'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
-    # #         # 'mask_embedding' or 'interpolation' or 'zero' or None
-    # #         'missing_value_method': 'mask_embedding',
-    # #         'use_current_x': True,  # whether to use the current day's features as input to predict next day
-    # #         'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
-    # #
-    # #     }
-    # # )
+    # Transformer specific:
+    config.update(
+        {
+            'd_model': 32,
+            'num_t_heads': 4,  # temporal attention heads
+            'num_layers': 4,
+            'dim_feedforward': 128,
+            'dropout': 0.1,
+            'use_station_embedding': True,
+            'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
+            # 'mask_embedding' or 'interpolation' or 'zero' or None
+            'missing_value_method': None,  # fixme: test. based on lstm or transformer fixme: mask_embedding
+            'use_current_x': True,  # whether to use the current day's features as input to predict next day
+            'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
+
+        }
+    )
+
+    if method == 'transformer_embedding':
+        if config['missing_value_method'] is None:
+            train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+        elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
+            train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+        else:
+            raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
+
+    elif method == 'transformer_stgnn':
+        # STGNN-Transformer:
+        if config['missing_value_method'] is None:
+            train_transformer_stgnn(config, settings=benedict({**settings, 'method': 'transformer_stgnn'}))
+        elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
+            train_masked_transformer_stgnn(
+                config, settings=benedict({**settings, 'method': 'masked_transformer_stgnn'})
+            )
+        else:
+            raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
+
+# %%
+
+# # # this is the best config for swiss-1990 with transformer sinusoidal:
+# # config.update(
+# #     {
+# #         'batch_size': 160,
+# #         'window_len': 90,
+# #         'learning_rate': 0.003399,
+# #         'epochs': 30,
+# #         'embedding_size': 10,
+# #         'd_model': 32,
+# #         'num_heads': 4,
+# #         'num_layers': 3,
+# #         'dim_feedforward': 116,
+# #         'dropout': 0.0899,
+# #         'use_station_embedding': True,
+# #         'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
+# #         # 'mask_embedding' or 'interpolation' or 'zero' or None
+# #         'missing_value_method': 'mask_embedding',
+# #         'use_current_x': True,  # whether to use the current day's features as input to predict next day
+# #         'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
+# #
+# #     }
+# # )
