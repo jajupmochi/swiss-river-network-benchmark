@@ -96,7 +96,9 @@ class TransformerEmbeddingModel(nn.Module):
         if positional_encoding == 'rope':
             from transformers import RoFormerModel, RoFormerConfig
             config = RoFormerConfig(
-                hidden_size=d_model,
+                # todo: remove the entire word_embeddings from the model, in case that d_model is large.
+                vocab_size=1,  # Avoid building "big" word_embeddings. Default 50000. Can not set to 0, unfortunately.
+                hidden_size=d_model,  # embedding_size = hidden_size if embedding_size is None else embedding_size
                 num_attention_heads=num_heads,
                 num_hidden_layers=num_layers,
                 intermediate_size=dim_feedforward,
