@@ -9,13 +9,13 @@ import pandas as pd
 from halo import Halo
 from ray.tune import ExperimentAnalysis
 
+from swissrivernetwork.benchmark.dataset import read_stations, read_graph
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import (
     test_lstm, test_graphlet, test_lstm_embedding, test_transformer_embedding
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
-from swissrivernetwork.benchmark.train_isolated_station import read_stations, extract_neighbors, read_graph
-from swissrivernetwork.benchmark.util import is_valid_datetime, get_run_extra_key
+from swissrivernetwork.benchmark.util import is_valid_datetime, get_run_extra_key, extract_neighbors
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -275,7 +275,7 @@ def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = 
             [path for path in directory.iterdir() if
              path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
         )
-        assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}.'
+        assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}. Path prefix {path_prefix}'
         latest_path = all_paths[-1]
         VERBOSE and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
         VERBOSE and print(f'~~~ ANALYSIS for {method} ~~~')
@@ -637,7 +637,7 @@ if __name__ == '__main__':
     settings = {
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         'use_current_x': True,
-        'window_len': 366,  # fixme: debug
+        'window_len': 90,  # fixme: debug
         'verbose': 2,
     }
 

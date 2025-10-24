@@ -1,6 +1,7 @@
+from pathlib import Path
+
 from ray.tune import ExperimentAnalysis
 
-from swissrivernetwork.benchmark.dataset import *
 # from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import summary
