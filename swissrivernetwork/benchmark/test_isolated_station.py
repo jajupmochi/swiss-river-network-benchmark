@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.pyplot as plt
 from ray.tune import ExperimentAnalysis
 
@@ -12,6 +14,8 @@ SHOW_PLOT = False
 def run_lstm_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
 ):
+    infer_time_total = time.time()
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     # print(f'Using device: {next(model.parameters()).device}.\n')
@@ -31,6 +35,10 @@ def run_lstm_model(
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
+
+    infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_end_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_start_gpu_time.record()
 
     epoch_days = []
     prediction_norm = []
@@ -62,11 +70,17 @@ def run_lstm_model(
             # Store values
             actual.append(y.cpu().detach().numpy())  # original
 
+    infer_end_gpu_time.record()
+    torch.cuda.synchronize()
+    infer_time_gpu_total = infer_start_gpu_time.elapsed_time(infer_end_gpu_time) / 1000.0  # in seconds
+
     # combine arrays. We can simply combine everything together as there is only one station:
     epoch_days = np.concatenate([i.flatten() for i in epoch_days], axis=0).flatten()
     prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
     masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
     actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
+
+    n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for win_len == inf and single models.
 
     if window_len is not None:
         # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
@@ -88,12 +102,22 @@ def run_lstm_model(
     actual = actual[masks]
     prediction = prediction[masks]
 
-    return epoch_days, prediction_norm, masks, actual, prediction
+    infer_time_total = time.time() - infer_time_total
+    extra_resu = {
+        'infer_time_total': infer_time_total,
+        'infer_time_gpu_total': infer_time_gpu_total,
+        'infer_time_per_time_step': infer_time_total / n_total_time_steps,
+        'n_total_time_steps': n_total_time_steps
+    }
+
+    return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
 
 def run_transformer_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
 ):
+    infer_time_total = time.time()
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     # print(f'Using device: {next(model.parameters()).device}.\n')
@@ -113,6 +137,10 @@ def run_transformer_model(
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
+
+    infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_end_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_start_gpu_time.record()
 
     epoch_days = []
     prediction_norm = []
@@ -143,11 +171,17 @@ def run_transformer_model(
             # Store values
             actual.append(y.cpu().detach().numpy())  # original
 
+    infer_end_gpu_time.record()
+    torch.cuda.synchronize()
+    infer_time_gpu_total = infer_start_gpu_time.elapsed_time(infer_end_gpu_time) / 1000.0  # in seconds
+
     # combine arrays. We can simply combine everything together as there is only one station:
     epoch_days = np.concatenate([i.flatten() for i in epoch_days], axis=0).flatten()
     prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
     masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
     actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
+
+    n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for win_len == inf and single models.
 
     # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
     unique_epoch_days, aggregated_dict = aggregate_day_predictions(
@@ -168,7 +202,15 @@ def run_transformer_model(
     actual = actual[masks]
     prediction = prediction[masks]
 
-    return epoch_days, prediction_norm, masks, actual, prediction
+    infer_time_total = time.time() - infer_time_total
+    extra_resu = {
+        'infer_time_total': infer_time_total,
+        'infer_time_gpu_total': infer_time_gpu_total,
+        'infer_time_per_time_step': infer_time_total / n_total_time_steps,
+        'n_total_time_steps': n_total_time_steps
+    }
+
+    return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
 
 def dump_predictions(
@@ -273,7 +315,9 @@ def test_graphlet(graph_name, station, model, dump_dir: Path | str = 'swissriver
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
-    epoch_days, prediction_norm, mask, actual, prediction = run_lstm_model(model, df, normalizer_at, normalizer_wt)
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
+        model, df, normalizer_at, normalizer_wt
+    )
 
     # comptue errors
     rmse, mae, nse = compute_errors(actual, prediction)
@@ -296,11 +340,13 @@ def test_lstm(graph_name, station, model, dump_dir: Path | str = 'swissrivernetw
     # Prepare test data:
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
-    epoch_days, prediction_norm, mask, actual, prediction = run_lstm_model(model, df, normalizer_at, normalizer_wt)
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
+        model, df, normalizer_at, normalizer_wt
+    )
     dump_predictions(graph_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
 
     # Run on Train data as well:
-    epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train = run_lstm_model(
+    epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu = run_lstm_model(
         model, df_train, normalizer_at, normalizer_wt
     )  # do not denormalize
     dump_predictions(graph_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir)
@@ -326,7 +372,7 @@ def test_lstm_embedding(
 
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
-    epoch_days, prediction_norm, mask, actual, prediction = run_lstm_model(
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
     )
 
@@ -342,7 +388,7 @@ def test_lstm_embedding(
         dump_dir=dump_dir
     )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask])
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_transformer_embedding(
@@ -355,7 +401,7 @@ def test_transformer_embedding(
 
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
-    epoch_days, prediction_norm, mask, actual, prediction = run_transformer_model(
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
     )
 
@@ -371,7 +417,7 @@ def test_transformer_embedding(
         dump_dir=dump_dir
     )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask])
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
 
 if __name__ == '__main__':

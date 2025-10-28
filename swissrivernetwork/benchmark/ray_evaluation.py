@@ -39,37 +39,17 @@ def compute_stats(df: pd.DataFrame, verbose: int = 2):
 
     returns a new DataFrame with the original data and the statistics appended at the bottom.
     """
-    stats = {
-        'Station': ['Mean', 'Std', 'Median', 'Min', 'Max'],
-        'RMSE': [
-            df['RMSE'].mean(),
-            df['RMSE'].std(),
-            df['RMSE'].median(),
-            df['RMSE'].min(),
-            df['RMSE'].max(),
-        ],
-        'MAE': [
-            df['MAE'].mean(),
-            df['MAE'].std(),
-            df['MAE'].median(),
-            df['MAE'].min(),
-            df['MAE'].max(),
-        ],
-        'NSE': [
-            df['NSE'].mean(),
-            df['NSE'].std(),
-            df['NSE'].median(),
-            df['NSE'].min(),
-            df['NSE'].max(),
-        ],
-        'N': [
-            df['N'].mean(),
-            df['N'].std(),
-            df['N'].median(),
-            df['N'].min(),
-            df['N'].max(),
+    stats = {'Station': ['Mean', 'Std', 'Median', 'Min', 'Max']}
+    metric_keys = ['RMSE', 'MAE', 'NSE', 'N']
+    extra_resu_keys = [k for k in df.keys().to_list() if k.startswith('extra__')]
+    for key in metric_keys + extra_resu_keys:
+        stats[key] = [
+            df[key].mean(),
+            df[key].std(),
+            df[key].median(),
+            df[key].min(),
+            df[key].max(),
         ]
-    }
     stats_df = pd.DataFrame(stats)
     verbose > 1 and print(f'\n{INFO_TAG}STATISTICS:')
     verbose > 1 and print(stats_df.to_string(index=False))
@@ -457,7 +437,7 @@ def evaluate_best_trial_isolated_station(
         raise ValueError(f'Unknown method: {method}')
 
 
-def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
+def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}, return_extra: bool = False):
     verbose = settings['verbose'] if 'verbose' in settings else 2
 
     verbose > 1 and print(f'~~~ Process {method} on {graph_name} ~~~')
@@ -469,6 +449,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
     col_mae = []
     col_nse = []
     col_n = []
+    col_extra_resu = {}
 
     # Setup
     stations = read_stations(graph_name)
@@ -518,7 +499,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
 
             # if True:
             try:
-                rmse, mae, nse, n, preds, params, best_trial = evaluate_best_trial_isolated_station(
+                rmse, mae, nse, n, preds, extra_resu, params, best_trial = evaluate_best_trial_isolated_station(
                     graph_name, method, station, i, output_dir=output_dir, settings=settings
                 )
                 actual, prediction, epoch_days = preds
@@ -536,10 +517,15 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                 col_mae.append(mae)
                 col_nse.append(nse)
                 col_n.append(n)
+                for k, v in extra_resu.items():
+                    if f'extra__{k}' not in col_extra_resu:
+                        col_extra_resu[f'extra__{k}'] = []
+                    col_extra_resu[f'extra__{k}'].append(v)
 
                 actuals.append(actual)
                 predictions.append(prediction)
                 epoch_day_list.append(epoch_days)
+
             except FileNotFoundError as e:
                 raise
             except Exception as e:
@@ -581,7 +567,8 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
             'RMSE': col_rmse,
             'MAE': col_mae,
             'NSE': col_nse,
-            'N': col_n
+            'N': col_n,
+            **col_extra_resu
         }
     )
 
@@ -609,7 +596,11 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         plot_graph(x, e, information=information, color=color, vmin=0.5, vmax=1.5, verbose=verbose)
         plt.savefig(test_dir / f'figure_{graph_name}_{method}.png', dpi=150)
 
-    return df
+    if return_extra:
+        extra = {'model_size': total_params}
+        return df, extra
+    else:
+        return df
 
 
 if __name__ == '__main__':
@@ -625,29 +616,29 @@ if __name__ == '__main__':
         'transformer_embedding': 90
     }
 
-    # settings = {
-    #     'max_len': 500,
-    #     'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
-    #     'use_current_x': True,
-    #     'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
-    #     'verbose': 2,
-    # }
-
-    # fixme: test for the stgnn:
     settings = {
+        'max_len': 500,
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         'use_current_x': True,
+        # 'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
         'window_len': 90,  # fixme: debug
         'verbose': 2,
     }
+
+    # # fixme: test for the stgnn:
+    # settings = {
+    #     'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
+    #     'use_current_x': True,
+    #     'verbose': 2,
+    # }
 
     settings['path_extra_keys'] = get_run_extra_key(settings)
 
     # Single Run
     SINGLE_RUN = True
     if SINGLE_RUN:
-        graph_name = GRAPH_NAMES[0]
-        method = METHODS[3]
+        graph_name = GRAPH_NAMES[2]
+        method = METHODS[2]
         process_method(
             graph_name, method, output_dir=OUTPUT_DIR, settings={
                 **settings, **{
