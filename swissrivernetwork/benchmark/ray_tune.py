@@ -86,7 +86,7 @@ search_space_transformer_embedding = {
 }
 
 search_space_stgnn = {
-    "batch_size": randint(1, 10),  # Batch size is times |Nodes| 30-50 bigger
+    "batch_size": randint(1, 5),  # Batch size is times |Nodes| 30-50 bigger  (orig: 1 - 10)
     "window_len": 90,
     "train_split": 0.8,
     "learning_rate": uniform(0.00001, 0.01),  # 10x less
@@ -105,7 +105,7 @@ search_space_stgnn = {
 }
 
 search_space_transformer_stgnn = {
-    "batch_size": randint(1, 10),  # Batch size is times |Nodes| 30-50 bigger
+    "batch_size": randint(1, 5),  # Batch size is times |Nodes| 30-50 bigger  (orig: 1 - 10)
     "window_len": 90,
     "train_split": 0.8,
     "learning_rate": uniform(0.00001, 0.01),  # 10x less
