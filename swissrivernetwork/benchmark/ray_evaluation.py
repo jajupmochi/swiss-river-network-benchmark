@@ -241,7 +241,7 @@ def experiment_analysis_isolated_station(graph_name, method, station):
 
 
 def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = '', output_dir: Path | None = None):
-    if method not in ['transformer_embedding', 'lstm_embedding', 'stgnn']:
+    if method not in ['transformer_embedding', 'lstm_embedding', 'stgnn', 'transformer_stgnn']:
         raise ValueError(f'Method {method} does not use single model training.')
 
     if graph_name not in ['swiss-1990', 'swiss-2010', 'zurich']:
@@ -298,7 +298,7 @@ def parameter_count(model):
 
 
 def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
-    if 'stgnn' == method:
+    if method in ['stgnn', 'transformer_stgnn']:
         analysis = experiment_analysis_single_model(
             graph_name, method, path_extra_keys=settings.get('path_extra_keys', ''), output_dir=output_dir
         )
@@ -317,8 +317,32 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
         input_size = 1
         num_embeddings = len(read_stations(graph_name))
         model = SpatioTemporalEmbeddingModel(
-            best_config['gnn_conv'], 1, num_embeddings, best_config['embedding_size'], best_config['hidden_size'],
-            best_config['num_layers'], best_config['num_convs'], best_config['num_heads']
+            best_config['gnn_conv'], input_size, num_embeddings, best_config['embedding_size'], best_config['hidden_size'],
+            best_config['num_layers'], best_config['num_convs'], best_config['num_heads'],
+            edge_hidden_size=best_config.get('edge_hidden_size'),
+            temporal_func='lstm_embedding',
+        )
+    elif 'transformer_stgnn' == method:
+        input_size = 1
+        num_embeddings = len(read_stations(graph_name))
+        model = SpatioTemporalEmbeddingModel(
+            best_config['gnn_conv'], input_size, num_embeddings, best_config['embedding_size'],
+            best_config['hidden_size'] if best_config.get('hidden_size', None) else int(
+                best_config['ratio_heads_to_d_model'] * best_config['num_t_heads']
+            ),
+            best_config['num_layers'],
+            # Graph NN params:
+            best_config['num_convs'], best_config['num_heads'], edge_hidden_size=best_config.get('edge_hidden_size'),
+            # Transformer params:
+            temporal_func='transformer_embedding',
+            num_t_heads=best_config['num_t_heads'],
+            dim_feedforward=best_config['dim_feedforward'],
+            dropout=best_config['dropout'],
+            max_len=best_config['max_len'],
+            # Dataset related:
+            missing_value_method=best_config['missing_value_method'],
+            use_current_x=best_config['use_current_x'],
+            positional_encoding=best_config.get('positional_encoding', 'rope'),
         )
     else:
         raise ValueError(f'Method {method} does not use single model training.')
@@ -335,6 +359,10 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'stgnn' == method:
+        return (*test_stgnn(
+            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
+    elif 'transformer_stgnn' == method:
         return (*test_stgnn(
             graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
         ), total_params, best_trial)
@@ -542,9 +570,9 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                 dump_dir=DUMP_DIR
             )  # fixme: debug
 
-    if 'stgnn' == method:
+    elif method in ['stgnn', 'transformer_stgnn']:
         # run model:
-        rmses, maes, nses, ns, preds, total_params, best_trial = evaluate_best_trial_single_model(
+        rmses, maes, nses, ns, preds, extra_resu, total_params, best_trial = evaluate_best_trial_single_model(
             graph_name, method, output_dir=output_dir, settings=settings
         )
         actuals, predictions, epoch_day_list = preds
@@ -556,6 +584,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
             col_mae.append(maes[i])
             col_nse.append(nses[i])
             col_n.append(ns[i])
+        col_extra_resu = {f'extra__{k}': v for k, v in extra_resu.items()}
 
     verbose > 1 and print('METHOD LEARNABLE PARAMETERS:', total_params)
 
@@ -606,7 +635,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
 if __name__ == '__main__':
 
     GRAPH_NAMES = ['swiss-1990', 'swiss-2010', 'zurich']
-    METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding']
+    METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']
 
     window_len_map = {  # fixme: experiment
         'lstm': None,
@@ -632,25 +661,30 @@ if __name__ == '__main__':
     #     'verbose': 2,
     # }
 
-    settings['path_extra_keys'] = get_run_extra_key(settings)
-
     # Single Run
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
-        method = METHODS[2]
+        method = METHODS[5]
+
+        # Transformer specific settings:
+        if method.startswith('transformer_'):
+            settings['positional_encoding'] = 'sinusoidal'  # 'learnable' or 'sinusoidal' or 'rope' or None
+
+        settings['path_extra_keys'] = get_run_extra_key(settings)
+
         process_method(
-            graph_name, method, output_dir=OUTPUT_DIR, settings={
-                **settings, **{
-                    'window_len': window_len_map[method]
-                }
-            }
+            graph_name, method, output_dir=OUTPUT_DIR, settings=settings#{
+                # **settings, **{
+                #     'window_len': window_len_map[method]
+                # }
+            # }
         )
 
     # Graph Run
     GRAPH_RUN = False
     if GRAPH_RUN:
-        graph_name = GRAPH_NAMES[0]
+        graph_name = GRAPH_NAMES[2]
         for m in METHODS[4:5]:  # fixme: test only [2:3}
             process_method(
                 graph_name, m, output_dir=OUTPUT_DIR, settings={

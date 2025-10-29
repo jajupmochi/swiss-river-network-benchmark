@@ -348,7 +348,7 @@ if __name__ == '__main__':
     # graph_name = 'swiss-2010'
     graph_name = 'swiss-1990'
 
-    method = 'transformer_stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
+    method = 'transformer_embedding'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -356,7 +356,7 @@ if __name__ == '__main__':
 
     config = {
         'graph_name': graph_name,
-        'batch_size': 64,  # fixme: default 256, which is too large for stgnn with MPNN conv or transformer_stgnn
+        'batch_size': 256,  # fixme: default 256, which is too large for stgnn with MPNN conv or transformer_stgnn
         'window_len': 90,  # fixme: test 90, 366, 365+366=731, inf (all past data)
         'train_split': 0.8,
         'learning_rate': 0.001,
@@ -384,7 +384,7 @@ if __name__ == '__main__':
 
     # Extra config:
     settings = {
-        'dev_run': True,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
+        'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
         'enable_wandb': True,  # fixme: debug Enable wandb logging
     }
 
@@ -409,7 +409,7 @@ if __name__ == '__main__':
             # 'mask_embedding' or 'interpolation' or 'zero' or None
             'missing_value_method': None,  # fixme: test. based on lstm or transformer fixme: mask_embedding
             'use_current_x': True,  # whether to use the current day's features as input to predict next day
-            'positional_encoding': 'sinusoidal',  # 'sinusoidal' or 'rope' or 'learnable' or None
+            'positional_encoding': 'rope',  # 'sinusoidal' or 'rope' or 'learnable' or None
 
         }
     )

@@ -181,7 +181,7 @@ def run_transformer_model(
     masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
     actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
 
-    n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for win_len == inf and single models.
+    n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for full sequences.
 
     # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
     unique_epoch_days, aggregated_dict = aggregate_day_predictions(

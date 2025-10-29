@@ -1,7 +1,11 @@
+import time
 from pathlib import Path
 
 from ray.tune import ExperimentAnalysis
+from sklearn.preprocessing import MinMaxScaler
 
+from swissrivernetwork.benchmark.dataset import STGNNSequenceFullDataset, STGNNSequenceWindowedDataset
+from swissrivernetwork.benchmark.dataset import read_stations, read_graph, read_csv_train, read_csv_test
 # from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import summary
@@ -25,6 +29,8 @@ def test_stgnn(
         graph_name, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
+    infer_time_total = time.time()
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
 
@@ -58,6 +64,10 @@ def test_stgnn(
         dataset = STGNNSequenceWindowedDataset(window_len, df, stations)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
 
+    infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_end_gpu_time = torch.cuda.Event(enable_timing=True)
+    infer_start_gpu_time.record()
+
     # Compute this:
     # epoch_days, prediction_norm, mask, actual, prediction
     epoch_days, prediction_norm, actual, masks = [], [], [], []
@@ -82,12 +92,19 @@ def test_stgnn(
             actual.append(y.cpu().detach().numpy())
             masks.append(mask.cpu().detach().numpy())
 
+    infer_end_gpu_time.record()
+    torch.cuda.synchronize()
+    infer_time_gpu_total = infer_start_gpu_time.elapsed_time(infer_end_gpu_time) / 1000.0  # in seconds
+
     # Shape before: [[B, n_stations, seq_len / win_len, 1], ...]
     # Shape after:  [[n_stations, seq_len / win_len, 1], ...] (n_subsequences)
     epoch_days = [i for t in epoch_days for i in t]
     prediction_norm = [i for p in prediction_norm for i in p]
     actual = [i for a in actual for i in a]
     masks = [i for m in masks for i in m]
+
+    # fixme: check if it is correct for full sequences:
+    n_total_time_steps = np.sum([p.shape[0] * p.shape[1] for p in prediction_norm])
 
     # Combine arrays:
     all_epoch_days, all_actual, all_prediction, all_masks = [], [], [], []
@@ -123,6 +140,14 @@ def test_stgnn(
         all_actual.append(station_actual)  # masked
         all_prediction.append(station_prediction)  # masked
 
+    infer_time_total = time.time() - infer_time_total
+    extra_resu = {
+        'infer_time_total': [infer_time_total / n_stations] * n_stations,
+        'infer_time_gpu_total': [infer_time_gpu_total / n_stations] * n_stations,
+        'infer_time_per_time_step': [infer_time_total / n_total_time_steps] * n_stations,
+        'n_total_time_steps': [n_total_time_steps / n_stations] * n_stations,
+    }
+
     # Compute errors
     rmses = []
     maes = []
@@ -145,7 +170,7 @@ def test_stgnn(
         nses.append(nse)
         ns.append(len(all_prediction[i]))
 
-    return rmses, maes, nses, ns, (all_actual, all_prediction, all_epoch_days)
+    return rmses, maes, nses, ns, (all_actual, all_prediction, all_epoch_days), extra_resu
 
 
 if __name__ == '__main__':
