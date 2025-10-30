@@ -3,6 +3,7 @@ from benedict import benedict
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.training import training_loop
+from swissrivernetwork.benchmark.util import is_transformer_model
 from swissrivernetwork.util.scaler import StationSplitScaler
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -393,7 +394,7 @@ if __name__ == '__main__':
     elif method == 'stgnn':
         train_stgnn(config, settings=benedict({**settings, 'method': 'stgnn'}))
 
-    if not method.startswith('transformer'):
+    if not is_transformer_model(method):
         exit()
 
     # Transformer specific:

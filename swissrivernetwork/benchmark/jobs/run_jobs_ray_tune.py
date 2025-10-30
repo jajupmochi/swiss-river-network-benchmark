@@ -13,6 +13,8 @@ E.g., Python 3.10.4-GCCcore-11.3.0 trained and saved checkpoints can not be load
 import os
 import re
 
+from swissrivernetwork.benchmark.util import is_transformer_model
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 
 # prefix keyword # TODO
@@ -242,7 +244,7 @@ if __name__ == '__main__':
 
     params_list = list(ParameterGrid(params_list))
     for i, params in enumerate(params_list):
-        if params['method'].startswith('transformer'):
+        if is_transformer_model(params['method']):
             device = 'gpu'
         # elif params['method'] in ['lstm', 'graphlet', 'lstm_embedding', 'stgnn']:
         #     device = 'cpu'  # todo: seems with ray tune, cpu is not working properly.

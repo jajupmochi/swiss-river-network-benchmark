@@ -214,7 +214,8 @@ def run_transformer_model(
 
 
 def dump_predictions(
-        graph_name, station, suffix, epoch_days, prediction, dump_dir: Path | str = 'swissrivernetwork/journal/dump'
+        graph_name: str, model: str, station, suffix, epoch_days, prediction,
+        dump_dir: Path | str = 'swissrivernetwork/journal/dump'
 ):
     assert len(epoch_days) == len(prediction), 'not same amount'
 
@@ -225,7 +226,7 @@ def dump_predictions(
         }
     )
 
-    pred_path = Path(dump_dir) / f'prediction/{graph_name}_lstm_{station}_{suffix}.csv'
+    pred_path = Path(dump_dir) / f'prediction/{graph_name}_{model}_{station}_{suffix}.csv'
     os.makedirs(pred_path.parent, exist_ok=True)
     df.to_csv(pred_path, index=False)
 
@@ -330,8 +331,13 @@ def test_graphlet(graph_name, station, model, dump_dir: Path | str = 'swissriver
     return rmse, mae, nse, len(prediction)
 
 
-def test_lstm(graph_name, station, model, dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'):
-    # Prepare normlalizers:
+def test_lstm(
+        graph_name, station, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+):
+    model_name = model.__class__.__name__
+
+    # Prepare normalizers:
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
     normalizer_at, normalizer_wt = fit_normalizers(df_train)
@@ -341,25 +347,78 @@ def test_lstm(graph_name, station, model, dump_dir: Path | str = 'swissrivernetw
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )
-    dump_predictions(graph_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
+    dump_predictions(graph_name, model_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
 
     # Run on Train data as well:
-    epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu = run_lstm_model(
-        model, df_train, normalizer_at, normalizer_wt
+    (
+        epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu_train
+    ) = run_lstm_model(
+        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )  # do not denormalize
-    dump_predictions(graph_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir)
+    dump_predictions(
+        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir
+    )
 
     # Compute errors:
     rmse, mae, nse = compute_errors(actual, prediction)
     title = summary(station, rmse, mae, nse)
-    print(title)
+    verbose > 1 and print(title)
 
     # Plot Figure of Test Data
-    plot(graph_name, 'lstm', station, epoch_days[mask], actual, prediction, title, dump_dir=dump_dir)
+    plot(
+        graph_name, 'lstm', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # debug
+        dump_dir=dump_dir
+    )
 
-    return rmse, mae, nse, len(prediction)
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+
+
+def test_transformer(
+        graph_name, station, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+):
+    model_name = model.__class__.__name__
+
+    # Prepare normalizers:
+    df_train = read_csv_train(graph_name)
+    df_train = select_isolated_station(df_train, station)
+    normalizer_at, normalizer_wt = fit_normalizers(df_train)
+    # What if we load normalizers from checkpoint?!
+
+    # Prepare test data:
+    df = read_csv_test(graph_name)
+    df = select_isolated_station(df, station)
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+    )
+    dump_predictions(graph_name, model_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
+
+    # Run on Train data as well:
+    (
+        epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu_train
+    ) = run_transformer_model(
+        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+    )  # do not denormalize
+    dump_predictions(
+        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir
+    )
+
+    # Compute errors:
+    rmse, mae, nse = compute_errors(actual, prediction)
+    title = summary(station, rmse, mae, nse)
+    verbose > 1 and print(title)
+
+    # Plot Figure of Test Data
+    plot(
+        graph_name, 'transformer', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # debug
+        dump_dir=dump_dir
+    )
+
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_lstm_embedding(

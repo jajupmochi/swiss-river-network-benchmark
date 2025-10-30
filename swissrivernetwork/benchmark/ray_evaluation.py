@@ -12,10 +12,12 @@ from ray.tune import ExperimentAnalysis
 from swissrivernetwork.benchmark.dataset import read_stations, read_graph
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import (
-    test_lstm, test_graphlet, test_lstm_embedding, test_transformer_embedding
+    test_lstm, test_graphlet, test_lstm_embedding, test_transformer, test_transformer_embedding
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
-from swissrivernetwork.benchmark.util import is_valid_datetime, get_run_extra_key, extract_neighbors
+from swissrivernetwork.benchmark.util import (
+    is_valid_datetime, get_run_extra_key, extract_neighbors, is_transformer_model
+)
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
@@ -56,6 +58,17 @@ def compute_stats(df: pd.DataFrame, verbose: int = 2):
     # Append statistics to the original DataFrame
     df_stats = pd.concat([df, stats_df], ignore_index=True)
     return df_stats
+
+
+def load_latest_run_results(directory: Path, path_prefix: str = '', verbose: bool = False) -> Path:
+    all_paths = sorted(
+        [path for path in directory.iterdir() if
+         path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
+    )
+    assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}. Path prefix {path_prefix}.'
+    latest_path = all_paths[-1]
+    verbose and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
+    return latest_path
 
 
 def get_metrics_from_ray_trial(
@@ -216,28 +229,38 @@ def plot_diff(
 # %%
 
 
-def experiment_analysis_isolated_station(graph_name, method, station):
+def experiment_analysis_isolated_station(
+        graph_name, method, station, path_extra_keys: str = '', output_dir: Path | None = None
+):
     date = None
-    if 'lstm' == method and 'swiss-1990' == graph_name:
-        date = '05-09_19-27-00'
-    if 'lstm' == method and 'swiss-2010' == graph_name:
-        date = '05-13_13-32-54'
-    if 'lstm' == method and 'zurich' == graph_name:
-        # date = '05-27_09-41-13'
-        date = '07-24_18-48-21'
-    if 'graphlet' == method and 'swiss-1990' == graph_name:
-        date = '05-13_16-43-09'
-    if 'graphlet' == method and 'swiss-2010' == graph_name:
-        date = '05-13_16-59-26'
-    if 'graphlet' == method and 'zurich' == graph_name:
-        # date = '07-23_11-55-42'
-        date = '07-25_09-16-32'
 
-    directory = '/home/benjamin/ray_results'
-    matching_items = [item for item in os.listdir(directory) if date in item and method in item and station in item]
-    assert len(matching_items) == 1, 'Identifier is not unique'
-    VERBOSE and print(f'{INFO_TAG}~~~ ANALYSIS for {method} at {station} ~~~')
-    return ExperimentAnalysis(f'{directory}/{matching_items[0]}')
+    directory = '/home/benjamin/ray_results' if output_dir is None else output_dir
+
+    if LOAD_LATEST_RESULTS:
+        path_prefix = f'{method}-{graph_name}' + (f'{path_extra_keys}-' if path_extra_keys else '')
+        latest_path = load_latest_run_results(OUTPUT_DIR, path_prefix, verbose=VERBOSE)
+        VERBOSE and print(f'{INFO_TAG}~~~ ANALYSIS for {method} at {station} ~~~')
+        return ExperimentAnalysis(f'{str(latest_path)}/{station}')
+    else:
+        if 'lstm' == method and 'swiss-1990' == graph_name:
+            date = '05-09_19-27-00'
+        if 'lstm' == method and 'swiss-2010' == graph_name:
+            date = '05-13_13-32-54'
+        if 'lstm' == method and 'zurich' == graph_name:
+            # date = '05-27_09-41-13'
+            date = '07-24_18-48-21'
+        if 'graphlet' == method and 'swiss-1990' == graph_name:
+            date = '05-13_16-43-09'
+        if 'graphlet' == method and 'swiss-2010' == graph_name:
+            date = '05-13_16-59-26'
+        if 'graphlet' == method and 'zurich' == graph_name:
+            # date = '07-23_11-55-42'
+            date = '07-25_09-16-32'
+
+        matching_items = [item for item in os.listdir(directory) if date in item and method in item and station in item]
+        assert len(matching_items) == 1, 'Identifier is not unique'
+        VERBOSE and print(f'{INFO_TAG}~~~ ANALYSIS for {method} at {station} ~~~')
+        return ExperimentAnalysis(f'{directory}/{matching_items[0]}')
 
 
 def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = '', output_dir: Path | None = None):
@@ -251,13 +274,7 @@ def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = 
 
     if LOAD_LATEST_RESULTS:
         path_prefix = f'{method}-{graph_name}' + (f'{path_extra_keys}-' if path_extra_keys else '')
-        all_paths = sorted(
-            [path for path in directory.iterdir() if
-             path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
-        )
-        assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}. Path prefix {path_prefix}'
-        latest_path = all_paths[-1]
-        VERBOSE and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
+        latest_path = load_latest_run_results(directory, path_prefix, verbose=VERBOSE)
         VERBOSE and print(f'~~~ ANALYSIS for {method} ~~~')
         return ExperimentAnalysis(str(latest_path))
 
@@ -317,7 +334,8 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
         input_size = 1
         num_embeddings = len(read_stations(graph_name))
         model = SpatioTemporalEmbeddingModel(
-            best_config['gnn_conv'], input_size, num_embeddings, best_config['embedding_size'], best_config['hidden_size'],
+            best_config['gnn_conv'], input_size, num_embeddings, best_config['embedding_size'],
+            best_config['hidden_size'],
             best_config['num_layers'], best_config['num_convs'], best_config['num_heads'],
             edge_hidden_size=best_config.get('edge_hidden_size'),
             temporal_func='lstm_embedding',
@@ -373,9 +391,11 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
 def evaluate_best_trial_isolated_station(
         graph_name, method, station, i, output_dir: Path | None = None, settings: dict = {}
 ):
-    if 'lstm' == method or 'graphlet' == method:
-        analysis = experiment_analysis_isolated_station(graph_name, method, station)
-    if method in ['lstm_embedding', 'stgnn', 'transformer_embedding']:
+    if method in ['lstm', 'graphlet', 'transformer', 'transformer_graphlet']:
+        analysis = experiment_analysis_isolated_station(
+            graph_name, method, station, path_extra_keys=settings.get('path_extra_keys', ''), output_dir=output_dir
+        )
+    if method in ['lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']:
         analysis = experiment_analysis_single_model(
             graph_name, method, path_extra_keys=settings.get('path_extra_keys', ''), output_dir=output_dir
         )
@@ -392,23 +412,40 @@ def evaluate_best_trial_isolated_station(
     best_checkpoint = analysis.get_best_checkpoint(best_trial_all, metric="validation_mse", mode="min")
 
     # Determine input_size:
-    if method in ['lstm', 'lstm_embedding', 'transformer_embedding']:
+    if method in ['lstm', 'lstm_embedding', 'transformer', 'transformer_embedding']:
         input_size = 1
-    if 'graphlet' == method:
+    elif method in ['graphlet', 'transformer_graphlet']:
         input_size = 1 + len(extract_neighbors(graph_name, station, 1))
+    else:
+        raise ValueError(f'Unknown method: {method}.')
 
     if method in ['lstm_embedding', 'transformer_embedding']:
         num_embeddings = len(read_stations(graph_name))
         embedding_size = best_config['embedding_size']
 
     # Create Model:        
-    if 'lstm' == method or 'graphlet' == method:
+    if method in ['lstm', 'graphlet']:
         model = LstmModel(input_size, best_config['hidden_size'], best_config['num_layers'])
-    if 'lstm_embedding' == method:
+    elif method in ['transformer', 'transformer_graphlet']:
+        model = TransformerModel(
+            input_size, 0, 0,
+            num_heads=best_config['num_t_heads'],
+            num_layers=best_config['num_layers'],
+            dim_feedforward=best_config['dim_feedforward'],
+            dropout=best_config['dropout'],
+            d_model=best_config['d_model'] if best_config.get('d_model', None) else int(
+                best_config['ratio_heads_to_d_model'] * best_config['num_t_heads']
+            ),
+            max_len=best_config['max_len'],
+            missing_value_method=best_config['missing_value_method'],
+            use_current_x=best_config['use_current_x'],
+            positional_encoding=best_config.get('positional_encoding', 'rope'),
+        )
+    elif 'lstm_embedding' == method:
         model = LstmEmbeddingModel(
             input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers']
         )
-    if 'transformer_embedding' == method:
+    elif 'transformer_embedding' == method:
         model = TransformerEmbeddingModel(
             input_size, num_embeddings=num_embeddings if best_config['use_station_embedding'] else 0,
             embedding_size=best_config['embedding_size'],
@@ -424,6 +461,8 @@ def evaluate_best_trial_isolated_station(
             use_current_x=settings['use_current_x'],
             positional_encoding=settings['positional_encoding'],
         )
+    else:
+        raise ValueError(f'Unknown method: {method}.')
 
     # move
     # if 'stgnn' == method:
@@ -439,8 +478,14 @@ def evaluate_best_trial_isolated_station(
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'lstm' == method:
-        return (*test_lstm(graph_name, station, model, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)),
-                total_params, best_trial)
+        return (*test_lstm(
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
+    elif 'transformer' == method:
+        return (*test_transformer(
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
+            verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
     elif 'graphlet' == method:
         return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)),
                 total_params, best_trial)
@@ -489,7 +534,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
 
     total_params = 0
 
-    if method in ['lstm', 'graphlet', 'lstm_embedding', 'transformer_embedding']:
+    if method in ['lstm', 'graphlet', 'lstm_embedding', 'transformer', 'transformer_graphlet', 'transformer_embedding']:
         if verbose > 1:
             spinner = Halo(
                 text='Processing Stations ->', spinner='pong', color='cyan', text_color='grey',
@@ -635,7 +680,10 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
 if __name__ == '__main__':
 
     GRAPH_NAMES = ['swiss-1990', 'swiss-2010', 'zurich']
-    METHODS = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']
+    METHODS = [
+        'lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer', 'transformer_embedding',
+        'transformer_stgnn'
+    ]
 
     window_len_map = {  # fixme: experiment
         'lstm': None,
@@ -649,7 +697,7 @@ if __name__ == '__main__':
         'max_len': 500,
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         'use_current_x': True,
-        # 'positional_encoding': 'sinusoidal',  # 'learnable' or 'sinusoidal' or 'rope' or None
+        'positional_encoding': 'none',  # fixme: 'none for lstm, 'learnable' or 'sinusoidal' or 'rope' or None
         'window_len': 90,  # fixme: debug
         'verbose': 2,
     }
@@ -665,19 +713,20 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
-        method = METHODS[5]
+        method = METHODS[4]
 
         # Transformer specific settings:
-        if method.startswith('transformer_'):
-            settings['positional_encoding'] = 'sinusoidal'  # 'learnable' or 'sinusoidal' or 'rope' or None
+        if is_transformer_model(method):
+            # Reset positional encoding:
+            settings['positional_encoding'] = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
 
         settings['path_extra_keys'] = get_run_extra_key(settings)
 
         process_method(
-            graph_name, method, output_dir=OUTPUT_DIR, settings=settings#{
-                # **settings, **{
-                #     'window_len': window_len_map[method]
-                # }
+            graph_name, method, output_dir=OUTPUT_DIR, settings=settings  # {
+            # **settings, **{
+            #     'window_len': window_len_map[method]
+            # }
             # }
         )
 
