@@ -7,8 +7,7 @@ import torch
 from benedict import benedict
 from torch_geometric.utils import k_hop_subgraph, to_undirected
 
-
-# from swissrivernetwork.benchmark.dataset import read_graph
+from swissrivernetwork.benchmark.dataset import read_graph
 
 
 def save(object, checkpoint_dir, name):

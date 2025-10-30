@@ -56,7 +56,8 @@ def training_loop(
 
     # Login via command line: `wandb login <your_api_key>`
     disable_wandb = settings.get('dev_run', False) or wandb_project is None or not settings.get('enable_wandb', False)
-    name = f'{config["graph_name"]}_{model.__class__.__name__}'
+    # class name may differ from method:_{model.__class__.__name__}':
+    name = f'{config["graph_name"]}_{settings.get("method", model.__class__.__name__)}'
     ray_trial_id = safe_get_ray_trial_id()
     if ray_trial_id:
         name += f'_{ray_trial_id}'

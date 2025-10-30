@@ -46,6 +46,12 @@ def read_csv_prediction_test(graph_name, station, base_dir: str | Path = PROJ_DI
     return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/prediction/{graph_name}_lstm_{station}_test.csv')
 
 
+def read_station_data_from_df(df_all: pd.DataFrame, station: str):
+    return df_all[['epoch_day', f'{station}_wt', f'{station}_at']].rename(
+        columns={f'{station}_wt': f'{station}_wt_hat', f'{station}_at': f'{station}_at_hat'}
+    )
+
+
 def normalize_isolated_station(df):
     # Normalize air temperature, water temperature
     normalizer_at = MinMaxScaler()
@@ -224,7 +230,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         x = torch.FloatTensor(df['air_temperature'].values).unsqueeze(-1)
         y = torch.FloatTensor(df['water_temperature'].values).unsqueeze(-1)
 
-        # check for predictions (wt_hat):
+        # check for predictions (wt_hat) (for graphlet models):
         matches = df.columns.str.contains(r'_wt_hat$')
         matching_columns = df.columns[matches]
         neighs = [torch.FloatTensor(df[col].values).unsqueeze(-1) for col in matching_columns]
@@ -396,7 +402,7 @@ class SequenceMaskedDataset(SequenceDataset):
         y = torch.FloatTensor(df['water_temperature'].values).unsqueeze(-1)
         time_masks = torch.BoolTensor(df['time_mask'].values)  # [seq_len], True means to ignore / to mask
 
-        # check for predictions (wt_hat):
+        # check for predictions (wt_hat):  fixme validate this part:
         matches = df.columns.str.contains(r'_wt_hat$')
         matching_columns = df.columns[matches]
         neighs = [torch.FloatTensor(df[col].values).unsqueeze(-1) for col in matching_columns]

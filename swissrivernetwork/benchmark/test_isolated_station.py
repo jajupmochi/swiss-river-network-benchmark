@@ -301,7 +301,10 @@ def plot(
     plt.close()
 
 
-def test_graphlet(graph_name, station, model, dump_dir: Path | str = 'swissrivernetwork/benckmark/dump'):
+def test_graphlet(
+        graph_name, station, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+):
     # load normalizers
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
@@ -317,25 +320,64 @@ def test_graphlet(graph_name, station, model, dump_dir: Path | str = 'swissriver
 
     # run lstm model on it
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )
 
     # comptue errors
     rmse, mae, nse = compute_errors(actual, prediction)
     title = summary(station, rmse, mae, nse)
-    print(title)
+    verbose > 1 and print(title)
 
     # create graphs
-    plot(graph_name, 'graphlet', station, epoch_days[mask], actual, prediction, title, dump_dir=dump_dir)
+    plot(
+        graph_name, 'graphlet', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # debug
+        dump_dir=dump_dir
+    )
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
-    return rmse, mae, nse, len(prediction)
+
+def test_transformer_graphlet(
+        graph_name, station, model, window_len: int | None = None,
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+):
+    # load normalizers
+    df_train = read_csv_train(graph_name)
+    df_train = select_isolated_station(df_train, station)
+    normalizer_at, normalizer_wt = fit_normalizers(df_train)
+
+    # prepare test data (using neighbors)
+    num_hops = 1
+    neighs = extract_neighbors(graph_name, station, num_hops)
+    df = read_csv_test(graph_name)
+    df = select_isolated_station(df, station)
+    df_neighs = [read_csv_prediction_test(graph_name, neigh) for neigh in neighs]
+    df = merge_graphlet_dfs(df, df_neighs)
+
+    # run lstm model on it
+    epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+    )
+
+    # comptue errors
+    rmse, mae, nse = compute_errors(actual, prediction)
+    title = summary(station, rmse, mae, nse)
+    verbose > 1 and print(title)
+
+    # create graphs
+    plot(
+        graph_name, 'transformer_graphlet', station, epoch_days[mask], actual, prediction, title,
+        plot_diff=True,  # debug
+        dump_dir=dump_dir
+    )
+    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_lstm(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
-    model_name = model.__class__.__name__
+    model_name = model.__class__.__name__.lower().rstrip('model')
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)
@@ -380,7 +422,7 @@ def test_transformer(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
-    model_name = model.__class__.__name__
+    model_name = model.__class__.__name__.lower().rstrip('model')
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)

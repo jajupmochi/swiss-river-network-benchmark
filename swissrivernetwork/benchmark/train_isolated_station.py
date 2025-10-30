@@ -43,6 +43,7 @@ def train_graphlet(config, settings: benedict = benedict({}), verbose: int = 2):
     neighs = extract_neighbors(graph_name, station, num_hops)
     df = read_csv_train(graph_name)
     df = select_isolated_station(df, station)
+    # Run test_lstm first to generate neigh prediction files:
     df_neighs = [read_csv_prediction_train(graph_name, neigh) for neigh in neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
@@ -121,12 +122,11 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
 
 if __name__ == '__main__':
     # fix 2010 bug:
-    # graph_name = 'swiss-2010'
-    graph_name = 'swiss-1990'
+    graph_name = 'zurich'  # 'swiss-1990' or 'swiss-2010' or 'zurich'
 
-    method = 'lstm'  # 'lstm', 'graphlet', 'transformer', or 'transformer_graphlet'
+    method = 'transformer_graphlet'  # 'lstm', 'graphlet', 'transformer', or 'transformer_graphlet'
 
-    station = '2091'
+    station = '534'  # '2091' for 'swiss-1990', '534' for 'zurich'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -192,5 +192,10 @@ if __name__ == '__main__':
             train_transformer(config, settings=benedict({**settings, 'method': 'transformer'}))
         else:
             raise NotImplementedError
+    elif method == 'transformer_graphlet':
+        if config['missing_value_method'] is None:
+            train_transformer_graphlet(config, settings=benedict({**settings, 'method': 'transformer_graphlet'}))
+        else:
+            raise NotImplementedError
     else:
-        raise NotImplementedError
+        raise ValueError(f'Unknown method: {method}.')

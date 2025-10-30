@@ -12,7 +12,8 @@ from ray.tune import ExperimentAnalysis
 from swissrivernetwork.benchmark.dataset import read_stations, read_graph
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import (
-    test_lstm, test_graphlet, test_lstm_embedding, test_transformer, test_transformer_embedding
+    test_lstm, test_graphlet, test_lstm_embedding,
+    test_transformer, test_transformer_graphlet, test_transformer_embedding
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
 from swissrivernetwork.benchmark.util import (
@@ -487,8 +488,14 @@ def evaluate_best_trial_isolated_station(
             verbose=settings.get('verbose', 2)
         ), total_params, best_trial)
     elif 'graphlet' == method:
-        return (*test_graphlet(graph_name, station, model, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)),
-                total_params, best_trial)
+        return (*test_graphlet(
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
+    elif 'transformer_graphlet' == method:
+        return (*test_transformer_graphlet(
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
+            verbose=settings.get('verbose', 2)
+        ), total_params, best_trial)
     elif 'lstm_embedding' == method:
         return (*test_lstm_embedding(
             graph_name, station, i, model,
@@ -681,8 +688,8 @@ if __name__ == '__main__':
 
     GRAPH_NAMES = ['swiss-1990', 'swiss-2010', 'zurich']
     METHODS = [
-        'lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer', 'transformer_embedding',
-        'transformer_stgnn'
+        'lstm', 'graphlet', 'lstm_embedding', 'stgnn',
+        'transformer', 'transformer_graphlet', 'transformer_embedding', 'transformer_stgnn'
     ]
 
     window_len_map = {  # fixme: experiment
@@ -713,7 +720,7 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
-        method = METHODS[4]
+        method = METHODS[5]
 
         # Transformer specific settings:
         if is_transformer_model(method):

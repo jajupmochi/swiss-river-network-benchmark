@@ -435,6 +435,9 @@ if __name__ == '__main__':
         else:
             raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
 
+    else:
+        raise ValueError(f'Unknown method: {method}.')
+
 # %%
 
 # # # this is the best config for swiss-1990 with transformer sinusoidal:

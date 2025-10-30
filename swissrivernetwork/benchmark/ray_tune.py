@@ -18,7 +18,7 @@ from swissrivernetwork.benchmark.train_single_model import (
     train_lstm_embedding, train_stgnn, train_transformer_embedding, train_masked_transformer_embedding,
     train_transformer_stgnn
 )
-from swissrivernetwork.benchmark.util import get_run_name
+from swissrivernetwork.benchmark.util import get_run_name, is_transformer_model
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -258,7 +258,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             print('Best config: ', analysis.best_config)
             print(f'Best results: {analysis.best_result}')
 
-    if method in ['transformer', 'transformer_graphlet']:
+    elif method in ['transformer', 'transformer_graphlet']:
 
         for station in read_stations(graph_name):
 
@@ -512,13 +512,15 @@ if __name__ == '__main__':
         # Exp1: LSTM with embedding:
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
-            'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
-            'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
+            'graph': 'zurich',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
-            'positional_encoding': 'rope',  # fixme: debug, 'none', 'sinusoidal', 'rope', 'learnable'
+            'positional_encoding': 'rope',  # fixme: debug, 'none', transformers only: 'sinusoidal', 'rope', 'learnable'
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'drop',  # 'pad' or 'drop'
@@ -526,6 +528,9 @@ if __name__ == '__main__':
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
         }
+
+        if not is_transformer_model(debug_cfg['config'].stem):
+            debug_cfg['positional_encoding'] = 'none'
 
         # Set the cfg as the input args:
         sys.argv = [sys.argv[0]]
