@@ -23,8 +23,8 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 def training_loop(
         config, dataloader_train, dataloader_valid, model, n_valid, use_embedding, edges=None,
-        normalizer_at: list[BaseEstimator] | StationSplitScaler = None,
-        normalizer_wt: list[BaseEstimator] | StationSplitScaler = None,
+        normalizer_at: list[BaseEstimator] | StationSplitScaler | dict[str, BaseEstimator] = None,
+        normalizer_wt: list[BaseEstimator] | StationSplitScaler | dict[str, BaseEstimator] = None,
         wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
@@ -245,7 +245,7 @@ def compute_all_metrics(
         validation_criterion: nn.Module,
         is_stg: bool
 ):
-    # Shapes of items in lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
+    # Shapes of items in input lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
     # - For SeqFull[Masked]Dataset: [B, seq_len, 1]. ``seq_len`` may vary.
     # - For SeqWindowed[Masked]Dataset: [B, win_len, 1]. ``win_len`` is fixed.
     # - For STGNNSequenceFullDataset: [B, n_stations, seq_len, 1]. ``seq_len`` may vary.
@@ -309,12 +309,18 @@ def compute_all_metrics_isolated_station(
 
 
     def construct_station_iterator():
-        assert len(dataloader_valid.dataset.datasets) == len(dataloader_valid.dataset.cumulative_sizes), (
-            'Mismatch between number of stations and cumulative sizes!'
-        )
-        station_names = [ds.name for ds in dataloader_valid.dataset.datasets]
-        cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulate # of sub-sequences per station
-        return zip(station_names, zip(cumulative_sizes[:-1], cumulative_sizes[1:]))
+        if hasattr(dataloader_valid.dataset, 'cumulative_sizes'):
+            # ConcatDataset, e.g., for lstm_embedding and transformer_embedding methods:
+            assert len(dataloader_valid.dataset.datasets) == len(dataloader_valid.dataset.cumulative_sizes), (
+                'Mismatch between number of stations and cumulative sizes!'
+            )
+            station_names = [ds.name for ds in dataloader_valid.dataset.datasets]
+            cumulative_sizes = [0] + dataloader_valid.dataset.cumulative_sizes  # cumulate # of sub-sequences per station
+            return zip(station_names, zip(cumulative_sizes[:-1], cumulative_sizes[1:]))
+        else:
+            # Single station dataset, e.g., for lstm and transformer methods:
+            station_name = dataloader_valid.dataset.name
+            return [(station_name, (0, len(dataloader_valid.dataset)))]
 
 
     station_iterator = construct_station_iterator()
@@ -324,7 +330,8 @@ def compute_all_metrics_isolated_station(
         station_iterator=station_iterator,
         station_data_extractor=station_data_extractor
     )
-    print(f'{INFO_TAG}cumulative_sizes: {[0] + dataloader_valid.dataset.cumulative_sizes}')
+    if hasattr(dataloader_valid.dataset, 'cumulative_sizes'):
+        print(f'{INFO_TAG}cumulative_sizes: {[0] + dataloader_valid.dataset.cumulative_sizes}')
     return metrics
 
 

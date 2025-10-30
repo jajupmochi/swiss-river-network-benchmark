@@ -97,7 +97,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
 
     dataloader_train = torch.utils.data.DataLoader(
         # ``drop_last`` was True. Changed to default (False) to allow dev run with small dataset:
-        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False  # todo: USE True?
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False  # todo: use True?
     )
     batch_size = 1 if isinstance(dataset_valid, STGNNSequenceFullDataset) else config['batch_size']
     dataloader_valid = torch.utils.data.DataLoader(
@@ -121,7 +121,7 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
 # %% Transformer Embedding:
 
 
-def train_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
+def train_transformer_embedding(config, settings: benedict = benedict({}), verbose: int = 2):
     """
     Train on a vanilla transformer model with / without station embeddings.
     """
@@ -214,7 +214,7 @@ def create_masked_dataset_embedding(
     return dataset_train, dataset_valid, normalizer_at, normalizer_wt
 
 
-def train_masked_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
+def train_masked_transformer_embedding(config, settings: benedict = benedict({}), verbose: int = 2):
     """
     Train on a vanilla masked transformer model with / without station embeddings.
     """
@@ -406,19 +406,20 @@ if __name__ == '__main__':
             'dropout': 0.1,
             'use_station_embedding': True,
             'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
+            'positional_encoding': 'rope',  # 'sinusoidal' or 'rope' or 'learnable' or None
+            # --- Updated for transformer models:
             # 'mask_embedding' or 'interpolation' or 'zero' or None
             'missing_value_method': None,  # fixme: test. based on lstm or transformer fixme: mask_embedding
-            'use_current_x': True,  # whether to use the current day's features as input to predict next day
-            'positional_encoding': 'rope',  # 'sinusoidal' or 'rope' or 'learnable' or None
-
         }
     )
 
     if method == 'transformer_embedding':
         if config['missing_value_method'] is None:
-            train_transformer(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
+            train_transformer_embedding(config, settings=benedict({**settings, 'method': 'transformer_embedding'}))
         elif config['missing_value_method'] in ['mask_embedding', 'interpolation', 'zero']:
-            train_masked_transformer(config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'}))
+            train_masked_transformer_embedding(
+                config, settings=benedict({**settings, 'method': 'masked_transformer_embedding'})
+            )
         else:
             raise NotImplementedError(f'Missing value method {config["missing_value_method"]} not implemented.')
 

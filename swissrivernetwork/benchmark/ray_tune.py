@@ -10,9 +10,13 @@ from benedict import benedict
 from ray.tune import uniform, randint, run, choice, Callback, sample_from
 from ray.tune.schedulers import ASHAScheduler
 
-from swissrivernetwork.benchmark.train_isolated_station import train_lstm, read_stations, train_graphlet
+from swissrivernetwork.benchmark.dataset import read_stations
+from swissrivernetwork.benchmark.train_isolated_station import (
+    train_lstm, train_graphlet, train_transformer, train_transformer_graphlet
+)
 from swissrivernetwork.benchmark.train_single_model import (
-    train_lstm_embedding, train_stgnn, train_transformer, train_masked_transformer, train_transformer_stgnn
+    train_lstm_embedding, train_stgnn, train_transformer_embedding, train_masked_transformer_embedding,
+    train_transformer_stgnn
 )
 from swissrivernetwork.benchmark.util import get_run_name
 
@@ -53,6 +57,23 @@ search_space_lstm = {
     "epochs": 30,
     "hidden_size": randint(16, 128 + 1),  # 128
     "num_layers": randint(1, 3 + 1)  # more layers!
+}
+
+search_space_transformer = {
+    "batch_size": randint(32, 256 + 1),
+    "window_len": 90,
+    "train_split": 0.8,
+    "learning_rate": uniform(0.0001, 0.01),
+    # "epochs": randint(30, 50), # 30-50
+    "epochs": 30,
+    # "hidden_size": randint(16, 128 + 1),  # 128  determined by num_t_heads * ratio_heads_to_d_model
+    "num_layers": randint(1, 4 + 1),  # more layers!
+    "dropout": uniform(0.0, 0.5),
+    "num_t_heads": randint(2, 8 + 1),
+    "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_t_heads
+    # "d_model": randint(16, 256 + 1),  # 128
+    "dim_feedforward": randint(32, 256 + 1),
+    # "use_station_embedding": False  # Not used. Hard coded for both training and evaluation.
 }
 
 search_space_lstm_embedding = {
@@ -101,7 +122,7 @@ search_space_stgnn = {
     "num_convs": randint(1, 7 + 1),
     "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
     "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
-    "use_station_embedding": True
+    # "use_station_embedding": True  # Not used. Hard coded for both training and evaluation.
 }
 
 search_space_transformer_stgnn = {
@@ -126,7 +147,7 @@ search_space_transformer_stgnn = {
     "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_t_heads
     # "d_model": randint(16, 256 + 1),  # 128
     "dim_feedforward": randint(32, 256 + 1),
-    "use_station_embedding": True
+    "use_station_embedding": True  # Not used. Hard coded for both training and evaluation.
 }
 
 
@@ -205,16 +226,24 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             search_space = search_space_lstm.copy()
             search_space['station'] = station
             search_space['graph_name'] = graph_name
+            # --- Dataset specific:
+            # 'mask_embedding' or 'interpolation' or 'zero' or None:
+            search_space['missing_value_method'] = config.missing_value_method
+            search_space['use_current_x'] = config.use_current_x
+            search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+            search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+            search_space['max_mask_ratio'] = config.max_mask_ratio
 
-            trainer = None
             if 'lstm' == method:
-                trainer = train_lstm
-            if 'graphlet' == method:
-                trainer = train_graphlet
+                trainer = partial(train_lstm, settings=config, verbose=verbose)
+            elif 'graphlet' == method:
+                trainer = partial(train_graphlet, settings=config, verbose=verbose)
+            else:
+                raise ValueError(f'Unknown method: {method}.')
 
             analysis = run(
                 trainer,
-                name=run_name,
+                name=f'{run_name}/{station}',
                 config=search_space,
                 # scheduler = scheduler_soft(), # ASHA is quite a speedup
                 scheduler=scheduler(),
@@ -227,8 +256,51 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
             print(f'\n\n~~~ Analysis of {method} ~~~')
             print('Best config: ', analysis.best_config)
+            print(f'Best results: {analysis.best_result}')
 
-    if 'lstm_embedding' == method:
+    if method in ['transformer', 'transformer_graphlet']:
+
+        for station in read_stations(graph_name):
+
+            search_space = search_space_transformer.copy()
+            search_space['station'] = station
+            search_space['graph_name'] = graph_name
+            # Transformer specific:
+            search_space['max_len'] = config.max_len
+            search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+            # 'mask_embedding' or 'interpolation' or 'zero' or None:
+            search_space['missing_value_method'] = config.missing_value_method
+            # dataset specific:
+            search_space['use_current_x'] = config.use_current_x
+            search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+            search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+            search_space['max_mask_ratio'] = config.max_mask_ratio
+
+            if 'transformer' == method:
+                trainer = partial(train_transformer, settings=config, verbose=verbose)
+            elif 'transformer_graphlet' == method:
+                trainer = partial(train_transformer_graphlet, settings=config, verbose=verbose)
+            else:
+                raise ValueError(f'Unknown method: {method}.')
+
+            analysis = run(
+                trainer,
+                name=f'{run_name}/{station}',
+                config=search_space,
+                # scheduler = scheduler_soft(), # ASHA is quite a speedup
+                scheduler=scheduler(),
+                num_samples=num_samples,
+                metric='validation_mse',
+                mode='min',
+                storage_path=storage_path,
+                resources_per_trial=resources_per_trial
+            )
+
+            print(f'\n\n~~~ Analysis of {method} ~~~')
+            print('Best config: ', analysis.best_config)
+            print(f'Best results: {analysis.best_result}')
+
+    elif 'lstm_embedding' == method:
         search_space = search_space_lstm_embedding.copy()
         search_space['graph_name'] = graph_name
 
@@ -246,7 +318,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             resources_per_trial=resources_per_trial
         )
 
-    if 'transformer_embedding' == method:
+    elif 'transformer_embedding' == method:
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
         # Transformer specific:
@@ -261,9 +333,9 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         search_space['max_mask_ratio'] = config.max_mask_ratio
 
         if config.missing_value_method is None:
-            trainer = partial(train_transformer, settings=config, verbose=verbose)
+            trainer = partial(train_transformer_embedding, settings=config, verbose=verbose)
         elif config.missing_value_method == 'mask_embedding':
-            trainer = partial(train_masked_transformer, settings=config, verbose=verbose)
+            trainer = partial(train_masked_transformer_embedding, settings=config, verbose=verbose)
         else:
             raise NotImplementedError(f'Missing value method {config.missing_value_method} not implemented.')
 
@@ -280,7 +352,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             # resume=True,  # fixme: debug only
         )
 
-    if 'stgnn' == method:
+    elif 'stgnn' == method:
         search_space = search_space_stgnn.copy()
         search_space['graph_name'] = graph_name
         # 'mask_embedding' or 'interpolation' or 'zero' or None:
@@ -305,7 +377,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             resources_per_trial=resources_per_trial
         )
 
-    if 'transformer_stgnn' == method:
+    elif 'transformer_stgnn' == method:
         search_space = search_space_transformer_stgnn.copy()
         search_space['graph_name'] = graph_name
         # Transformer specific:
@@ -338,6 +410,9 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             storage_path=storage_path,
             resources_per_trial=resources_per_trial
         )
+
+    else:
+        raise ValueError(f'Unknown method: {method}.')
 
     if method in ['lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']:
         # print(f'trials: {analysis.trials}')  # debug
@@ -431,20 +506,22 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = False  # fixme: debug
+    debug_mode = True  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
+            # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
+            'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
-            'positional_encoding': 'sinusoidal',  # fixme: debug
-            'window_len': 366,
+            'positional_encoding': 'rope',  # fixme: debug, 'none', 'sinusoidal', 'rope', 'learnable'
+            'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
-            'short_subsequence_method': 'pad',  # 'pad' or 'drop'
+            'short_subsequence_method': 'drop',  # 'pad' or 'drop'
             'use_current_x': True,  # True or False (next-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,

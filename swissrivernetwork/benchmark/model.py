@@ -1,4 +1,4 @@
-from typing import Any, Mapping
+from typing import Any, Mapping, override
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,9 @@ from swissrivernetwork.benchmark.transformer import (
     SinusoidalPositionalEncoding,
     LearnablePositionalEncoding
 )
+
+
+# %% LSTM Models:
 
 
 class LstmModel(nn.Module):
@@ -50,6 +53,9 @@ class LstmEmbeddingModel(nn.Module):
         out, hidden = self.lstm(x)
         target = self.linear(out)
         return target
+
+
+# %% Transformer Models:
 
 
 class TransformerEmbeddingModel(nn.Module):
@@ -394,6 +400,13 @@ class TransformerEmbeddingModel(nn.Module):
 #         # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
 #         target = self.linear(out)
 #         return target
+
+
+class TransformerModel(TransformerEmbeddingModel):
+
+    @override
+    def forward(self, x, time_masks=None, pad_masks=None):
+        return super().forward(None, x, time_masks=None, pad_masks=None)
 
 
 class SpatioTemporalEmbeddingModel(nn.Module):

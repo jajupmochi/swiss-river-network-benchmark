@@ -7,7 +7,8 @@ import torch
 from benedict import benedict
 from torch_geometric.utils import k_hop_subgraph, to_undirected
 
-from swissrivernetwork.benchmark.dataset import read_graph
+
+# from swissrivernetwork.benchmark.dataset import read_graph
 
 
 def save(object, checkpoint_dir, name):
@@ -170,7 +171,7 @@ def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict
     return run_name
 
 
-def get_run_extra_key(config: benedict | dict):
+def get_run_extra_key(config: benedict | dict) -> str:
     if isinstance(config, dict):
         config = benedict(config)
     extra_key = ''
@@ -194,3 +195,9 @@ def is_valid_datetime(s: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+# %% Misc utils:
+
+def is_transformer_model(method: str) -> bool:
+    return 'transformer' in method.lower()

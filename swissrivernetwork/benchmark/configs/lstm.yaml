@@ -1,23 +1,18 @@
 # These settings will be overridden by command line arguments when running the ``ray_tune.py`` script.
 
-method: "stgnn"
+method: "lstm"
 graph: "swiss-1990"
 
 verbose: 1  # verbosity level for ray tuner
 
 enable_wandb: False
 
-# stgnn settings:
-missing_value_method: null  # method to handle missing values, 'mask_embedding' or 'interpolation' or 'zero' or None
-use_current_x: True  # whether to use the current node features as input to the transformer. If False, only past features are used, which corresponds to next-token prediction.
-
 # ray tuner settings:
-num_samples: 500  # number of hyperparameter combinations to initialize the ray tuner with
+num_samples: 200  # number of hyperparameter combinations to initialize the ray tuner with
 # number of cpus to allocate to the ray tuner.
 # - Non-positive values allocate all but that many cpus, e.g. -1 allocates all but 1 cpu. At least 1 cpu must be allocated.
 # - Positive values allocate that many cpus. At most the number of available cpus can be allocated.
 # - If None, use the default ray tuner behavior, which is to allocate all available cpus.
-# When cpu = 1 and gpu = 0.25 per trial, num_cpus = 4 allows for 4 trials to run in parallel on a machine with 4 cpus and 1 gpu.
 # Needs to be 4 if cpu per trial is 1 and gpu per trial is 0.25 and the machine has 4 cpus and 1 gpu. If set to 1,
 # only 1 trial will run at a time even if gpu per trial is 0.25.
 num_cpus: 4
