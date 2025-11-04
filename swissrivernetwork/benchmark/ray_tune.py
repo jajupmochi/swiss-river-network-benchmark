@@ -425,7 +425,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
 
 
 def parse_config():
-    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn', 'transformer_embedding', 'transformer_stgnn']
+    methods = ['lstm', 'graphlet', 'lstm_embedding', 'stgnn',
+               'transformer', 'transformer_graphlet', 'transformer_embedding', 'transformer_stgnn']
     graphs = ['swiss-1990', 'swiss-2010', 'zurich']
 
     parser = argparse.ArgumentParser()
@@ -506,7 +507,7 @@ def parse_config():
 
 
 if __name__ == '__main__':
-    debug_mode = True  # fixme: debug
+    debug_mode = False  # fixme: debug
 
     if debug_mode:
         # Exp1: LSTM with embedding:
