@@ -17,7 +17,7 @@ from swissrivernetwork.benchmark.test_isolated_station import (
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
 from swissrivernetwork.benchmark.util import (
-    is_valid_datetime, get_run_extra_key, extract_neighbors, is_transformer_model
+    get_run_extra_key, extract_neighbors, is_transformer_model, get_latest_run_path
 )
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
@@ -59,17 +59,6 @@ def compute_stats(df: pd.DataFrame, verbose: int = 2):
     # Append statistics to the original DataFrame
     df_stats = pd.concat([df, stats_df], ignore_index=True)
     return df_stats
-
-
-def load_latest_run_results(directory: Path, path_prefix: str = '', verbose: bool = False) -> Path:
-    all_paths = sorted(
-        [path for path in directory.iterdir() if
-         path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
-    )
-    assert len(all_paths) > 0, f'No previous results found for {method} on {graph_name}. Path prefix {path_prefix}.'
-    latest_path = all_paths[-1]
-    verbose and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
-    return latest_path
 
 
 def get_metrics_from_ray_trial(
@@ -239,7 +228,7 @@ def experiment_analysis_isolated_station(
 
     if LOAD_LATEST_RESULTS:
         path_prefix = f'{method}-{graph_name}' + (f'{path_extra_keys}-' if path_extra_keys else '')
-        latest_path = load_latest_run_results(OUTPUT_DIR, path_prefix, verbose=VERBOSE)
+        latest_path = get_latest_run_path(OUTPUT_DIR, path_prefix, verbose=VERBOSE)
         VERBOSE and print(f'{INFO_TAG}~~~ ANALYSIS for {method} at {station} ~~~')
         return ExperimentAnalysis(f'{str(latest_path)}/{station}')
     else:
@@ -275,7 +264,7 @@ def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = 
 
     if LOAD_LATEST_RESULTS:
         path_prefix = f'{method}-{graph_name}' + (f'{path_extra_keys}-' if path_extra_keys else '')
-        latest_path = load_latest_run_results(directory, path_prefix, verbose=VERBOSE)
+        latest_path = get_latest_run_path(directory, path_prefix, verbose=VERBOSE)
         VERBOSE and print(f'~~~ ANALYSIS for {method} ~~~')
         return ExperimentAnalysis(str(latest_path))
 

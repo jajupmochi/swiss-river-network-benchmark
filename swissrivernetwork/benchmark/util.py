@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,10 @@ from benedict import benedict
 from torch_geometric.utils import k_hop_subgraph, to_undirected
 
 from swissrivernetwork.benchmark.dataset import read_graph
+
+ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
+INFO_TAG = "\033[94m[info]\033[0m "  # Blue
+SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
 def save(object, checkpoint_dir, name):
@@ -39,6 +44,9 @@ def merge_graphlet_dfs(df, df_neighs):
     has_any_nan = df.drop(columns=['air_temperature', 'water_temperature']).isna().any().any()
     assert not has_any_nan, 'There is a NaN in your data!'
     return df
+
+
+# %% Prediction aggregation utils:
 
 
 def aggregate_day_predictions(
@@ -151,6 +159,17 @@ def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.
         return unique_vals
 
 
+def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader) -> bool:
+    # todo: upgrade with aggregation method in config or full/windowed dataset
+    if isinstance(dataloader.dataset, torch.utils.data.ConcatDataset):
+        # if settings.method in ['transformer_embedding']:
+        # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
+        # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
+        return dataloader.dataset.datasets[0].window_len > 0
+    else:
+        return dataloader.dataset.window_len > 0
+
+
 # %% Ray Tune related utils:
 
 
@@ -162,10 +181,23 @@ def safe_get_ray_trial_id():
     return None
 
 
-def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict) -> str:
+def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict, directory: Path | None = None) -> str:
     run_name = f'{method}-{graph_name}'
-    run_name += get_run_extra_key(config)
-    run_name += f'-{now}'
+    extra_keys = get_run_extra_key(config)
+    run_name += extra_keys
+    resume = config.get('resume', False)
+    if resume:
+        if config.get('resume_timestamp', None) is not None:
+            run_name += f'-{config.resume_time_stamp}'
+        else:
+            # If time stamp is None, use the latest run:
+            directory = Path(directory) if directory is not None else Path.cwd()
+            path_prefix = Path(run_name).name + ('-' if extra_keys else '')
+            run_name = get_latest_run_path(directory, path_prefix=path_prefix, verbose=False)
+            run_name = run_name.relative_to(directory)
+        print(f'{INFO_TAG}Resuming from previous run: {run_name}.')
+    else:
+        run_name += f'-{now}'
 
     return run_name
 
@@ -183,6 +215,17 @@ def get_run_extra_key(config: benedict | dict) -> str:
     if 'positional_encoding' in config:
         extra_key += f'-{config.positional_encoding}'.lower()  # None -> none
     return extra_key
+
+
+def get_latest_run_path(directory: Path, path_prefix: str = '', verbose: bool = False) -> Path:
+    all_paths = sorted(
+        [path for path in directory.iterdir() if
+         path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
+    )
+    assert len(all_paths) > 0, f'No previous results found. Path prefix {path_prefix}.'
+    latest_path = all_paths[-1]
+    verbose and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
+    return latest_path
 
 
 # %% Date time related utils:

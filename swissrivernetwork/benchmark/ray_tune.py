@@ -216,7 +216,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
     print(f'{INFO_TAG}Cluster resources detected by Ray: {ray.cluster_resources()}.')
     print(f'{INFO_TAG}Available / Idle resources detected by Ray: {ray.available_resources()}.')
 
-    run_name = get_run_name(method, graph_name, now, config)
+    run_name = get_run_name(method, graph_name, now, config, directory=storage_path)
 
     # update search space (!)
     if 'lstm' == method or 'graphlet' == method:
@@ -251,7 +251,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
                 metric='validation_mse',
                 mode='min',
                 storage_path=storage_path,
-                resources_per_trial=resources_per_trial
+                resources_per_trial=resources_per_trial,
+                resume=config.get('resume', False)
             )
 
             print(f'\n\n~~~ Analysis of {method} ~~~')
@@ -293,7 +294,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
                 metric='validation_mse',
                 mode='min',
                 storage_path=storage_path,
-                resources_per_trial=resources_per_trial
+                resources_per_trial=resources_per_trial,
+                resume=config.get('resume', False)
             )
 
             print(f'\n\n~~~ Analysis of {method} ~~~')
@@ -315,7 +317,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             metric='validation_mse',
             mode='min',
             storage_path=storage_path,
-            resources_per_trial=resources_per_trial
+            resources_per_trial=resources_per_trial,
+            resume=config.get('resume', False)
         )
 
     elif 'transformer_embedding' == method:
@@ -349,7 +352,7 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             mode='min',
             storage_path=storage_path,
             resources_per_trial=resources_per_trial,
-            # resume=True,  # fixme: debug only
+            resume=config.get('resume', False),
         )
 
     elif 'stgnn' == method:
@@ -374,7 +377,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             mode='min',
             max_concurrent_trials=20,  # Fix memory issues
             storage_path=storage_path,
-            resources_per_trial=resources_per_trial
+            resources_per_trial=resources_per_trial,
+            resume=config.get('resume', False)
         )
 
     elif 'transformer_stgnn' == method:
@@ -408,7 +412,8 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
             mode='min',
             max_concurrent_trials=20,  # Fix memory issues
             storage_path=storage_path,
-            resources_per_trial=resources_per_trial
+            resources_per_trial=resources_per_trial,
+            resume=config.get('resume', False)
         )
 
     else:
@@ -444,6 +449,14 @@ def parse_config():
     )
     parser.add_argument(
         '-s', '--storage_path', required=False, type=str, help='Path to store results.', default=None
+    )
+    parser.add_argument(
+        '-r', '--resume', required=False, type=bool, default=False,
+        help='Whether to resume from previous ray tune results in the storage path.'
+    )
+    parser.add_argument(
+        '-rts', '--resume_timestamp', required=False, type=str, default=None,
+        help='The time stamp of the previous run to resume from, e.g., 2024-01-01_12-00-00. If None, resume from the latest run.'
     )
     # Dataset specific:
     parser.add_argument(
@@ -513,9 +526,9 @@ if __name__ == '__main__':
         # Exp1: LSTM with embedding:
         debug_cfg = {
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
-            # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
@@ -528,6 +541,7 @@ if __name__ == '__main__':
             'use_current_x': True,  # True or False (next-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
+            'resume': True,  # fixme: debug
         }
 
         if not is_transformer_model(debug_cfg['config'].stem):

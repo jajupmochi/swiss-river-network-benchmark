@@ -12,7 +12,9 @@ from sklearn.base import BaseEstimator
 from torchinfo import summary
 from tqdm import tqdm
 
-from swissrivernetwork.benchmark.util import save, aggregate_day_predictions, safe_get_ray_trial_id
+from swissrivernetwork.benchmark.util import (
+    save, aggregate_day_predictions, safe_get_ray_trial_id, check_is_aggregation_needed
+)
 from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.util.scaler import StationSplitScaler
 
@@ -465,14 +467,3 @@ def compute_all_metrics_unified(
     print(f'{INFO_TAG}n_valid: {n_valid}')
 
     return validation_mse, validation_ave_rmse, validation_rmse
-
-
-def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader) -> bool:
-    # todo: upgrade with aggregation method in config or full/windowed dataset
-    if isinstance(dataloader.dataset, torch.utils.data.ConcatDataset):
-        # if settings.method in ['transformer_embedding']:
-        # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
-        # datasets[0] (SequenceWindowedDataset, SequenceFullDataset, etc)
-        return dataloader.dataset.datasets[0].window_len > 0
-    else:
-        return dataloader.dataset.window_len > 0
