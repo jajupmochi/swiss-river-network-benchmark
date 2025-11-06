@@ -377,7 +377,7 @@ def test_lstm(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
-    model_name = model.__class__.__name__.lower().rstrip('model')
+    model_name = model.__class__.__name__.lower().removesuffix('model')
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)
@@ -422,7 +422,7 @@ def test_transformer(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
 ):
-    model_name = model.__class__.__name__.lower().rstrip('model')
+    model_name = model.__class__.__name__.lower().removesuffix('model')
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)
