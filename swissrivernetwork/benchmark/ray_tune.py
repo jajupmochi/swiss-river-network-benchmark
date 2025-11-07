@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+import time
 
 import ray
 from benedict import benedict
@@ -184,7 +185,10 @@ def scheduler_single_model_hard():
     )
 
 
-def run_experiment(method, graph_name, num_samples, storage_path: str | None, config: benedict, verbose: int):
+def run_experiment(
+        method, graph_name, num_samples, storage_path: str | None, config: benedict, verbose: int,
+        if_trim_checkpoints: bool = True
+):
     """
     Run a Ray Tune experiment for the given method and graph.
 
@@ -427,6 +431,17 @@ def run_experiment(method, graph_name, num_samples, storage_path: str | None, co
         print('Best config: ', analysis.best_config)
         # print('Best trial: ', analysis.get_best_trial())
         print(f'Best results: {analysis.best_result}')
+
+    if if_trim_checkpoints:
+        from swissrivernetwork.benchmark.util import trim_checkpoints
+        start_time_trim = time.time()
+        trim_checkpoints(
+            storage_path / run_name, keep_best_n=10, anchor_metric='validation_mse',
+            mode='min', if_trim_best_n=True, keep_best_for_trimmed_trials=True, keep_last_for_trimmed_trials=False,
+            verbose=False
+        )
+        end_time_trim = time.time()
+        print(f'{SUCCESS_TAG}Trimmed checkpoints in {end_time_trim - start_time_trim:.2f} seconds.')
 
 
 def parse_config():

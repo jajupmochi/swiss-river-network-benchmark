@@ -228,6 +228,152 @@ def get_latest_run_path(directory: Path, path_prefix: str = '', verbose: bool = 
     return latest_path
 
 
+def trim_checkpoints(
+        root_path: Path, keep_best_n: int = 10, anchor_metric: str = 'validation_mse', mode: str = 'min',
+        if_trim_best_n: bool = True,
+        keep_best_for_trimmed_trials: bool = True, keep_last_for_trimmed_trials: bool = False,
+        cur_depth: int = 0,
+        verbose: bool = True
+):
+    """Keep only the best n checkpoints based on the given metric.
+
+    Consider two cases: the first is that root_path contains multiple trials, and each trial contains multiple
+    checkpoints; the second is that root_path contains multiple experiments, each experiment contains multiple trials.
+
+    This can save around 80% disk space in some of our experiments.
+
+    Input:
+        root_path: Path to the root directory of the experiment(s).
+        keep_best_n: Number of best trials to keep.
+        anchor_metric: Metric used to determine the best trials.
+        mode: 'min' or 'max', whether to minimize or maximize the anchor_metric.
+        if_trim_best_n: Whether to trim the best n trials as well. Always keep the best and last checkpoints for the
+            best n trials.
+        keep_best_for_trimmed_trials: Whether to keep the best checkpoint for the trimmed trials. This does not apply
+            to the best n trials if `if_trim_best_n` is True.
+        keep_last_for_trimmed_trials: Whether to keep the last checkpoint for the trimmed trials. This does not apply
+            to the best n trials if `if_trim_best_n` is True.
+    """
+
+
+    def trim_one_trial(trial, analysis, keep_best_checkpoint, keep_last_checkpoint):
+        trial_id = trial.trial_id  # e.g., trial_id: 8d0b9_00000
+        # e.g., trial_path: path-to-root/train_transformer_8d0b9_00000_0_batch_size=189,..._2025-10-01_16-04-31:
+        trial_path = Path(trial.path)
+
+        trial_dataframe = analysis.trial_dataframes[trial_id]
+        checkpoint_dir_names = trial_dataframe['checkpoint_dir_name'].tolist()
+
+        n_files_removed = 0
+        disk_space_freed = 0
+
+        dir_names_ignored = set()
+        if keep_last_checkpoint:
+            # Keep the last best checkpoint for this trial:
+            last_ck_dir_name = Path(analysis.get_last_checkpoint(trial).path).name
+            dir_names_ignored.add(last_ck_dir_name)
+        if keep_best_checkpoint:
+            # Keep the best checkpoint for this trial:
+            best_ck_dir_name = Path(analysis.get_best_checkpoint(trial, metric=anchor_metric, mode=mode).path).name
+            dir_names_ignored.add(best_ck_dir_name)
+        if dir_names_ignored:
+            ck_dir_names_to_remove = sorted(list(set(checkpoint_dir_names) - dir_names_ignored))
+        else:
+            ck_dir_names_to_remove = checkpoint_dir_names
+
+        for ck_dir_name in ck_dir_names_to_remove:  # e.g., ck_dir_name: checkpoint_000000
+            ck_path = trial_path / ck_dir_name
+            for child in ck_path.iterdir():
+                if child.is_file() and child.name.endswith('.pth'):
+                    # Remove model file:
+                    file_size = child.stat().st_size
+                    disk_space_freed += file_size
+                    n_files_removed += 1
+
+                    child.unlink()
+                    # Create a dummy file to indicate that this checkpoint has been removed:
+                    (ck_path / f'{child.name}-REMOVED').touch()
+            # checkpoint_path.rmdir()
+
+        if verbose:
+            print(
+                f'  {INFO_TAG}Removed {n_files_removed} files from trial {trial_id}. '
+                f'Freed {disk_space_freed / (1024 ** 2):.2f} MB disk space.'
+            )
+
+        return n_files_removed, disk_space_freed
+
+
+    children = list(root_path.iterdir())
+    if any(
+            child.is_file() and child.name.startswith('experiment_state-') and child.name.endswith('.json') for child in
+            children
+    ):
+        # case 1 (single experiment):
+        from ray.tune import ExperimentAnalysis
+        analysis = ExperimentAnalysis(root_path)
+        trial_ids = [t.trial_id for t in analysis.trials]
+    elif cur_depth == 0:
+        # case 2 (multiple experiments):
+        for child in children:
+            if child.is_dir():
+                trim_checkpoints(
+                    child, keep_best_n=keep_best_n, anchor_metric=anchor_metric, mode=mode,
+                    if_trim_best_n=if_trim_best_n,
+                    keep_best_for_trimmed_trials=keep_best_for_trimmed_trials,
+                    keep_last_for_trimmed_trials=keep_last_for_trimmed_trials,
+                    cur_depth=cur_depth + 1, verbose=verbose
+                )
+        return
+    else:
+        raise ValueError(f'Invalid root_path: {root_path}.')
+
+    if len(trial_ids) <= keep_best_n:
+        print(
+            f'{INFO_TAG}Number of trials ({len(trial_ids)}) <= keep_best_n ({keep_best_n}). '
+            f'No trimming needed for this experiment.'
+        )
+        return
+
+    # Get best n trials:
+    best_anchor_metrics = [t.metric_analysis[anchor_metric][mode] for t in analysis.trials]
+    idx_sorted = np.argsort(best_anchor_metrics)
+    if mode == 'max':
+        idx_sorted = idx_sorted[::-1]
+    elif mode != 'min':
+        raise ValueError(f'Unknown mode: {mode}.')
+    idx_best_n = idx_sorted[:keep_best_n]
+    idx_to_trim = idx_sorted[keep_best_n:]
+    best_n_trials = [analysis.trials[i] for i in idx_best_n]
+    trials_to_trim = [analysis.trials[i] for i in sorted(idx_to_trim)]
+    trial_dataframes = analysis.trial_dataframes
+
+    total_n_files_removed = 0
+    total_disk_space_freed = 0
+
+    for trial in trials_to_trim:
+        n_files_removed, disk_space_freed = trim_one_trial(
+            trial, analysis,
+            keep_best_checkpoint=keep_best_for_trimmed_trials, keep_last_checkpoint=keep_last_for_trimmed_trials
+        )
+        total_n_files_removed += n_files_removed
+        total_disk_space_freed += disk_space_freed
+
+    if if_trim_best_n:
+        for trial in best_n_trials:
+            n_files_removed, disk_space_freed = trim_one_trial(
+                trial, analysis, keep_best_checkpoint=True, keep_last_checkpoint=True
+            )
+            total_n_files_removed += n_files_removed
+            total_disk_space_freed += disk_space_freed
+
+    if verbose:
+        print(
+            f'{SUCCESS_TAG}Total removed {total_n_files_removed} files for this experiment. '
+            f'Total freed {total_disk_space_freed / (1024 ** 2):.2f} MB disk space.'
+        )
+
+
 # %% Date time related utils:
 
 
