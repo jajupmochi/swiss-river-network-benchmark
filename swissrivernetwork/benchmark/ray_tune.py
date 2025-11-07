@@ -18,7 +18,7 @@ from swissrivernetwork.benchmark.train_single_model import (
     train_lstm_embedding, train_stgnn, train_transformer_embedding, train_masked_transformer_embedding,
     train_transformer_stgnn
 )
-from swissrivernetwork.benchmark.util import get_run_name, is_transformer_model
+from swissrivernetwork.benchmark.util import get_run_name, is_transformer_model, str2bool
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -451,7 +451,7 @@ def parse_config():
         '-s', '--storage_path', required=False, type=str, help='Path to store results.', default=None
     )
     parser.add_argument(
-        '-r', '--resume', required=False, type=bool, default=False,
+        '-r', '--resume', required=False, type=str2bool, nargs='?', const=True, default=False,
         help='Whether to resume from previous ray tune results in the storage path.'
     )
     parser.add_argument(
@@ -460,7 +460,7 @@ def parse_config():
     )
     # Dataset specific:
     parser.add_argument(
-        '-ucx', '--use_current_x', required=False, type=bool, default=True,
+        '-ucx', '--use_current_x', required=False, type=str2bool, nargs='?', const=True, default=True,
         help='Whether to use the current time step feature in transformer models. If False, only past features are used, which corresponds to next-token prediction.'
     )
     parser.add_argument(
@@ -492,7 +492,7 @@ def parse_config():
     # General:
     parser.add_argument('-v', '--verbose', required=False, type=int, help='Verbosity level.')
     parser.add_argument(
-        '-d', '--dev_run', type=bool, default=False, required=False,
+        '-d', '--dev_run', type=str2bool, nargs='?', const=True, default=False, required=False,
         help='If set, use very small subsets for training and validation to test the pipeline.'
     )
     args = parser.parse_args()
@@ -533,7 +533,7 @@ if __name__ == '__main__':
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
             'graph': 'zurich',  # 'swiss-1990', 'swiss-2010', 'zurich'
-            'dev_run': True,  # fixme: debug
+            'dev_run': False,  # fixme: debug
             'positional_encoding': 'rope',  # fixme: debug, 'none', transformers only: 'sinusoidal', 'rope', 'learnable'
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'

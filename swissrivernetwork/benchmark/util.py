@@ -243,3 +243,15 @@ def is_valid_datetime(s: str) -> bool:
 
 def is_transformer_model(method: str) -> bool:
     return 'transformer' in method.lower()
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('true',):
+        return True
+    elif v.lower() in ('false',):
+        return False
+    else:
+        from argparse import ArgumentTypeError
+        raise ArgumentTypeError('Boolean value expected.')
