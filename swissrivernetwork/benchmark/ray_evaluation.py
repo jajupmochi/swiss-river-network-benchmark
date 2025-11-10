@@ -367,15 +367,20 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'stgnn' == method:
-        return (*test_stgnn(
+        test_resu = test_stgnn(
             graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'transformer_stgnn' == method:
-        return (*test_stgnn(
+        test_resu = test_stgnn(
             graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     else:
         raise ValueError(f'Unknown method: {method}')
+
+    # Update extra_resu:
+    test_resu[5]['train_time_total_best'] = [best_trial_all.last_result['time_total_s'] / num_embeddings] * num_embeddings
+
+    return *test_resu, total_params, best_trial
 
 
 def evaluate_best_trial_isolated_station(
@@ -468,42 +473,47 @@ def evaluate_best_trial_isolated_station(
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'lstm' == method:
-        return (*test_lstm(
+        test_resu = test_lstm(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'transformer' == method:
-        return (*test_transformer(
+        test_resu = test_transformer(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
             verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'graphlet' == method:
-        return (*test_graphlet(
+        test_resu = test_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'transformer_graphlet' == method:
-        return (*test_transformer_graphlet(
+        test_resu = test_transformer_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
             verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'lstm_embedding' == method:
-        return (*test_lstm_embedding(
+        test_resu = test_lstm_embedding(
             graph_name, station, i, model,
             window_len=window_len,
             dump_dir=DUMP_DIR,
             verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     elif 'transformer_embedding' == method:
-        return (*test_transformer_embedding(
+        test_resu = test_transformer_embedding(
             graph_name, station, i, model,
             window_len=window_len,
             dump_dir=DUMP_DIR,
             verbose=settings.get('verbose', 2)
-        ), total_params, best_trial)
+        )
     # Move
     # elif 'stgnn' == method:
     #    return test_stgnn(graph_name, )
     else:
         raise ValueError(f'Unknown method: {method}')
+
+    # Update extra_resu:
+    test_resu[5]['train_time_total_best'] = best_trial_all.last_result['time_total_s']
+
+    return *test_resu, total_params, best_trial
 
 
 def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}, return_extra: bool = False):
@@ -709,7 +719,7 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
-        method = METHODS[5]
+        method = METHODS[0]
 
         # Transformer specific settings:
         if is_transformer_model(method):
