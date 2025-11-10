@@ -25,7 +25,8 @@ def fit_column_normalizers(df):
 
 def test_stgnn(
         graph_name, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', method: str | None = None,
+        verbose: int = 2
 ):
     infer_time_total = time.time()
 
@@ -60,7 +61,9 @@ def test_stgnn(
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)  # fixme: drop_last? and the other locations?
     else:
         dataset = STGNNSequenceWindowedDataset(window_len, df, stations)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=get_proper_infer_batchsize(method, graph_name), shuffle=False, drop_last=False
+        )
 
     infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
     infer_end_gpu_time = torch.cuda.Event(enable_timing=True)

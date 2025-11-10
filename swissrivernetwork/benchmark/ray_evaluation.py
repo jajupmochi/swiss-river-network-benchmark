@@ -368,11 +368,13 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
 
     if 'stgnn' == method:
         test_resu = test_stgnn(
-            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, method=method,
+            verbose=settings.get('verbose', 2)
         )
     elif 'transformer_stgnn' == method:
         test_resu = test_stgnn(
-            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+            graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, method=method,
+            verbose=settings.get('verbose', 2)
         )
     else:
         raise ValueError(f'Unknown method: {method}')

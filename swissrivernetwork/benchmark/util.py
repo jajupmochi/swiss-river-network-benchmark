@@ -401,3 +401,15 @@ def str2bool(v):
     else:
         from argparse import ArgumentTypeError
         raise ArgumentTypeError('Boolean value expected.')
+
+
+def get_proper_infer_batchsize(method: str, graph_name: str) -> int:
+    """
+    The inferences for the LSTMs v.s. Transformers experiments were carried out on a PC with a NVIDIA GeForce RTX 3070
+    GPU with 8 GB memory. The batch sizes here are chosen to fully utilize the GPU memory without OOM.
+    """
+    print(method, graph_name)
+    if method == 'stgnn':
+        if graph_name in ['swiss-1990']:
+            return 128
+    return 256
