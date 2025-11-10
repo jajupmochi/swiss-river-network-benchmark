@@ -6,5 +6,7 @@ __pycache__/
 *.pgf
 
 swissrivernetwork/benchmark/outputs/*
+!swissrivernetwork/benchmark/outputs/*.py
+!swissrivernetwork/benchmark/outputs/*.ipynb
 swissrivernetwork/benchmark/dump/*
 swissrivernetwork/benchmark/wandb/*
