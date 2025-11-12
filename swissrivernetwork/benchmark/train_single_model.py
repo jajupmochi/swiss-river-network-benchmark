@@ -12,6 +12,8 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
 def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int = 2):
+    valid_use_window = settings.get('valid_use_window', True)
+
     # Setup Dataset
     graph_name = config['graph_name']
     stations = read_stations(graph_name)
@@ -20,14 +22,17 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     df = read_csv_train(graph_name)
     datasets_train = []
     datasets_valid = []
+    normalizers_at, normalizers_wt = {}, {}
     for i, station in enumerate(stations):
         df_station = select_isolated_station(df, station)
         dataset_train, dataset_valid, normalizer_at, normalizer_wt = create_dataset_embedding(
-            config, df_station, i, valid_use_window=False, name=station,
+            config, df_station, i, valid_use_window=valid_use_window, name=station,
             dev_run=settings.get('dev_run', False)
         )
         datasets_train.append(dataset_train)
         datasets_valid.append(dataset_valid)
+        normalizers_at[station] = normalizer_at
+        normalizers_wt[station] = normalizer_wt
     dataset_train = torch.utils.data.ConcatDataset(datasets_train)
     dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
@@ -35,14 +40,27 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
         # ``drop_last`` was True. Changed to default (False) to be consistent with other models:
         dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False
     )
-    dataloader_valid = torch.utils.data.DataLoader(dataset_valid, shuffle=False, drop_last=False)
+    if valid_use_window:
+        dataloader_valid = torch.utils.data.DataLoader(
+            dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
+        )
+    else:
+        dataloader_valid = torch.utils.data.DataLoader(dataset_valid, shuffle=False, drop_last=False)
 
-    model = LstmEmbeddingModel(1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'])
+    if config.get('use_current_x', True):
+        model = LstmEmbeddingModel(
+            1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers']
+        )
+    else:
+        model = ExtrapoLstmEmbeddingModel(
+            1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
+            future_steps=config['future_steps']
+        )
 
     # Run Training Loop!
     training_loop(
         config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
-        normalizer_at=normalizer_at, normalizer_wt=normalizer_wt, settings=settings, verbose=verbose
+        normalizer_at=normalizers_at, normalizer_wt=normalizers_wt, settings=settings, verbose=verbose
     )
 
 
@@ -75,6 +93,8 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     # print(config)
     # print(settings)
 
+    valid_use_window = settings.get('valid_use_window', True)
+
     # Setup Dataset
     graph_name = config['graph_name']
     stations = read_stations(graph_name)
@@ -91,10 +111,10 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     dataset_train = STGNNSequenceWindowedDataset(
         config['window_len'], df_train, stations, dev_run=settings.get('dev_run', False)
     )
-    dataset_valid = STGNNSequenceFullDataset(df_valid, stations)
-    # dataset_valid = STGNNSequenceWindowedDataset(  # fixme: debug
-    #     config['window_len'], df_valid, stations
-    # )
+    if valid_use_window:
+        dataset_valid = STGNNSequenceWindowedDataset(config['window_len'], df_valid, stations)
+    else:
+        dataset_valid = STGNNSequenceFullDataset(df_valid, stations)
 
     dataloader_train = torch.utils.data.DataLoader(
         # ``drop_last`` was True. Changed to default (False) to allow dev run with small dataset:
@@ -109,6 +129,8 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
         config['gnn_conv'], 1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
         config['num_convs'], config['num_heads'], edge_hidden_size=config.get('edge_hidden_size'),
         temporal_func='lstm_embedding',
+        use_current_x=config['use_current_x'],
+        future_steps=config.get('future_steps', 1),
     )
 
     # Run Training Loop!
@@ -150,7 +172,8 @@ def train_transformer_embedding(config, settings: benedict = benedict({}), verbo
     dataset_valid = torch.utils.data.ConcatDataset(datasets_valid)
 
     dataloader_train = torch.utils.data.DataLoader(
-        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=True
+        # ``drop_last`` was True. Changed to default (False) to allow dev run with small dataset:
+        dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False
     )
     dataloader_valid = torch.utils.data.DataLoader(
         dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
@@ -172,6 +195,7 @@ def train_transformer_embedding(config, settings: benedict = benedict({}), verbo
         missing_value_method=config['missing_value_method'],
         use_current_x=config['use_current_x'],
         positional_encoding=config.get('positional_encoding', 'rope'),
+        future_steps=config.get('future_steps', None),
     )
 
     # Run Training Loop!
@@ -246,7 +270,7 @@ def train_masked_transformer_embedding(config, settings: benedict = benedict({})
 
     dataloader_train = torch.utils.data.DataLoader(
         dataset_train, batch_size=config['batch_size'], shuffle=True, drop_last=False
-        # fixme: drop was True. Should be False for long win_lens? check the other codes that use this.
+        # `drop` was True. Set to False to match all conditions.
     )
     dataloader_valid = torch.utils.data.DataLoader(
         dataset_valid, batch_size=config['batch_size'], shuffle=False, drop_last=False
@@ -278,10 +302,12 @@ def train_masked_transformer_embedding(config, settings: benedict = benedict({})
 # %% Transformer + STGNN:
 
 
-def train_transformer_stgnn(config, settings: benedict = benedict({}), valid_use_window: bool = True, verbose: int = 2):
+def train_transformer_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     # # test only
     # print(config)
     # print(settings)
+
+    valid_use_window = settings.get('valid_use_window', True)
 
     # Setup Dataset
     graph_name = config['graph_name']
@@ -331,6 +357,7 @@ def train_transformer_stgnn(config, settings: benedict = benedict({}), valid_use
         missing_value_method=config['missing_value_method'],
         use_current_x=config['use_current_x'],
         positional_encoding=config.get('positional_encoding', 'rope'),
+        future_steps=config.get('future_steps', 1),
     )
 
     # Run Training Loop!
@@ -349,7 +376,7 @@ if __name__ == '__main__':
     # graph_name = 'swiss-2010'
     graph_name = 'swiss-1990'
 
-    method = 'transformer_embedding'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
+    method = 'transformer_stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -357,7 +384,7 @@ if __name__ == '__main__':
 
     config = {
         'graph_name': graph_name,
-        'batch_size': 256,  # fixme: default 256, which is too large for stgnn with MPNN conv or transformer_stgnn
+        'batch_size': 64,  # fixme: default 256, which is too large for stgnn with MPNN conv or transformer_stgnn
         'window_len': 90,  # fixme: test 90, 366, 365+366=731, inf (all past data)
         'train_split': 0.8,
         'learning_rate': 0.001,
@@ -380,7 +407,8 @@ if __name__ == '__main__':
         # --- Exp configs used for all models:
         # 'mask_embedding' or 'interpolation' or 'zero' or None
         'missing_value_method': None,  # fixme: test. based on lstm or transformer
-        'use_current_x': True,  # whether to use the current day's features as input to predict next day
+        'use_current_x': False,  # fixme: whether to use the current days' features as input to predict next day
+        'future_steps': 7,  # fixme: days to predict ahead.
     }
 
     # Extra config:

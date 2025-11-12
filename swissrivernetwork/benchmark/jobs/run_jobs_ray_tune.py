@@ -220,19 +220,22 @@ if __name__ == '__main__':
     methods = [
         'transformer_embedding', 'transformer_stgnn', 'transformer', 'transformer_graphlet',
         'lstm_embedding', 'stgnn', 'lstm', 'graphlet'
-    ][1:2]
-    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:2]  # fixme
+    ][0:1]
+    graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:3]  # fixme
     # positional_encodings = ['none']  # fixme: for lstm
     positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:3]  # Only for transformer
-    window_lens = [90]  # [90, 366, 731, 10000]
     # max_len = [500]
+    # --- dataset specific:
+    window_lens = [90]  # [90, 366, 731, 10000]
     missing_value_methods = ['none']  # ['mask_embedding']  # 'mask_embedding' or 'interpolation' or 'zero' or 'none'
-    use_current_xs = [True]  # whether to use current time step features (e.g., air temperature) as input
     short_subsequence_methods = ['drop']  # 'pad' or 'drop', how to deal with short subsequences
     max_mask_consecutives = [0]  # only used when missing_value_method is 'mask_embedding'
     # max_mask_ratios = [0.5]  # only used when missing_value_method is 'mask_embedding'
-    # Other settings:
-    resumes = [True]  # fixme: depends on exps. Whether to resume from previous checkpoints
+    # --- For all models:
+    use_current_xs = [False]  # fixme: whether to use current time step features (e.g., air temperature) as input
+    future_steps = [7]  # fixme: days to predict ahead. Only works if 'use_current_x' is False.
+    # --- Other settings:
+    resumes = [False]  # fixme: depends on exps. Whether to resume from previous checkpoints
 
     params_list = {
         'method': methods,
@@ -243,6 +246,7 @@ if __name__ == '__main__':
         'use_current_x': use_current_xs,
         'short_subsequence_method': short_subsequence_methods,
         'max_mask_consecutive': max_mask_consecutives,
+        'future_steps': future_steps,
         'resume': resumes,
     }
 

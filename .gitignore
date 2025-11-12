@@ -10,3 +10,4 @@ swissrivernetwork/benchmark/outputs/*
 !swissrivernetwork/benchmark/outputs/*.ipynb
 swissrivernetwork/benchmark/dump/*
 swissrivernetwork/benchmark/wandb/*
+playground/torchexplorer_standalone/*

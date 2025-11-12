@@ -30,6 +30,9 @@ def training_loop(
         wandb_project: str | None = 'swissrivernetwork', settings: benedict = benedict({}),
         verbose: int = 2
 ):
+    # Set up configurations:
+    use_current_x = config.get('use_current_x', True)
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     if edges is not None:
@@ -132,6 +135,12 @@ def training_loop(
                 if pad_masks is not None:
                     mask &= (~pad_masks).unsqueeze(-1)  # True for valid values
 
+                # Remove historical inputs and masks for forecasting:
+                if not use_current_x:
+                    future_steps = config['future_steps']
+                    y = y[..., -future_steps:, :]
+                    mask = mask[..., -future_steps:, :]
+
                 # Shapes of ``out``, ``y``, ``mask`` are as follows:
                 # - For SeqWindowed[Masked]Dataset: [B, win_len, 1]
                 # - For STGNNSequenceWindowed[Masked}Dataset: [B, n_stations, win_len, 1].
@@ -191,6 +200,13 @@ def training_loop(
                     if pad_masks is not None:
                         mask &= (~pad_masks).unsqueeze(-1)
 
+                    # Remove historical inputs and masks for forecasting:
+                    if not use_current_x:
+                        future_steps = config['future_steps']
+                        y = y[..., -future_steps:, :]
+                        mask = mask[..., -future_steps:, :]
+                        t = t[..., -future_steps:, :]
+
                     # Record everything (not masked) for possible aggregation later:
                     epoch_days.append(t)
                     masks.append(mask)
@@ -199,7 +215,8 @@ def training_loop(
 
             validation_mse, validation_ave_rmse, validation_rmse = compute_all_metrics(
                 epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
-                is_stg=dataloader_valid.dataset.__class__.__name__.startswith('STGNN')  # todo: startswith or include?
+                is_stg=dataloader_valid.dataset.__class__.__name__.startswith('STGNN'),  # fixme: startswith or include?
+                is_extrapolation=use_current_x
             )
 
             # Log everything:
@@ -231,6 +248,7 @@ def training_loop(
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
             print(f'{ISSUE_TAG}WARNING: ran out of memory, skipping this trial!')
+            print(f'The error message is: \n{e}')
             report(done=True, status="OOM")
         else:
             raise
@@ -246,7 +264,8 @@ def compute_all_metrics(
         dataloader_valid: torch.utils.data.DataLoader,
         normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
-        is_stg: bool
+        is_stg: bool,
+        **kwargs
 ):
     # Shapes of items in input lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
     # - For SeqFull[Masked]Dataset: [B, seq_len, 1]. ``seq_len`` may vary.
@@ -260,11 +279,11 @@ def compute_all_metrics(
 
     if is_stg:
         return compute_all_metrics_stg(
-            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion
+            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion, **kwargs
         )
     else:
         return compute_all_metrics_isolated_station(
-            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion
+            epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion, **kwargs
         )
 
 
@@ -276,6 +295,7 @@ def compute_all_metrics_stg(
         dataloader_valid: torch.utils.data.DataLoader,
         normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
+        **kwargs
 ):
     def station_data_extractor(input, iter_idx):
         return input[:, iter_idx, :].flatten()
@@ -292,7 +312,8 @@ def compute_all_metrics_stg(
     metrics = compute_all_metrics_unified(
         epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
         station_iterator=station_iterator,
-        station_data_extractor=station_data_extractor
+        station_data_extractor=station_data_extractor,
+        **kwargs
     )
     return metrics
 
@@ -305,6 +326,7 @@ def compute_all_metrics_isolated_station(
         dataloader_valid: torch.utils.data.DataLoader,
         normalizer_wt: list[BaseEstimator] | StationSplitScaler,
         validation_criterion: nn.Module,
+        **kwargs
 ):
     def station_data_extractor(input, iter_idx):
         start, end = iter_idx
@@ -331,7 +353,8 @@ def compute_all_metrics_isolated_station(
     metrics = compute_all_metrics_unified(
         epoch_days, masks, preds, targets, dataloader_valid, normalizer_wt, validation_criterion,
         station_iterator=station_iterator,
-        station_data_extractor=station_data_extractor
+        station_data_extractor=station_data_extractor,
+        **kwargs
     )
     if hasattr(dataloader_valid.dataset, 'cumulative_sizes'):
         print(f'{INFO_TAG}cumulative_sizes: {[0] + dataloader_valid.dataset.cumulative_sizes}')
@@ -348,6 +371,7 @@ def compute_all_metrics_unified(
         validation_criterion: nn.Module,
         station_iterator: Iterable,
         station_data_extractor: Callable,
+        **kwargs
 
 ):
     """
@@ -390,7 +414,7 @@ def compute_all_metrics_unified(
         station_preds_norm = station_data_extractor(preds, iter_idx)
         station_targets_norm = station_data_extractor(targets, iter_idx)
 
-        if check_is_aggregation_needed(dataloader_valid):  # windowed dataset:
+        if check_is_aggregation_needed(dataloader_valid, kwargs.get('use_current_x', True)):  # windowed dataset:
             unique_epoch_days, aggregated_dict = aggregate_day_predictions(
                 station_epoch_days,
                 {

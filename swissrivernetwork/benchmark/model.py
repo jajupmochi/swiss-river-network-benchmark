@@ -33,6 +33,25 @@ class LstmModel(nn.Module):
         return target
 
 
+class ExtrapoLstmModel(nn.Module):
+
+    def __init__(self, input_size, hidden_size, num_layers, future_steps: int = 1):
+        super().__init__()
+        self.future_steps = future_steps
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
+        self.linear = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(hidden_size, future_steps)
+        )
+
+
+    def forward(self, x):
+        x = x[:, : -self.future_steps]
+        out, hidden = self.lstm(x)
+        target = self.linear(out[:, -1, :])  # only use the last time step
+        return target.unsqueeze(-1)  # [B, future_steps, 1]
+
+
 class LstmEmbeddingModel(nn.Module):
 
     def __init__(self, input_size, num_embeddings, embedding_size, hidden_size, num_layers):
@@ -55,6 +74,61 @@ class LstmEmbeddingModel(nn.Module):
         return target
 
 
+class ExtrapoLstmEmbeddingModel(nn.Module):
+    """
+    LSTM model with extrapolation for missing values.
+    """
+
+
+    def __init__(self, input_size, num_embeddings, embedding_size, hidden_size, num_layers, future_steps: int = 1):
+        super().__init__()
+        self.future_steps = future_steps
+        self.embedding = nn.Embedding(num_embeddings, embedding_size)
+        self.lstm = nn.LSTM(
+            input_size=input_size + embedding_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True
+        )
+        self.linear = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(hidden_size, future_steps)
+        )
+
+
+    def forward(self, e, x):
+        """
+        The input e and x should be the full sequence, including historical observed values and "future" values to be
+        predicted. This is a bit anti-intuitive, but is aligned with the Transformer model design, which uses causal
+        masking.
+        """
+        e, x = e[:, : -self.future_steps], x[:, : -self.future_steps]
+        emb = self.embedding(e)  # e in [batch x sequence x station_id]
+        x = torch.cat((emb, x), 2)  # x in [batch x sequence x features]
+        out, hidden = self.lstm(x)
+        target = self.linear(out[:, -1, :])  # only use the last time step
+        return target.unsqueeze(-1)  # [B, future_steps, 1]
+
+        # x_t = x[:, -1, :]  # [B, D+emb]
+        # preds = []
+        #
+        # for _ in range(future_steps):
+        #     # Single step recursive forward:
+        #     out, (h, c) = self.lstm(x_t.unsqueeze(1), hidden)
+        #     y_pred = self.linear(out[:, -1, :])  # [B, 1]
+        #
+        #     preds.append(y_pred.unsqueeze(1))  # [B,1,1]
+        #
+        #     # Construct next input, using predicted values:
+        #     # station embedding using last time step (same station id along the sequence):
+        #     emb_next = self.embedding(e[:, -1])  # [B, emb]
+        #     #
+        #     x_t = torch.cat([y_pred, emb_next], dim=-1)  # [B, D+emb]
+        #
+        # preds = torch.cat(preds, dim=1)  # [B, steps, 1]
+        # return preds
+
+        target = self.linear(out)
+        return target
+
+
 # %% Transformer Models:
 
 
@@ -72,7 +146,9 @@ class TransformerEmbeddingModel(nn.Module):
             # 'mask_embedding' or 'interpolation' or 'zero' or None:
             missing_value_method: str | None = 'mask_embedding',
             use_current_x: bool = True,
-            positional_encoding: str = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
+            positional_encoding: str = 'rope',  # 'learnable' or 'sinusoidal' or 'rope' or None
+            future_steps: int = 1,  # for extrapolation model. Only works if `use_current_x` is False.
+            d_future_emb: int = 32  # dimension of future step embedding # todo: this can be tuned
     ):
         """
         Parameters
@@ -85,6 +161,7 @@ class TransformerEmbeddingModel(nn.Module):
         self.use_current_x = use_current_x
         self.use_mask_embedding = (missing_value_method == 'mask_embedding')
         self.positional_encoding = positional_encoding
+        self.future_steps = future_steps
 
         # Optional station embedding:
         self.embedding = nn.Embedding(num_embeddings, embedding_size) if num_embeddings > 0 else None
@@ -131,6 +208,7 @@ class TransformerEmbeddingModel(nn.Module):
             self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
         # Final linear layer
+        # dim_out_features = 1 if use_current_x else future_steps
         self.linear = nn.Sequential(
             nn.ReLU(),
             nn.Linear(d_model, 1)
@@ -142,6 +220,20 @@ class TransformerEmbeddingModel(nn.Module):
             # ``missing_value_method`` is set incorrectly). Make sure to match this with the correct dataset settings
             # (e.g., the ones that generate the corresponding ``time_masks``).
             self.mask_embedding = nn.Parameter(torch.zeros(1, 1, d_model))
+
+        if not self.use_current_x:
+            # Learnable embedding for future steps:
+            self.future_step_embedding = nn.Parameter(torch.zeros(1, self.future_steps, d_future_emb))
+            if self.embedding:
+                self.future_proj = nn.Linear(embedding_size + d_future_emb, d_model)
+            else:
+                if d_model == d_future_emb:
+                    self.future_proj = nn.Identity()
+                else:
+                    self.future_proj = nn.Linear(d_future_emb, d_model)
+            self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
+        else:
+            self.target_postprocessor = None
 
 
     def forward(self, e, x, time_masks=None, pad_masks=None):
@@ -155,13 +247,34 @@ class TransformerEmbeddingModel(nn.Module):
         if x.isnan().any():
             raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
 
-        # Station embedding:
-        if self.embedding:
-            emb = self.embedding(e)  # [batch, seq_len, embedding_size]
-            x = torch.cat((emb, x), dim=-1)  # fuse embedding
+        if self.use_current_x:
+            # Current value based prediction:
+            # Station embedding:
+            if self.embedding:
+                emb = self.embedding(e)  # [batch, seq_len, embedding_size]
+                x = torch.cat((emb, x), dim=-1)  # fuse embedding
 
-        x = self.input_proj(x)  # [batch, seq_len, d_model]
-        seq_len = x.size(1)
+            x = self.input_proj(x)  # [batch, seq_len, d_model]
+            seq_len = x.size(1)
+        else:
+            # Separate historical observed values and future values to be predicted:
+            x_history = x[:, :-self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
+            # Add future step embeddings if needed:
+            x_future = self.future_step_embedding  # [1, future_steps, d_future_emb]
+            x_future = x_future.expand(x.size(0), -1, -1)  # [batch, future_steps, d_future_emb]
+
+            # Station embedding:
+            if self.embedding:
+                emb = self.embedding(e)  # [batch, seq_len, embedding_size]
+                x_history = torch.cat((emb[:, :-self.future_steps, :], x_history), dim=-1)  # fuse embedding
+                # [batch, future_steps, d_emb + d_future_emb]:
+                x_future = torch.cat((emb[:, -self.future_steps:, :], x_future), dim=-1)
+
+            x_history = self.input_proj(x_history)  # [batch, seq_len - future_steps, d_model]
+            x_future = self.future_proj(x_future)  # [batch, future_steps, d_model]
+
+            x = torch.cat((x_history, x_future), dim=1)  # [batch, seq_len, d_model]
+            seq_len = x.size(1)
 
         if self.positional_encoding in ['learnable', 'sinusoidal']:
             x = self.pos_embedding(x)  # add positional encoding
@@ -176,7 +289,10 @@ class TransformerEmbeddingModel(nn.Module):
         if self.use_current_x:
             causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
         else:
-            causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=0).bool()
+            # Here we try to use full attention among all steps. Notice learnable future step embeddings are used.
+            causal_mask = torch.zeros((seq_len, seq_len), device=x.device).bool()
+            # Here we do not allow all future steps to attend to each other (only the ones before the current step):
+            # causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
 
         # # Check mask validity:  comment this out for now because it is too slow. todo: optimize it.
         # if not self.use_mask_embedding:
@@ -224,6 +340,8 @@ class TransformerEmbeddingModel(nn.Module):
 
         # [batch, seq_len, 1]  token-wise projection, masked values do not affect others at this step:
         target = self.linear(out)
+        if self.target_postprocessor is not None:
+            target = self.target_postprocessor(target)
         return target
 
 
@@ -427,9 +545,18 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         self.num_layers = num_layers
         self.num_convs = num_convs
         self.num_heads = num_heads
+        self.temporal_func = temporal_func
+        self.use_current_x: bool = kwargs['use_current_x']
+        self.future_steps = kwargs.get('future_steps', 1)
 
         # Validate input        
         assert self.num_convs > 0, 'num_convs must be positive.'
+
+        # Input processor:
+        if not self.use_current_x and temporal_func == 'lstm_embedding':
+            self.input_preprocessor = lambda x: x[..., : -self.future_steps, :]
+        else:
+            self.input_preprocessor = None
 
         # Temporal Module: based on an LSTMEmbeddingModel per Node
         if temporal_func == 'lstm_embedding':
@@ -446,14 +573,20 @@ class SpatioTemporalEmbeddingModel(nn.Module):
                 d_model=hidden_size,
                 max_len=kwargs['max_len'],
                 missing_value_method=kwargs['missing_value_method'],
-                use_current_x=kwargs['use_current_x'],
-                positional_encoding=kwargs.get('positional_encoding', 'rope')
+                use_current_x=self.use_current_x,
+                positional_encoding=kwargs.get('positional_encoding', 'rope'),
+                future_steps=self.future_steps,
             )
+            if not self.use_current_x:
+                self.temporal.target_postprocessor = None
+        else:
+            raise ValueError(f'Unknown temporal_func: {temporal_func}.')
         self.temporal.linear = nn.Identity()  # remove linear layer
 
         # predefine linear layer
         # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size, 1))
-        self.linear = nn.Linear(hidden_size, 1)
+        dim_out_features = self.future_steps if (self.use_current_x and temporal_func == 'lstm_embedding') else 1
+        self.linear = nn.Linear(hidden_size, dim_out_features)
 
         if self.method == 'GCN':
             self.gconvs = nn.ModuleList(
@@ -477,7 +610,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
                 )
             self.gconvs = nn.ModuleList(convs)
             # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size*num_heads, 1)) # fix linear layer
-            self.linear = nn.Linear(hidden_size * num_heads, 1)  # fix linear layer
+            self.linear = nn.Linear(hidden_size * num_heads, dim_out_features)  # fix linear layer
 
         elif self.method == 'GraphSAGE':
             self.gconvs = nn.ModuleList([gnn.SAGEConv(hidden_size, hidden_size) for _ in range(num_convs)])
@@ -509,10 +642,28 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         return torch.stack(hs, dim=1)  # [batch x node x sequence x latent]
 
 
+    def postprocess_target(self, target):
+        if self.use_current_x:
+            target = self.linear(target)
+        else:
+            if self.temporal_func == 'lstm_embedding':
+                target = target[..., -1, :]  # only use the last time step
+                target = self.linear(target)
+                target = target.unsqueeze(-1)
+            elif self.temporal_func == 'transformer_embedding':
+                target = target[..., -self.future_steps:, :]  # only use the future steps
+                target = self.linear(target)
+            else:
+                raise ValueError(f'Unknown temporal_func: {self.temporal_func}.')
+        return target
+
+
     def forward(self, x, edge_index):
-        '''
+        """
         x are features in [batch x nodes x window x parameter (at)]
-        '''
+        """
+        if self.input_preprocessor is not None:
+            x = self.input_preprocessor(x)
 
         # apply temporal lstms:
         hs_lstm = self.apply_temporal_model(x)
@@ -543,7 +694,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         # Restore dimensions:
         hs = torch.transpose(hs, 1, 2)  # [B, n_stations, T, hidden_size]
 
-        # Predict water temperatures
-        target = self.linear(hs)
+        # Predict water temperatures:
+        target = self.postprocess_target(hs)
 
         return target

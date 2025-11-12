@@ -233,10 +233,12 @@ def run_experiment(
             # --- Dataset specific:
             # 'mask_embedding' or 'interpolation' or 'zero' or None:
             search_space['missing_value_method'] = config.missing_value_method
-            search_space['use_current_x'] = config.use_current_x
             search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
             search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
             search_space['max_mask_ratio'] = config.max_mask_ratio
+            # --- For all models:
+            search_space['use_current_x'] = config.use_current_x
+            search_space['future_steps'] = config.get('future_steps', 1)
 
             if 'lstm' == method:
                 trainer = partial(train_lstm, settings=config, verbose=verbose)
@@ -270,16 +272,18 @@ def run_experiment(
             search_space = search_space_transformer.copy()
             search_space['station'] = station
             search_space['graph_name'] = graph_name
-            # Transformer specific:
-            search_space['max_len'] = config.max_len
-            search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+            # --- dataset specific:
             # 'mask_embedding' or 'interpolation' or 'zero' or None:
             search_space['missing_value_method'] = config.missing_value_method
-            # dataset specific:
-            search_space['use_current_x'] = config.use_current_x
             search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
             search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
             search_space['max_mask_ratio'] = config.max_mask_ratio
+            # --- For all models:
+            search_space['use_current_x'] = config.use_current_x
+            search_space['future_steps'] = config.get('future_steps', 1)
+            # --- Transformer specific:
+            search_space['max_len'] = config.max_len
+            search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
 
             if 'transformer' == method:
                 trainer = partial(train_transformer, settings=config, verbose=verbose)
@@ -309,6 +313,15 @@ def run_experiment(
     elif 'lstm_embedding' == method:
         search_space = search_space_lstm_embedding.copy()
         search_space['graph_name'] = graph_name
+        # --- dataset specific:
+        # 'mask_embedding' or 'interpolation' or 'zero' or None:
+        search_space['missing_value_method'] = config.missing_value_method
+        search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
+        search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
+        search_space['max_mask_ratio'] = config.max_mask_ratio
+        # --- For all models:
+        search_space['use_current_x'] = config.use_current_x
+        search_space['future_steps'] = config.get('future_steps', 1)
 
         trainer = partial(train_lstm_embedding, settings=config, verbose=verbose)
 
@@ -328,16 +341,18 @@ def run_experiment(
     elif 'transformer_embedding' == method:
         search_space = search_space_transformer_embedding.copy()
         search_space['graph_name'] = graph_name
-        # Transformer specific:
-        search_space['max_len'] = config.max_len
-        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        # --- dataset specific:
         # 'mask_embedding' or 'interpolation' or 'zero' or None:
         search_space['missing_value_method'] = config.missing_value_method
-        # dataset specific:
-        search_space['use_current_x'] = config.use_current_x
         search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
+        # --- For all models:
+        search_space['use_current_x'] = config.use_current_x
+        search_space['future_steps'] = config.get('future_steps', 1)
+        # --- Transformer specific:
+        search_space['max_len'] = config.max_len
+        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
 
         if config.missing_value_method is None:
             trainer = partial(train_transformer_embedding, settings=config, verbose=verbose)
@@ -362,12 +377,15 @@ def run_experiment(
     elif 'stgnn' == method:
         search_space = search_space_stgnn.copy()
         search_space['graph_name'] = graph_name
+        # --- dataset specific:
         # 'mask_embedding' or 'interpolation' or 'zero' or None:
         search_space['missing_value_method'] = config.missing_value_method
-        search_space['use_current_x'] = config.use_current_x
         search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
+        # --- For all models:
+        search_space['use_current_x'] = config.use_current_x
+        search_space['future_steps'] = config.get('future_steps', 1)
 
         trainer = partial(train_stgnn, settings=config, verbose=verbose)
 
@@ -388,16 +406,18 @@ def run_experiment(
     elif 'transformer_stgnn' == method:
         search_space = search_space_transformer_stgnn.copy()
         search_space['graph_name'] = graph_name
-        # Transformer specific:
-        search_space['max_len'] = config.max_len
-        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        # --- dataset specific:
         # 'mask_embedding' or 'interpolation' or 'zero' or None:
         search_space['missing_value_method'] = config.missing_value_method
-        # dataset specific:
-        search_space['use_current_x'] = config.use_current_x
         search_space['short_subsequence_method'] = config.short_subsequence_method  # 'pad' or 'drop'
         search_space['max_mask_consecutive'] = config.max_mask_consecutive  # only used
         search_space['max_mask_ratio'] = config.max_mask_ratio
+        # --- For all models:
+        search_space['use_current_x'] = config.use_current_x
+        search_space['future_steps'] = config.get('future_steps', 1)
+        # Transformer specific:
+        search_space['max_len'] = config.max_len
+        search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
 
         if config.missing_value_method is None:
             trainer = partial(train_transformer_stgnn, settings=config, verbose=verbose)
@@ -475,10 +495,6 @@ def parse_config():
     )
     # Dataset specific:
     parser.add_argument(
-        '-ucx', '--use_current_x', required=False, type=str2bool, nargs='?', const=True, default=True,
-        help='Whether to use the current time step feature in transformer models. If False, only past features are used, which corresponds to next-token prediction.'
-    )
-    parser.add_argument(
         '-mvm', '--missing_value_method', required=False, type=str,
         choices=['mask_embedding', 'interpolation', 'zero', 'none'],
         default='none', help='Method to handle missing values in the input data for transformer models.'
@@ -494,6 +510,15 @@ def parse_config():
     parser.add_argument(
         '-ssm', '--short_subsequence_method', required=False, type=str, choices=['pad', 'drop'],
         default='pad', help='How to handle short subsequences that are shorter than window_len in transformer models.'
+    )
+    # For all models:
+    parser.add_argument(
+        '-ucx', '--use_current_x', required=False, type=str2bool, nargs='?', const=True, default=True,
+        help='Whether to use the current time step feature in transformer models. If False, only past features are used, which corresponds to next-token prediction.'
+    )
+    parser.add_argument(
+        '-fs', '--future_steps', required=False, type=int, default=1,
+        help='Number of future time steps to predict. Only used when use_current_x is False. Default is 1.'
     )
     # Transformers specific:
     parser.add_argument(
@@ -540,23 +565,24 @@ if __name__ == '__main__':
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
-            # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
-            'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
-            'graph': 'zurich',  # 'swiss-1990', 'swiss-2010', 'zurich'
-            'dev_run': False,  # fixme: debug
+            'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
+            'dev_run': True,  # fixme: debug
             'positional_encoding': 'rope',  # fixme: debug, 'none', transformers only: 'sinusoidal', 'rope', 'learnable'
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'drop',  # 'pad' or 'drop'
-            'use_current_x': True,  # True or False (next-token prediction)
+            'use_current_x': False,  # fixme: debug, True or False (future-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
-            'resume': True,  # fixme: debug
+            'resume': False,  # fixme: debug
+            'future_steps': 7,  # Only works if 'use_current_x' is False
         }
 
         if not is_transformer_model(debug_cfg['config'].stem):

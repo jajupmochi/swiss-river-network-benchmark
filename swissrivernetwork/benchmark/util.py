@@ -159,8 +159,10 @@ def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.
         return unique_vals
 
 
-def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader) -> bool:
+def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader, is_extrapolation: bool = True) -> bool:
     # todo: upgrade with aggregation method in config or full/windowed dataset
+    if is_extrapolation:  # Return all values (corresponding to future prediction) without aggregation:
+        return False
     if isinstance(dataloader.dataset, torch.utils.data.ConcatDataset):
         # if settings.method in ['transformer_embedding']:
         # dataloader_valid.dataset (ConcatDataset) -> datasets (list) ->
@@ -207,7 +209,7 @@ def get_run_extra_key(config: benedict | dict) -> str:
         config = benedict(config)
     extra_key = ''
     if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
-        extra_key += f'-next_tokens'
+        extra_key += f'-fs{config.future_steps}'
     if 'window_len' in config and config.window_len is not None:
         extra_key += f'-wl{config.window_len}'
     if 'missing_value_method' in config and config.missing_value_method is not None:

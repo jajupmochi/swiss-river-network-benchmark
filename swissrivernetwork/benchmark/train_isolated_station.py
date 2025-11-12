@@ -1,5 +1,5 @@
 from swissrivernetwork.benchmark.dataset import *
-from swissrivernetwork.benchmark.model import LstmModel, TransformerModel
+from swissrivernetwork.benchmark.model import LstmModel, TransformerModel, ExtrapoLstmModel
 from swissrivernetwork.benchmark.training import training_loop
 from swissrivernetwork.benchmark.util import *
 
@@ -79,7 +79,7 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
     )
     # todo: use windowed dataset for validation too?:
     if settings.get('valid_use_window', True):  # window valid data for transformer
-        dataset_valid = SequenceWindowedDataset(  # fixme: debug
+        dataset_valid = SequenceWindowedDataset(
             config['window_len'], df_valid, name=config['station'],
             # dev_run=settings.get('dev_run', False)
         )
@@ -109,9 +109,15 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
             missing_value_method=config['missing_value_method'],
             use_current_x=config['use_current_x'],
             positional_encoding=config.get('positional_encoding', 'rope'),
+            future_steps=config.get('future_steps', 1),
         )
     else:
-        model = LstmModel(input_size, config['hidden_size'], config['num_layers'])
+        if config.get('use_current_x', True):
+            model = LstmModel(input_size, config['hidden_size'], config['num_layers'])
+        else:
+            model = ExtrapoLstmModel(
+                input_size, config['hidden_size'], config['num_layers'], future_steps=config['future_steps']
+            )
 
     training_loop(
         config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=False,
@@ -122,11 +128,11 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
 
 if __name__ == '__main__':
     # fix 2010 bug:
-    graph_name = 'zurich'  # 'swiss-1990' or 'swiss-2010' or 'zurich'
+    graph_name = 'swiss-1990'  # 'swiss-1990' or 'swiss-2010' or 'zurich'
 
     method = 'transformer_graphlet'  # 'lstm', 'graphlet', 'transformer', or 'transformer_graphlet'
 
-    station = '534'  # '2091' for 'swiss-1990', '534' for 'zurich'
+    station = '2091'  # '2091' for 'swiss-1990', '534' for 'zurich'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -153,7 +159,8 @@ if __name__ == '__main__':
         # --- Exp configs used for all models:
         # 'mask_embedding' or 'interpolation' or 'zero' or None
         'missing_value_method': None,  # fixme: test. based on lstm or transformer
-        'use_current_x': True,  # whether to use the current day's features as input to predict next day
+        'use_current_x': False,  # whether to use the current day's features as input to predict next day
+        'future_steps': 7,  # fixme: days to predict ahead.
     }
 
     # Extra config:
