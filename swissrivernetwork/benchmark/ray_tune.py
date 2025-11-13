@@ -120,9 +120,9 @@ search_space_stgnn = {
     # "gnn_conv": choice(['GCN', 'GIN']),
     "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN', 'GAT']),
     # "gnn_conv": choice(['GraphSAGE']),
-    "num_convs": randint(1, 7 + 1),
+    "num_convs": randint(1, 6 + 1),
     "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
-    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 32 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
     # "use_station_embedding": True  # Not used. Hard coded for both training and evaluation.
 }
 
@@ -139,13 +139,13 @@ search_space_transformer_stgnn = {
     # "gnn_conv": choice(['GCN', 'GIN']),
     "gnn_conv": choice(['GCN', 'GIN', 'GraphSAGE', 'MPNN', 'GAT']),
     # "gnn_conv": choice(['GraphSAGE']),
-    "num_convs": randint(1, 7 + 1),
+    "num_convs": randint(1, 6 + 1),
     "num_heads": sample_from(lambda spec: randint(1, 8 + 1).sample() if spec['gnn_conv'] == 'GAT' else 0),
-    "edge_hidden_size": sample_from(lambda spec: randint(4, 64 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
+    "edge_hidden_size": sample_from(lambda spec: randint(4, 32 + 1).sample() if spec['gnn_conv'] == 'MPNN' else None),
     # Transformer specific:
     "dropout": uniform(0.0, 0.5),
-    "num_t_heads": randint(2, 8 + 1),
-    "ratio_heads_to_d_model": choice([4, 8, 16]),  # d_model must be multiple of num_t_heads
+    "num_t_heads": randint(1, 8 + 1),
+    "ratio_heads_to_d_model": choice([4, 8, 12]),  # d_model must be multiple of num_t_heads
     # "d_model": randint(16, 256 + 1),  # 128
     "dim_feedforward": randint(32, 256 + 1),
     "use_station_embedding": True  # Not used. Hard coded for both training and evaluation.
