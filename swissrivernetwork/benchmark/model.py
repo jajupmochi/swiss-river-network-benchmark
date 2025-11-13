@@ -585,7 +585,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
 
         # predefine linear layer
         # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size, 1))
-        dim_out_features = self.future_steps if (self.use_current_x and temporal_func == 'lstm_embedding') else 1
+        dim_out_features = self.future_steps if (not self.use_current_x and temporal_func == 'lstm_embedding') else 1
         self.linear = nn.Linear(hidden_size, dim_out_features)
 
         if self.method == 'GCN':
