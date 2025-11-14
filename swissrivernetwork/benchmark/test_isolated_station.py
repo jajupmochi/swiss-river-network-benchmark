@@ -318,7 +318,8 @@ def test_graphlet(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
-    df_neighs = [read_csv_prediction_test(graph_name, neigh, predict_dump_dir=predict_dump_dir) for neigh in neighs]
+    df_neighs = [read_csv_prediction_test(graph_name, 'lstm', neigh, predict_dump_dir=predict_dump_dir) for neigh in
+                 neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
@@ -357,7 +358,8 @@ def test_transformer_graphlet(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
-    df_neighs = [read_csv_prediction_test(graph_name, neigh, predict_dump_dir=predict_dump_dir) for neigh in neighs]
+    df_neighs = [read_csv_prediction_test(graph_name, 'transformer', neigh, predict_dump_dir=predict_dump_dir)
+                 for neigh in neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it

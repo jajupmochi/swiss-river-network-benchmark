@@ -28,8 +28,12 @@ def read_csv_train(graph_name, base_dir: str | Path = PROJ_DIR):
     return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_train.csv')  # DUPLICATE?!
 
 
-def read_csv_prediction_train(graph_name, station, base_dir: str | Path = PROJ_DIR):
-    return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/prediction/{graph_name}_lstm_{station}_train.csv')
+def read_csv_prediction_train(
+        graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None,
+        base_dir: str | Path = PROJ_DIR
+):
+    predict_dump_dir = f'{base_dir}/swissrivernetwork/benchmark/dump/predictions' if predict_dump_dir is None else predict_dump_dir
+    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_{method}_{station}_train.csv')
 
 
 def select_isolated_station(df, station):
@@ -43,10 +47,11 @@ def read_csv_test(graph_name, base_dir: str | Path = PROJ_DIR):
 
 
 def read_csv_prediction_test(
-        graph_name, station, predict_dump_dir: str | Path | None = None, based_dir: str | Path = PROJ_DIR
+        graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None,
+        based_dir: str | Path = PROJ_DIR
 ):
-    predict_dump_dir = f'{based_dir}/swissrivernetwork/benchmark/dump/prediction' if predict_dump_dir is None else predict_dump_dir
-    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_lstm_{station}_test.csv')
+    predict_dump_dir = f'{based_dir}/swissrivernetwork/benchmark/dump/predictions' if predict_dump_dir is None else predict_dump_dir
+    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_{method}_{station}_test.csv')
 
 
 def read_station_data_from_df(df_all: pd.DataFrame, station: str):

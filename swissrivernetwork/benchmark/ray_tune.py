@@ -1,10 +1,10 @@
 import argparse
 import os
 import sys
+import time
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-import time
 
 import ray
 from benedict import benedict
@@ -19,7 +19,7 @@ from swissrivernetwork.benchmark.train_single_model import (
     train_lstm_embedding, train_stgnn, train_transformer_embedding, train_masked_transformer_embedding,
     train_transformer_stgnn
 )
-from swissrivernetwork.benchmark.util import get_run_name, is_transformer_model, str2bool
+from swissrivernetwork.benchmark.util import get_run_name, is_transformer_model, str2bool, get_run_extra_key
 
 CUR_ABS_DIR = Path(__file__).resolve().parent
 
@@ -243,7 +243,9 @@ def run_experiment(
             if 'lstm' == method:
                 trainer = partial(train_lstm, settings=config, verbose=verbose)
             elif 'graphlet' == method:
-                trainer = partial(train_graphlet, settings=config, verbose=verbose)
+                trainer = partial(
+                    train_graphlet, settings={**config, 'path_extra_keys': get_run_extra_key(config)}, verbose=verbose
+                )
             else:
                 raise ValueError(f'Unknown method: {method}.')
 
@@ -288,7 +290,10 @@ def run_experiment(
             if 'transformer' == method:
                 trainer = partial(train_transformer, settings=config, verbose=verbose)
             elif 'transformer_graphlet' == method:
-                trainer = partial(train_transformer_graphlet, settings=config, verbose=verbose)
+                trainer = partial(
+                    train_transformer_graphlet, settings={**config, 'path_extra_keys': get_run_extra_key(config)},
+                    verbose=verbose
+                )
             else:
                 raise ValueError(f'Unknown method: {method}.')
 
@@ -565,10 +570,10 @@ if __name__ == '__main__':
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
-            'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
+            # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
-            # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
@@ -578,7 +583,7 @@ if __name__ == '__main__':
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'drop',  # 'pad' or 'drop'
-            'use_current_x': False,  # fixme: debug, True or False (future-token prediction)
+            'use_current_x': True,  # fixme: debug, True or False (future-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
             'resume': False,  # fixme: debug

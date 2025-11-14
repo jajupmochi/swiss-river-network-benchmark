@@ -3,6 +3,10 @@ from swissrivernetwork.benchmark.model import LstmModel, TransformerModel, Extra
 from swissrivernetwork.benchmark.training import training_loop
 from swissrivernetwork.benchmark.util import *
 
+CUR_ABS_DIR = Path(__file__).parent.absolute()
+OUTPUT_DIR = (CUR_ABS_DIR / '../../' / 'swissrivernetwork/benchmark/outputs/ray_results/').resolve()
+DUMP_DIR = (CUR_ABS_DIR / '../../' / 'swissrivernetwork/benchmark/dump/').resolve()
+
 
 # %% Isolated Station Training:
 
@@ -44,7 +48,9 @@ def train_graphlet(config, settings: benedict = benedict({}), verbose: int = 2):
     df = read_csv_train(graph_name)
     df = select_isolated_station(df, station)
     # Run test_lstm first to generate neigh prediction files:
-    df_neighs = [read_csv_prediction_train(graph_name, neigh) for neigh in neighs]
+    predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+    df_neighs = [read_csv_prediction_train(graph_name, 'lstm', neigh, predict_dump_dir=predict_dump_dir) for neigh in
+                 neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     train_isolated_station(config, 1 + len(neighs), df, settings=settings, verbose=verbose)
@@ -59,7 +65,10 @@ def train_transformer_graphlet(config, settings: benedict = benedict({}), verbos
     neighs = extract_neighbors(graph_name, station, num_hops)
     df = read_csv_train(graph_name)
     df = select_isolated_station(df, station)
-    df_neighs = [read_csv_prediction_train(graph_name, neigh) for neigh in neighs]
+    # Run test_transformer first to generate neigh prediction files:
+    predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+    df_neighs = [read_csv_prediction_train(graph_name, 'transformer', neigh, predict_dump_dir=predict_dump_dir) for
+                 neigh in neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     train_isolated_station(config, 1 + len(neighs), df, settings=settings, verbose=verbose)
@@ -165,7 +174,7 @@ if __name__ == '__main__':
 
     # Extra config:
     settings = {
-        'dev_run': False,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
+        'dev_run': True,  # fixme: debug  Set training and validation to very small subsets (4) and disable wandb
         'enable_wandb': True,  # fixme: debug Enable wandb logging
     }
 
