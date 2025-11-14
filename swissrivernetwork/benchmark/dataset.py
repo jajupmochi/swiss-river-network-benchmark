@@ -42,8 +42,11 @@ def read_csv_test(graph_name, base_dir: str | Path = PROJ_DIR):
     return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_test.csv')
 
 
-def read_csv_prediction_test(graph_name, station, base_dir: str | Path = PROJ_DIR):
-    return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/prediction/{graph_name}_lstm_{station}_test.csv')
+def read_csv_prediction_test(
+        graph_name, station, predict_dump_dir: str | Path | None = None, based_dir: str | Path = PROJ_DIR
+):
+    predict_dump_dir = f'{based_dir}/swissrivernetwork/benchmark/dump/prediction' if predict_dump_dir is None else predict_dump_dir
+    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_lstm_{station}_test.csv')
 
 
 def read_station_data_from_df(df_all: pd.DataFrame, station: str):

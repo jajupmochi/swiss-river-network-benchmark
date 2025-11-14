@@ -380,7 +380,8 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
         raise ValueError(f'Unknown method: {method}')
 
     # Update extra_resu:
-    test_resu[5]['train_time_total_best'] = [best_trial_all.last_result['time_total_s'] / num_embeddings] * num_embeddings
+    test_resu[5]['train_time_total_best'] = [best_trial_all.last_result[
+                                                 'time_total_s'] / num_embeddings] * num_embeddings
 
     return *test_resu, total_params, best_trial
 
@@ -475,21 +476,27 @@ def evaluate_best_trial_isolated_station(
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
     if 'lstm' == method:
+        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_lstm(
-            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            verbose=settings.get('verbose', 2)
         )
     elif 'transformer' == method:
+        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_transformer(
-            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             verbose=settings.get('verbose', 2)
         )
     elif 'graphlet' == method:
+        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_graphlet(
-            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, verbose=settings.get('verbose', 2)
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            verbose=settings.get('verbose', 2)
         )
     elif 'transformer_graphlet' == method:
+        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_transformer_graphlet(
-            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR,
+            graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             verbose=settings.get('verbose', 2)
         )
     elif 'lstm_embedding' == method:

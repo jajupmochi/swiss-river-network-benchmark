@@ -226,7 +226,7 @@ def dump_predictions(
         }
     )
 
-    pred_path = Path(dump_dir) / f'prediction/{graph_name}_{model}_{station}_{suffix}.csv'
+    pred_path = Path(dump_dir) / f'{graph_name}_{model}_{station}_{suffix}.csv'
     os.makedirs(pred_path.parent, exist_ok=True)
     df.to_csv(pred_path, index=False)
 
@@ -303,7 +303,9 @@ def plot(
 
 def test_graphlet(
         graph_name, station, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        predict_dump_dir: Path | str | None = None,
+        verbose: int = 2
 ):
     # load normalizers
     df_train = read_csv_train(graph_name)
@@ -315,7 +317,8 @@ def test_graphlet(
     neighs = extract_neighbors(graph_name, station, num_hops)
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
-    df_neighs = [read_csv_prediction_test(graph_name, neigh) for neigh in neighs]
+    predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
+    df_neighs = [read_csv_prediction_test(graph_name, neigh, predict_dump_dir=predict_dump_dir) for neigh in neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
@@ -339,7 +342,9 @@ def test_graphlet(
 
 def test_transformer_graphlet(
         graph_name, station, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        predict_dump_dir: Path | str | None = None,
+        verbose: int = 2
 ):
     # load normalizers
     df_train = read_csv_train(graph_name)
@@ -351,7 +356,8 @@ def test_transformer_graphlet(
     neighs = extract_neighbors(graph_name, station, num_hops)
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
-    df_neighs = [read_csv_prediction_test(graph_name, neigh) for neigh in neighs]
+    predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
+    df_neighs = [read_csv_prediction_test(graph_name, neigh, predict_dump_dir=predict_dump_dir) for neigh in neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
@@ -375,7 +381,9 @@ def test_transformer_graphlet(
 
 def test_lstm(
         graph_name, station, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        predict_dump_dir: Path | str | None = None,
+        verbose: int = 2
 ):
     model_name = model.__class__.__name__.lower().removesuffix('model')
 
@@ -391,7 +399,10 @@ def test_lstm(
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
         model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )
-    dump_predictions(graph_name, model_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
+    dump_predictions(
+        graph_name, model_name, station, 'test', epoch_days, prediction_norm,
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+    )
 
     # Run on Train data as well:
     (
@@ -400,7 +411,8 @@ def test_lstm(
         model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )  # do not denormalize
     dump_predictions(
-        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir
+        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train,
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 
     # Compute errors:
@@ -420,7 +432,9 @@ def test_lstm(
 
 def test_transformer(
         graph_name, station, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        predict_dump_dir: Path | str | None = None,
+        verbose: int = 2
 ):
     model_name = model.__class__.__name__.lower().removesuffix('model')
 
@@ -436,7 +450,10 @@ def test_transformer(
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
         model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )
-    dump_predictions(graph_name, model_name, station, 'test', epoch_days, prediction_norm, dump_dir=dump_dir)
+    dump_predictions(
+        graph_name, model_name, station, 'test', epoch_days, prediction_norm,
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+    )
 
     # Run on Train data as well:
     (
@@ -445,7 +462,8 @@ def test_transformer(
         model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
     )  # do not denormalize
     dump_predictions(
-        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train, dump_dir=dump_dir
+        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train,
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 
     # Compute errors:
