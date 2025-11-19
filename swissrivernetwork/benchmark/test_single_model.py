@@ -54,8 +54,6 @@ def test_stgnn(
     # TODO: test if equal to column wise normalizer.. (but should)
 
     # Create Dataset
-    # dataset = STGNNSequenceFullDataset(df, stations)   # debug
-    # dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     if window_len is None:
         dataset = STGNNSequenceFullDataset(df, stations)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)  # fixme: drop_last? and the other locations?

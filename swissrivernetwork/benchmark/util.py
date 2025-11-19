@@ -234,6 +234,7 @@ def trim_checkpoints(
         root_path: Path, keep_best_n: int = 10, anchor_metric: str = 'validation_mse', mode: str = 'min',
         if_trim_best_n: bool = True,
         keep_best_for_trimmed_trials: bool = True, keep_last_for_trimmed_trials: bool = False,
+        remove_seperated_marker_files: bool = False,
         cur_depth: int = 0,
         verbose: bool = True
 ):
@@ -255,6 +256,7 @@ def trim_checkpoints(
             to the best n trials if `if_trim_best_n` is True.
         keep_last_for_trimmed_trials: Whether to keep the last checkpoint for the trimmed trials. This does not apply
             to the best n trials if `if_trim_best_n` is True.
+        remove_seperated_marker_files: Whether to remove the seperated marker files (e.g., checkpoint_000000-REMOVED).
     """
 
 
@@ -268,6 +270,8 @@ def trim_checkpoints(
 
         n_files_removed = 0
         disk_space_freed = 0
+        n_marker_files_removed = 0
+        files_trimmed = []
 
         dir_names_ignored = set()
         if keep_last_checkpoint:
@@ -293,17 +297,37 @@ def trim_checkpoints(
                     n_files_removed += 1
 
                     child.unlink()
-                    # Create a dummy file to indicate that this checkpoint has been removed:
-                    (ck_path / f'{child.name}-REMOVED').touch()
+                    # # Create a dummy file to indicate that this checkpoint has been removed:
+                    # This will generate too many files, which may use up quota on cluster file systems.
+                    # (ck_path / f'{child.name}-REMOVED').touch()
+                    files_trimmed.append(str(ck_path.relative_to(root_path) / f'{child.name}'))
+
+                # Remove marker files. This is to curate the previous behavior where we create seperated marker files
+                # to indicate removed checkpoints:
+                if remove_seperated_marker_files:
+                    if child.is_file() and child.name.endswith('.pth-REMOVED'):
+                        child.unlink()
+                        # remove '-REMOVED' suffix:
+                        file_trimmed = str(ck_path.relative_to(root_path) / f'{child.name[:-8]}')
+                        files_trimmed.append(file_trimmed)
+                        n_marker_files_removed += 1
             # checkpoint_path.rmdir()
 
         if verbose:
-            print(
-                f'  {INFO_TAG}Removed {n_files_removed} files from trial {trial_id}. '
-                f'Freed {disk_space_freed / (1024 ** 2):.2f} MB disk space.'
-            )
+            if n_files_removed > 0:
+                print(
+                    f'  {INFO_TAG}Removed {n_files_removed} model files from trial {trial_id}. '
+                    f'Freed {disk_space_freed / (1024 ** 2):.2f} MB disk space.'
+                )
+            # else:
+            #     print(f'  {INFO_TAG}No model files removed from trial {trial_id}.')
 
-        return n_files_removed, disk_space_freed
+            if n_marker_files_removed > 0:
+                print(
+                    f'  {INFO_TAG}Removed {n_marker_files_removed} seperated marker files from trial {trial_id}.'
+                )
+
+        return files_trimmed, disk_space_freed
 
 
     children = list(root_path.iterdir())
@@ -324,7 +348,9 @@ def trim_checkpoints(
                     if_trim_best_n=if_trim_best_n,
                     keep_best_for_trimmed_trials=keep_best_for_trimmed_trials,
                     keep_last_for_trimmed_trials=keep_last_for_trimmed_trials,
-                    cur_depth=cur_depth + 1, verbose=verbose
+                    cur_depth=cur_depth + 1,
+                    remove_seperated_marker_files=remove_seperated_marker_files,
+                    verbose=verbose
                 )
         return
     else:
@@ -352,22 +378,32 @@ def trim_checkpoints(
 
     total_n_files_removed = 0
     total_disk_space_freed = 0
+    files_trimmed = []
 
     for trial in trials_to_trim:
-        n_files_removed, disk_space_freed = trim_one_trial(
+        files_removed, disk_space_freed = trim_one_trial(
             trial, analysis,
             keep_best_checkpoint=keep_best_for_trimmed_trials, keep_last_checkpoint=keep_last_for_trimmed_trials
         )
-        total_n_files_removed += n_files_removed
+        total_n_files_removed += len(files_removed)
         total_disk_space_freed += disk_space_freed
+        files_trimmed.extend(files_removed)
 
     if if_trim_best_n:
         for trial in best_n_trials:
-            n_files_removed, disk_space_freed = trim_one_trial(
+            files_removed, disk_space_freed = trim_one_trial(
                 trial, analysis, keep_best_checkpoint=True, keep_last_checkpoint=True
             )
-            total_n_files_removed += n_files_removed
+            total_n_files_removed += len(files_removed)
             total_disk_space_freed += disk_space_freed
+            files_trimmed.extend(files_removed)
+
+    if len(files_trimmed) > 0:
+        # Save the list of trimmed files. Append if the file already exists.
+        trimmed_files_path = root_path / f'trimmed_files.txt'
+        with open(trimmed_files_path, 'a') as f:
+            for file_path in files_trimmed:
+                f.write(f'{file_path}\n')
 
     if verbose:
         print(

@@ -329,6 +329,7 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
             best_config['num_layers'], best_config['num_convs'], best_config['num_heads'],
             edge_hidden_size=best_config.get('edge_hidden_size'),
             temporal_func='lstm_embedding',
+            # fixme: revise for extrapolation
         )
     elif 'transformer_stgnn' == method:
         input_size = 1
@@ -351,6 +352,7 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
             missing_value_method=best_config['missing_value_method'],
             use_current_x=best_config['use_current_x'],
             positional_encoding=best_config.get('positional_encoding', 'rope'),
+            # fixme: revise for extrapolation
         )
     else:
         raise ValueError(f'Method {method} does not use single model training.')
@@ -369,11 +371,13 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
     if 'stgnn' == method:
         test_resu = test_stgnn(
             graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, method=method,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer_stgnn' == method:
         test_resu = test_stgnn(
             graph_name, model, window_len=window_len, dump_dir=DUMP_DIR, method=method,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     else:
@@ -423,7 +427,13 @@ def evaluate_best_trial_isolated_station(
 
     # Create Model:        
     if method in ['lstm', 'graphlet']:
-        model = LstmModel(input_size, best_config['hidden_size'], best_config['num_layers'])
+        if best_config.get('use_current_x', True):
+            model = LstmModel(input_size, best_config['hidden_size'], best_config['num_layers'])
+        else:
+            model = ExtrapoLstmModel(
+                input_size, best_config['hidden_size'], best_config['num_layers'],
+                future_steps=best_config['future_steps']
+            )
     elif method in ['transformer', 'transformer_graphlet']:
         model = TransformerModel(
             input_size, 0, 0,
@@ -438,11 +448,19 @@ def evaluate_best_trial_isolated_station(
             missing_value_method=best_config['missing_value_method'],
             use_current_x=best_config['use_current_x'],
             positional_encoding=best_config.get('positional_encoding', 'rope'),
+            future_steps=best_config.get('future_steps', 1),
+            return_all_steps=True,  # Return all steps for extrapolation so that these values can be used for graphlet
         )
     elif 'lstm_embedding' == method:
-        model = LstmEmbeddingModel(
-            input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers']
-        )
+        if best_config.get('use_current_x', True):
+            model = LstmEmbeddingModel(
+                input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers']
+            )
+        else:
+            model = ExtrapoLstmEmbeddingModel(
+                input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers'],
+                future_steps=best_config['future_steps']
+            )
     elif 'transformer_embedding' == method:
         model = TransformerEmbeddingModel(
             input_size, num_embeddings=num_embeddings if best_config['use_station_embedding'] else 0,
@@ -458,6 +476,7 @@ def evaluate_best_trial_isolated_station(
             missing_value_method=settings['missing_value_method'],
             use_current_x=settings['use_current_x'],
             positional_encoding=settings['positional_encoding'],
+            future_steps=best_config.get('future_steps', 1),
         )
     else:
         raise ValueError(f'Unknown method: {method}.')
@@ -479,24 +498,28 @@ def evaluate_best_trial_isolated_station(
         predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_lstm(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer' == method:
         predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_transformer(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'graphlet' == method:
         predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer_graphlet' == method:
         predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_transformer_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'lstm_embedding' == method:
@@ -504,6 +527,7 @@ def evaluate_best_trial_isolated_station(
             graph_name, station, i, model,
             window_len=window_len,
             dump_dir=DUMP_DIR,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer_embedding' == method:
@@ -511,6 +535,7 @@ def evaluate_best_trial_isolated_station(
             graph_name, station, i, model,
             window_len=window_len,
             dump_dir=DUMP_DIR,
+            config=best_config,
             verbose=settings.get('verbose', 2)
         )
     # Move
@@ -525,8 +550,13 @@ def evaluate_best_trial_isolated_station(
     return *test_resu, total_params, best_trial
 
 
+# %% Functions for main processing:
+
+
 def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}, return_extra: bool = False):
+    # Settings:
     verbose = settings['verbose'] if 'verbose' in settings else 2
+    use_current_x = settings.get('use_current_x', True)
 
     verbose > 1 and print(f'~~~ Process {method} on {graph_name} ~~~')
 
@@ -560,6 +590,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         actuals = []
         predictions = []
         epoch_day_list = []
+        forcast_time_steps = []
 
         if verbose == 1:
             running_env = settings.get('env', 'cli')
@@ -575,6 +606,10 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
             iterator = enumerate(stations)
 
         for i, station in iterator:
+            # # fixme: debug only:
+            # if i > 1:
+            #     break
+
             if verbose > 1:
                 spinner.text = f'Processing Stations: {i + 1}/{len(stations)} ->'
 
@@ -591,7 +626,8 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                     graph_name, method, station, i, output_dir=output_dir, settings=settings
                 )
                 actual, prediction, epoch_days = preds
-                if math.isnan(rmse):
+                rmse_list = rmse if isinstance(rmse, list) else [rmse]
+                if any([math.isnan(r) for r in rmse_list]):
                     failed_stations.append(station)
                     continue
 
@@ -600,19 +636,38 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                 else:
                     total_params += params  # lstm and graphlets use different models per station.
 
-                col_station.append(station)
-                col_rmse.append(rmse)
-                col_mae.append(mae)
-                col_nse.append(nse)
-                col_n.append(n)
-                for k, v in extra_resu.items():
-                    if f'extra__{k}' not in col_extra_resu:
-                        col_extra_resu[f'extra__{k}'] = []
-                    col_extra_resu[f'extra__{k}'].append(v)
+                if use_current_x:
+                    col_station.append(station)
+                    col_rmse.append(rmse)
+                    col_mae.append(mae)
+                    col_nse.append(nse)
+                    col_n.append(n)  # n is the number of test samples / predictions
+                    for k, v in extra_resu.items():
+                        if f'extra__{k}' not in col_extra_resu:
+                            col_extra_resu[f'extra__{k}'] = []
+                        col_extra_resu[f'extra__{k}'].append(v)
+                else:  # extrapolation forcasting:
+                    cur_max_horizon = len(rmse)  # In this case, these metrics are lists
+                    col_station += [station] * cur_max_horizon
+                    col_rmse += rmse
+                    col_mae += mae
+                    col_nse += nse
+                    col_n += n  # n is a list of numbers of test samples / predictions for each horizon
+                    for k, v in extra_resu.items():
+                        if k.startswith('forcast') or isinstance(v, np.ndarray):
+                            continue
+                        if f'extra__{k}' not in col_extra_resu:
+                            col_extra_resu[f'extra__{k}'] = []
+                        col_extra_resu[f'extra__{k}'] += [v] * cur_max_horizon
+                    if 'forcast_time_steps' not in col_extra_resu:
+                        col_extra_resu['forcast_time_steps'] = []
+                    col_extra_resu['forcast_time_steps'] += list(range(1, cur_max_horizon + 1))
 
                 actuals.append(actual)
                 predictions.append(prediction)
                 epoch_day_list.append(epoch_days)
+                if 'forcast_time_steps' in extra_resu:
+                    forcast_time_steps.append(extra_resu['forcast_time_steps'])
 
             except FileNotFoundError as e:
                 raise
@@ -686,7 +741,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         plt.savefig(test_dir / f'figure_{graph_name}_{method}.png', dpi=150)
 
     if return_extra:
-        extra = {'model_size': total_params}
+        extra = {'model_size': total_params, 'forcast_time_steps': forcast_time_steps}
         return df, extra
     else:
         return df
@@ -711,9 +766,10 @@ if __name__ == '__main__':
     settings = {
         'max_len': 500,
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
-        'use_current_x': True,
         'positional_encoding': 'none',  # fixme: 'none for lstm, 'learnable' or 'sinusoidal' or 'rope' or None
         'window_len': 90,  # fixme: debug
+        'use_current_x': False,  # fixme: experiment
+        'future_steps': 7,  # fixme: experiment. Only works if 'use_current_x' is False
         'verbose': 2,
     }
 
@@ -727,8 +783,8 @@ if __name__ == '__main__':
     # Single Run
     SINGLE_RUN = True
     if SINGLE_RUN:
-        graph_name = GRAPH_NAMES[2]
-        method = METHODS[0]
+        graph_name = GRAPH_NAMES[1]
+        method = METHODS[4]
 
         # Transformer specific settings:
         if is_transformer_model(method):

@@ -179,9 +179,13 @@ if __name__ == '__main__':
     }
 
     if method == 'lstm':
-        train_lstm(config, settings=benedict({**settings, 'method': 'lstm'}))
+        train_lstm(
+            config, settings=benedict({**settings, 'method': 'lstm', 'path_extra_keys': get_run_extra_key(config)})
+        )
     elif method == 'graphlet':
-        train_graphlet(config, settings=benedict({**settings, 'method': 'graphlet'}))
+        train_graphlet(
+            config, settings=benedict({**settings, 'method': 'graphlet', 'path_extra_keys': get_run_extra_key(config)})
+        )
 
     if not is_transformer_model(method):
         exit()
@@ -205,12 +209,19 @@ if __name__ == '__main__':
 
     if method == 'transformer':
         if config['missing_value_method'] is None:
-            train_transformer(config, settings=benedict({**settings, 'method': 'transformer'}))
+            train_transformer(
+                config,
+                settings=benedict({**settings, 'method': 'transformer', 'path_extra_keys': get_run_extra_key(config)})
+            )
         else:
             raise NotImplementedError
     elif method == 'transformer_graphlet':
         if config['missing_value_method'] is None:
-            train_transformer_graphlet(config, settings=benedict({**settings, 'method': 'transformer_graphlet'}))
+            train_transformer_graphlet(
+                config, settings=benedict(
+                    {**settings, 'method': 'transformer_graphlet', 'path_extra_keys': get_run_extra_key(config)}
+                )
+            )
         else:
             raise NotImplementedError
     else:

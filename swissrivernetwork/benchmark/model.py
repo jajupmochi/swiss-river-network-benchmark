@@ -135,6 +135,44 @@ class ExtrapoLstmEmbeddingModel(nn.Module):
 class TransformerEmbeddingModel(nn.Module):
     """
     Transformer model.
+
+    Args:
+        input_size: int
+            Number of input features per time step.
+        num_embeddings: int
+            Number of station embeddings.
+        embedding_size: int
+            Size of the station embedding vector.
+        num_heads: int
+            Number of attention heads for the Transformer encoder.
+        num_layers: int
+            Number of Transformer encoder layers.
+        dim_feedforward: int
+            Dimension of the feedforward network in the Transformer encoder.
+        dropout: float
+            Dropout rate.
+        d_model: int | None
+            Dimension of the model (hidden size). If None, it will be set to num_heads * ratio_heads_to_d_model.
+        ratio_heads_to_d_model: int | None
+            Ratio to determine d_model if d_model is None, namely d_model = num_heads * ratio_heads_to_d_model.
+        max_len: int
+            Maximum length of the input sequences.
+        missing_value_method: str | None
+            Method to handle missing values in the sequences. Options are 'mask_embedding', 'interpolation', 'zero', or
+            None.
+        use_current_x: bool
+            Whether to use current input values for prediction. If False, the model predicts future steps based on
+            historical data. Notice that the input x should contain both historical and future steps.
+        positional_encoding: str
+            Type of positional encoding to use. Options are 'learnable', 'sinusoidal', 'rope', or None.
+        future_steps: int
+            Number of future steps to predict. Only used if use_current_x is False. The input x will be split into
+            historical and future parts accordingly, i.e., x[:, :-future_steps] and x[:, -future_steps:].
+        d_future_emb: int
+            Dimension of the learnable future step embedding. Only used if use_current_x is False.
+        return_all_steps: bool
+            Whether to return predictions for all time steps or only the future steps when use_current_x is False.
+            When use_current_x is True, this parameter is ignored and all steps are returned. Default is False.
     """
 
 
@@ -148,7 +186,8 @@ class TransformerEmbeddingModel(nn.Module):
             use_current_x: bool = True,
             positional_encoding: str = 'rope',  # 'learnable' or 'sinusoidal' or 'rope' or None
             future_steps: int = 1,  # for extrapolation model. Only works if `use_current_x` is False.
-            d_future_emb: int = 32  # dimension of future step embedding # todo: this can be tuned
+            d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
+            return_all_steps: bool = False  # whether to return all steps when use_current_x is False
     ):
         """
         Parameters
@@ -221,6 +260,7 @@ class TransformerEmbeddingModel(nn.Module):
             # (e.g., the ones that generate the corresponding ``time_masks``).
             self.mask_embedding = nn.Parameter(torch.zeros(1, 1, d_model))
 
+        self.target_postprocessor = None
         if not self.use_current_x:
             # Learnable embedding for future steps:
             self.future_step_embedding = nn.Parameter(torch.zeros(1, self.future_steps, d_future_emb))
@@ -231,9 +271,8 @@ class TransformerEmbeddingModel(nn.Module):
                     self.future_proj = nn.Identity()
                 else:
                     self.future_proj = nn.Linear(d_future_emb, d_model)
-            self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
-        else:
-            self.target_postprocessor = None
+            if not return_all_steps:
+                self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
 
 
     def forward(self, e, x, time_masks=None, pad_masks=None):
@@ -289,7 +328,7 @@ class TransformerEmbeddingModel(nn.Module):
         if self.use_current_x:
             causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()
         else:
-            # Here we try to use full attention among all steps. Notice learnable future step embeddings are used.
+            # Here we try to use full attention among all steps. Notice that learnable future step embeddings are used.
             causal_mask = torch.zeros((seq_len, seq_len), device=x.device).bool()
             # Here we do not allow all future steps to attend to each other (only the ones before the current step):
             # causal_mask = torch.triu(torch.ones((seq_len, seq_len), device=x.device), diagonal=1).bool()

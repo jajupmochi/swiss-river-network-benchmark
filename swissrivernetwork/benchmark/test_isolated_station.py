@@ -12,9 +12,13 @@ SHOW_PLOT = False
 
 
 def run_lstm_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
+        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None,
+        config: dict = {}
 ):
     infer_time_total = time.time()
+
+    # Set up configurations:
+    use_current_x = config.get('use_current_x', True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -57,6 +61,12 @@ def run_lstm_model(
             if window_len is None:
                 assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
 
+            # Remove historical inputs and masks for forecasting:
+            if not use_current_x:
+                future_steps = config['future_steps']
+                y = y[..., -future_steps:, :]
+                t = t[..., -future_steps:, :]
+
             # Store epoch_days and prediction_norm on all days:
             epoch_days.append(t.cpu().detach().numpy())
             prediction_norm.append(out.cpu().detach().numpy())  # store normalized predictions
@@ -82,7 +92,7 @@ def run_lstm_model(
 
     n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for win_len == inf and single models.
 
-    if window_len is not None:
+    if window_len is not None and use_current_x:  # Don't aggregate if forecasting
         # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
         unique_epoch_days, aggregated_dict = aggregate_day_predictions(
             epoch_days,
@@ -98,6 +108,14 @@ def run_lstm_model(
         actual = aggregated_dict['actual']
 
     prediction = normalizer_wt.inverse_transform(prediction_norm.reshape(-1, 1)).flatten()
+
+    if not use_current_x:
+        # Create a time step array as a reference for forecasting:
+        n_future_steps = config['future_steps']
+        assert actual.size % n_future_steps == 0, 'Forcasting: total size must be divisible by n_future_steps.'
+        n_samples = actual.size // n_future_steps
+        forcast_time_steps = np.tile(np.arange(1, n_future_steps + 1), n_samples)
+
     # Apply mask on actual and prediction:
     actual = actual[masks]
     prediction = prediction[masks]
@@ -109,14 +127,24 @@ def run_lstm_model(
         'infer_time_per_time_step': infer_time_total / n_total_time_steps,
         'n_total_time_steps': n_total_time_steps
     }
+    if not use_current_x:
+        extra_resu['forcast_time_steps'] = forcast_time_steps[masks]
 
     return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
 
 def run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None
+        model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None,
+        config: dict = {}
 ):
+    """
+    The returned epoch_days, prediction_norm, masks, and possible full_epoch_days and full_prediction_norm include all
+    time steps, while actual and prediction only include masked (valid) time steps.
+    """
     infer_time_total = time.time()
+
+    # Set up configurations:
+    use_current_x = config.get('use_current_x', True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -146,6 +174,7 @@ def run_transformer_model(
     prediction_norm = []
     masks = []
     actual = []
+    full_epoch_days, full_prediction_norm = [], []  # for timewise extrapolation
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
@@ -157,6 +186,16 @@ def run_transformer_model(
 
             # # Check for only one batch:
             # assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
+
+            # Remove historical inputs and masks for forecasting:
+            if not use_current_x:
+                full_epoch_days.append(t.cpu().detach().numpy())
+                full_prediction_norm.append(out.cpu().detach().numpy())
+                future_steps = config['future_steps']
+                # Here "out" contains predictions for all time steps including historical ones:
+                out = out[..., -future_steps:, :]
+                y = y[..., -future_steps:, :]
+                t = t[..., -future_steps:, :]
 
             # Store epoch_days and prediction_norm on all days:
             epoch_days.append(t.cpu().detach().numpy())
@@ -180,24 +219,47 @@ def run_transformer_model(
     prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
     masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
     actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
+    if not use_current_x:
+        full_epoch_days = np.concatenate([i.flatten() for i in full_epoch_days], axis=0).flatten()
+        full_prediction_norm = np.concatenate([i.flatten() for i in full_prediction_norm], axis=0).flatten()
 
     n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for full sequences.
 
-    # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
-    unique_epoch_days, aggregated_dict = aggregate_day_predictions(
-        epoch_days,
-        {
-            'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual,
-        },
-        method='longest_history'
-    )
-    # Store epoch_days, prediction_norm and masks on all days:
-    epoch_days = unique_epoch_days
-    prediction_norm = aggregated_dict['prediction_norm']
-    masks = aggregated_dict['mask']
-    actual = aggregated_dict['actual']
+    if use_current_x:
+        # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
+        unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+            epoch_days,
+            {
+                'prediction_norm': prediction_norm, 'mask': masks, 'actual': actual,
+            },
+            method='longest_history'
+        )
+        # Store epoch_days, prediction_norm and masks on all days:
+        epoch_days = unique_epoch_days
+        prediction_norm = aggregated_dict['prediction_norm']
+        masks = aggregated_dict['mask']
+        actual = aggregated_dict['actual']
+    else:  # Only aggregate full_epoch_days and full_prediction_norm for timewise extrapolation for dumping:
+        unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+            full_epoch_days,
+            {
+                'prediction_norm': full_prediction_norm,
+            },
+            method='longest_history'
+        )
+        # Store epoch_days, prediction_norm and masks on all days:
+        full_epoch_days = unique_epoch_days
+        full_prediction_norm = aggregated_dict['prediction_norm']
 
     prediction = normalizer_wt.inverse_transform(prediction_norm.reshape(-1, 1)).flatten()
+
+    if not use_current_x:
+        # Create a time step array as a reference for forecasting:
+        n_future_steps = config['future_steps']
+        assert actual.size % n_future_steps == 0, 'Forcasting: total size must be divisible by n_future_steps.'
+        n_samples = actual.size // n_future_steps
+        forcast_time_steps = np.tile(np.arange(1, n_future_steps + 1), n_samples)
+
     # Apply mask on actual and prediction:
     actual = actual[masks]
     prediction = prediction[masks]
@@ -209,14 +271,27 @@ def run_transformer_model(
         'infer_time_per_time_step': infer_time_total / n_total_time_steps,
         'n_total_time_steps': n_total_time_steps
     }
+    if not use_current_x:
+        extra_resu['forcast_time_steps'] = forcast_time_steps[masks]
+        extra_resu['full_epoch_days'] = full_epoch_days
+        extra_resu['full_prediction_norm'] = full_prediction_norm
 
     return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
 
 def dump_predictions(
-        graph_name: str, model: str, station, suffix, epoch_days, prediction,
+        graph_name: str,
+        model: str,
+        station,
+        suffix,
+        epoch_days,
+        prediction,
         dump_dir: Path | str = 'swissrivernetwork/journal/dump'
 ):
+    if prediction.ndim > 1:
+        # Skip dumping multi-dimensional predictions for now. This is the case of forecasting.
+        return
+
     assert len(epoch_days) == len(prediction), 'not same amount'
 
     df = pd.DataFrame(
@@ -381,13 +456,48 @@ def test_transformer_graphlet(
     return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
 
 
+def compute_metrics(
+        actual: np.ndarray, prediction: np.ndarray, extra_resu: dict, config: dict, station: str,
+        verbose: int
+):  # -> tuple[Any, floating[Any], float | ndarray[tuple[Any, ...], dtype[Any]] | Any, str, int]:
+    # Compute errors:
+    if config.get('use_current_x', True):
+        rmse, mae, nse = compute_errors(actual, prediction)
+        title = summary(station, rmse, mae, nse)
+        verbose > 1 and print(title)
+        len_pred = len(prediction)
+    else:
+        # For forecasting, compute errors for each forecast step:
+        n_future_steps = config['future_steps']
+        rmse = []
+        mae = []
+        nse = []
+        len_pred = []
+        for step in range(n_future_steps):
+            mask_step = extra_resu['forcast_time_steps'] == (step + 1)
+            actual_step = actual[mask_step]
+            prediction_step = prediction[mask_step]
+            rmse_step, mae_step, nse_step = compute_errors(actual_step, prediction_step)
+            rmse.append(rmse_step)
+            mae.append(mae_step)
+            nse.append(nse_step)
+            # verbose > 1 and print(
+            #     f'Station {station} -- Forecast Step {step + 1} --\tRMSE: {rmse_step:.3f}\tMAE: {mae_step:.3f}\tNSE: {nse_step:.3f}'
+            # )
+            len_pred.append(len(prediction_step))
+        title = f'Station {station} -- Overall Forecast --\tRMSE: {np.mean(rmse):.3f}\tMAE: {np.mean(mae):.3f}\tNSE: {np.mean(nse):.3f}'
+        verbose > 1 and print(title)
+    return rmse, mae, nse, len_pred, title
+
+
 def test_lstm(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
         predict_dump_dir: Path | str | None = None,
+        config: dict = {},
         verbose: int = 2
 ):
-    model_name = model.__class__.__name__.lower().removesuffix('model')
+    model_name = model.__class__.__name__.lower().removesuffix('model').removeprefix('extrapo')
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)
@@ -399,7 +509,7 @@ def test_lstm(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )
     dump_predictions(
         graph_name, model_name, station, 'test', epoch_days, prediction_norm,
@@ -410,7 +520,7 @@ def test_lstm(
     (
         epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu_train
     ) = run_lstm_model(
-        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )  # do not denormalize
     dump_predictions(
         graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train,
@@ -418,24 +528,24 @@ def test_lstm(
     )
 
     # Compute errors:
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
     # Plot Figure of Test Data
-    plot(
-        graph_name, 'lstm', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'lstm', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_transformer(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
         predict_dump_dir: Path | str | None = None,
+        config: dict = {},
         verbose: int = 2
 ):
     model_name = model.__class__.__name__.lower().removesuffix('model')
@@ -450,10 +560,12 @@ def test_transformer(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )
     dump_predictions(
-        graph_name, model_name, station, 'test', epoch_days, prediction_norm,
+        graph_name, model_name, station, 'test',
+        extra_resu.get('full_epoch_days', epoch_days),
+        extra_resu.get('full_prediction_norm', prediction_norm),
         dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 
@@ -461,26 +573,27 @@ def test_transformer(
     (
         epoch_days_train, prediction_norm_train, mask_train, actual_train, prediction_train, extra_resu_train
     ) = run_transformer_model(
-        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )  # do not denormalize
     dump_predictions(
-        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train,
+        graph_name, model_name, station, 'train',
+        extra_resu_train.get('full_epoch_days', epoch_days_train),
+        extra_resu_train.get('full_prediction_norm', prediction_norm_train),
         dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 
     # Compute errors:
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
     # Plot Figure of Test Data
-    plot(
-        graph_name, 'transformer', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'transformer', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_lstm_embedding(
