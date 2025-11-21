@@ -126,6 +126,7 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
         else:
             model = ExtrapoLstmModel(
                 input_size, config['hidden_size'], config['num_layers'], future_steps=config['future_steps'],
+                return_all_steps=False,
                 extrapo_mode=config.get('extrapo_mode', None)
             )
 
@@ -207,6 +208,7 @@ if __name__ == '__main__':
             # --- Updated for transformer models:
             # 'mask_embedding' or 'interpolation' or 'zero' or None
             'missing_value_method': None,  # fixme: test. based on lstm or transformer fixme: mask_embedding
+            'extrapo_mode': None,
         }
     )
 

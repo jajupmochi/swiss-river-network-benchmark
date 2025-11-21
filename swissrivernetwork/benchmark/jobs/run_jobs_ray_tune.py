@@ -220,7 +220,7 @@ if __name__ == '__main__':
     methods = [
         'transformer_embedding', 'transformer_stgnn', 'transformer', 'transformer_graphlet',
         'lstm_embedding', 'stgnn', 'lstm', 'graphlet'
-    ][6:7]
+    ][4:6]
     graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:3]  # fixme
     positional_encodings = ['none']  # fixme: for lstm
     # positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:3]  # Only for transformer

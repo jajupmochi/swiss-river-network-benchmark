@@ -393,6 +393,7 @@ def run_experiment(
         # --- For all models:
         search_space['use_current_x'] = config.use_current_x
         search_space['future_steps'] = config.get('future_steps', 1)
+        search_space['extrapo_mode'] = config.get('extrapo_mode', None)
 
         trainer = partial(train_stgnn, settings=config, verbose=verbose)
 
@@ -576,12 +577,13 @@ if __name__ == '__main__':
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
-            'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
+            # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'stgnn.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug

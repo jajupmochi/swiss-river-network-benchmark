@@ -432,7 +432,9 @@ def evaluate_best_trial_isolated_station(
         else:
             model = ExtrapoLstmModel(
                 input_size, best_config['hidden_size'], best_config['num_layers'],
-                future_steps=best_config['future_steps']
+                future_steps=best_config['future_steps'],
+                # Return hidden states for extrapolation evaluation so that these values can be used for graphlet:
+                return_hidden=True,
             )
     elif method in ['transformer', 'transformer_graphlet']:
         model = TransformerModel(
@@ -459,7 +461,9 @@ def evaluate_best_trial_isolated_station(
         else:
             model = ExtrapoLstmEmbeddingModel(
                 input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers'],
-                future_steps=best_config['future_steps']
+                future_steps=best_config['future_steps'],
+                # Return hidden states for extrapolation evaluation so that these values can be used for graphlet:
+                return_hidden=True,  # fixme: debug
             )
     elif 'transformer_embedding' == method:
         model = TransformerEmbeddingModel(
@@ -477,6 +481,8 @@ def evaluate_best_trial_isolated_station(
             use_current_x=settings['use_current_x'],
             positional_encoding=settings['positional_encoding'],
             future_steps=best_config.get('future_steps', 1),
+            # fixme: debug
+            return_all_steps=True,  # Return all steps for extrapolation so that these values can be used for graphlet
         )
     else:
         raise ValueError(f'Unknown method: {method}.')
@@ -783,13 +789,13 @@ if __name__ == '__main__':
     # Single Run
     SINGLE_RUN = True
     if SINGLE_RUN:
-        graph_name = GRAPH_NAMES[1]
-        method = METHODS[4]
+        graph_name = GRAPH_NAMES[0]
+        method = METHODS[5]
 
         # Transformer specific settings:
         if is_transformer_model(method):
             # Reset positional encoding:
-            settings['positional_encoding'] = 'rope'  # 'learnable' or 'sinusoidal' or 'rope' or None
+            settings['positional_encoding'] = 'learnable'  # fixme: test, 'learnable' or 'sinusoidal' or 'rope' or None
 
         settings['path_extra_keys'] = get_run_extra_key(settings)
 

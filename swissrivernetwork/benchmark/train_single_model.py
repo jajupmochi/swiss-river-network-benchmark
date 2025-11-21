@@ -54,7 +54,9 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
     else:
         model = ExtrapoLstmEmbeddingModel(
             1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
-            future_steps=config['future_steps']
+            future_steps=config['future_steps'],
+            return_all_steps=False,
+            extrapo_mode=config.get('extrapo_mode', None)
         )
 
     # Run Training Loop!
@@ -131,6 +133,8 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
         temporal_func='lstm_embedding',
         use_current_x=config['use_current_x'],
         future_steps=config.get('future_steps', 1),
+        return_all_steps=False,
+        extrapo_mode=config.get('extrapo_mode', None)
     )
 
     # Run Training Loop!
@@ -376,7 +380,7 @@ if __name__ == '__main__':
     # graph_name = 'swiss-2010'
     graph_name = 'swiss-1990'
 
-    method = 'transformer_stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
+    method = 'stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -409,6 +413,7 @@ if __name__ == '__main__':
         'missing_value_method': None,  # fixme: test. based on lstm or transformer
         'use_current_x': False,  # fixme: whether to use the current days' features as input to predict next day
         'future_steps': 7,  # fixme: days to predict ahead.
+        'extrapo_mode':  'future_embedding',  # 'future_embedding' or 'recursive' or 'limo'
     }
 
     # Extra config:
@@ -439,6 +444,7 @@ if __name__ == '__main__':
             # --- Updated for transformer models:
             # 'mask_embedding' or 'interpolation' or 'zero' or None
             'missing_value_method': None,  # fixme: test. based on lstm or transformer fixme: mask_embedding
+            'extrapo_mode': None,
         }
     )
 
