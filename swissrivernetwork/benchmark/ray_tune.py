@@ -529,7 +529,7 @@ def parse_config():
         help='Number of future time steps to predict. Only used when use_current_x is False. Default is 1.'
     )
     parser.add_argument(
-        '-em', '--extrapo_mode', required=False, type=str, choices=['limo', 'future_embedding', 'recursive'],
+        '-em', '--extrapo_mode', required=False, type=str, choices=['none', 'limo', 'future_embedding', 'recursive'],
         default='future_embedding', help='Extrapolation mode for multiple-step forecasting.'
     )
     # Transformers specific:
@@ -564,7 +564,7 @@ def parse_config():
     if args.positional_encoding is None:
         delattr(args, 'positional_encoding')
 
-    for keys in ['missing_value_method', 'positional_encoding']:
+    for keys in ['missing_value_method', 'positional_encoding', 'extrapo_mode']:
         if hasattr(args, keys) and getattr(args, keys) == 'none':
             setattr(args, keys, None)
 
