@@ -125,7 +125,8 @@ def train_isolated_station(config, input_size, df, settings: benedict = benedict
             model = LstmModel(input_size, config['hidden_size'], config['num_layers'])
         else:
             model = ExtrapoLstmModel(
-                input_size, config['hidden_size'], config['num_layers'], future_steps=config['future_steps']
+                input_size, config['hidden_size'], config['num_layers'], future_steps=config['future_steps'],
+                extrapo_mode=config.get('extrapo_mode', None)
             )
 
     training_loop(
@@ -139,7 +140,7 @@ if __name__ == '__main__':
     # fix 2010 bug:
     graph_name = 'swiss-1990'  # 'swiss-1990' or 'swiss-2010' or 'zurich'
 
-    method = 'transformer_graphlet'  # 'lstm', 'graphlet', 'transformer', or 'transformer_graphlet'
+    method = 'lstm'  # 'lstm', 'graphlet', 'transformer', or 'transformer_graphlet'
 
     station = '2091'  # '2091' for 'swiss-1990', '534' for 'zurich'
 
@@ -167,9 +168,11 @@ if __name__ == '__main__':
         'short_subsequence_method': 'drop',  # fixme: debug: only 'pad' for win len > 90
         # --- Exp configs used for all models:
         # 'mask_embedding' or 'interpolation' or 'zero' or None
+        'positional_encoding': 'none',  # for lstm models
         'missing_value_method': None,  # fixme: test. based on lstm or transformer
         'use_current_x': False,  # whether to use the current day's features as input to predict next day
         'future_steps': 7,  # fixme: days to predict ahead.
+        'extrapo_mode': 'future_embedding',  # 'future_embedding' or 'recursive' or 'limo'
     }
 
     # Extra config:

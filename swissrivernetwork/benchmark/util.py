@@ -58,7 +58,8 @@ def aggregate_day_predictions(
     Input:
         epoch_days: np.ndarray or torch.Tensor of shape (total_length,). Make sure that the days are in time order if using
             'longest_history' or 'last' methods.
-        dict_to_aggregate: dict of np.ndarray or torch.Tensor of shape (total_length,). Each array must align with `epoch_days`.
+        dict_to_aggregate: dict of np.ndarray or torch.Tensor of shape (total_length, ...). Each array must align with
+            `epoch_days`.
         method: aggregation method, one of [None, 'last', 'mean', 'median', 'longest_history']. Default: 'longest_history'.
     Output:
         unique_epoch_days: np.ndarray or torch.Tensor of shape (num_unique_days,)
@@ -210,6 +211,8 @@ def get_run_extra_key(config: benedict | dict) -> str:
     extra_key = ''
     if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
         extra_key += f'-fs{config.future_steps}'
+        if 'extrapo_mode' in config and config.extrapo_mode is not None and config.extrapo_mode != 'limo':
+            extra_key += f'-{config.extrapo_mode}'
     if 'window_len' in config and config.window_len is not None:
         extra_key += f'-wl{config.window_len}'
     if 'missing_value_method' in config and config.missing_value_method is not None:

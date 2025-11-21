@@ -239,6 +239,7 @@ def run_experiment(
             # --- For all models:
             search_space['use_current_x'] = config.use_current_x
             search_space['future_steps'] = config.get('future_steps', 1)
+            search_space['extrapo_mode'] = config.get('extrapo_mode', None)
 
             if 'lstm' == method:
                 trainer = partial(train_lstm, settings=config, verbose=verbose)
@@ -327,6 +328,7 @@ def run_experiment(
         # --- For all models:
         search_space['use_current_x'] = config.use_current_x
         search_space['future_steps'] = config.get('future_steps', 1)
+        search_space['extrapo_mode'] = config.get('extrapo_mode', None)
 
         trainer = partial(train_lstm_embedding, settings=config, verbose=verbose)
 
@@ -525,6 +527,10 @@ def parse_config():
         '-fs', '--future_steps', required=False, type=int, default=1,
         help='Number of future time steps to predict. Only used when use_current_x is False. Default is 1.'
     )
+    parser.add_argument(
+        '-em', '--extrapo_mode', required=False, type=str, choices=['limo', 'future_embedding', 'recursive'],
+        default='future_embedding', help='Extrapolation mode for multiple-step forecasting.'
+    )
     # Transformers specific:
     parser.add_argument(
         '-pe', '--positional_encoding', required=False, type=str, choices=['none', 'sinusoidal', 'rope', 'learnable'],
@@ -570,10 +576,10 @@ if __name__ == '__main__':
     if debug_mode:
         # Exp1: LSTM with embedding:
         debug_cfg = {
-            # 'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
+            'config': CUR_ABS_DIR / 'configs' / 'lstm.yaml',  # fixme: debug
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
@@ -583,11 +589,12 @@ if __name__ == '__main__':
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'drop',  # 'pad' or 'drop'
-            'use_current_x': True,  # fixme: debug, True or False (future-token prediction)
+            'use_current_x': False,  # fixme: debug, True or False (future-token prediction)
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
             'resume': False,  # fixme: debug
             'future_steps': 7,  # Only works if 'use_current_x' is False
+            'extrapo_mode': 'future_embedding',  # 'limo', 'future_embedding', 'recursive'
         }
 
         if not is_transformer_model(debug_cfg['config'].stem):

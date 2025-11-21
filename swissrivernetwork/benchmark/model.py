@@ -33,11 +33,41 @@ class LstmModel(nn.Module):
         return target
 
 
-class ExtrapoLstmModel(nn.Module):
+def ExtrapoLstmModel(*args, extrapo_mode: str | None = None, **kwargs):
+    """
+    Factory function to create LSTM model for timewise extrapolation.
 
-    def __init__(self, input_size, hidden_size, num_layers, future_steps: int = 1):
+    Args:
+        extrapo_mode: str | None
+            Extrapolation mode. Options are:
+            - 'limo': Last Input Multiple Output, use the last input to predict multiple future steps directly.
+            - 'future_embedding': Use learnable future step embeddings to fill in future steps. Then use standard LSTM
+                to predict all steps together.
+            - 'recursive': Recursive prediction, predict one step at a time and feed it back as input for the next step.
+                (not implemented yet)
+            - None: Default setting (LIMO).
+
+    """
+    if extrapo_mode is None or extrapo_mode == 'limo':
+        return ExtrapoLstmModelLIMO(*args, **kwargs)
+    elif extrapo_mode == 'future_embedding':
+        return ExtrapoLstmModelFEmbed(*args, **kwargs)
+    else:
+        raise ValueError(f'Unknown extrapo_mode: {extrapo_mode}.')
+
+
+class ExtrapoLstmModelLIMO(nn.Module):
+    """
+    LSTM model for timewise extrapolation with LIMO (Last Input Multiple Output) strategy. The output of the last time
+    step is used to predict multiple future steps directly via a linear layer.
+    """
+
+
+    def __init__(self, input_size, hidden_size, num_layers, future_steps: int = 1, return_hidden: bool = True):
         super().__init__()
         self.future_steps = future_steps
+        self.return_hidden = return_hidden
+
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
         self.linear = nn.Sequential(
             nn.ReLU(),
@@ -49,7 +79,53 @@ class ExtrapoLstmModel(nn.Module):
         x = x[:, : -self.future_steps]
         out, hidden = self.lstm(x)
         target = self.linear(out[:, -1, :])  # only use the last time step
+        if self.return_hidden:
+            return target.unsqueeze(-1), out  # [B, future_steps, 1], [B, seq_len, hidden_size]
         return target.unsqueeze(-1)  # [B, future_steps, 1]
+
+
+class ExtrapoLstmModelFEmbed(nn.Module):
+
+    def __init__(
+            self, input_size: int, hidden_size: int, num_layers: int,
+            future_steps: int = 1,
+            d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
+            return_all_steps: bool = False  # whether to return all steps or only future steps
+    ):
+        super().__init__()
+        self.future_steps = future_steps
+        self.d_future_emb = d_future_emb
+
+        # Project input to d_future_emb to keep the dimension consistent:
+        self.input_proj = nn.Linear(input_size, d_future_emb) if input_size != d_future_emb else nn.Identity()
+        # Learnable embedding for future steps:
+        self.future_step_embedding = nn.Parameter(torch.zeros(1, self.future_steps, d_future_emb))
+        self.lstm = nn.LSTM(input_size=d_future_emb, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
+        self.linear = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(hidden_size, 1)
+        )
+
+        self.target_postprocessor = None
+        if not return_all_steps:
+            self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
+
+
+    def forward(self, x):
+        x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
+        # Project input to d_future_emb, since normally the input_size is small (e.g., 1):
+        x_history = self.input_proj(x_history)  # [batch, seq_len - future_steps, d_future_emb]
+        x_future = self.future_step_embedding  # [1, future_steps, d_future_emb]
+        x_future = x_future.expand(x.size(0), -1, -1)  # [batch, future_steps, d_future_emb]
+        x = torch.cat((x_history, x_future), dim=1)  # [batch, seq_len, d_future_emb]
+        out, hidden = self.lstm(x)  # x in [batch x sequence x features]
+        target = self.linear(out)  # expect [batch x sequence x features_out(1)]
+        if self.target_postprocessor is not None:
+            target = self.target_postprocessor(target)
+        return target
+
+
+# %% LSTM with Embedding Models:
 
 
 class LstmEmbeddingModel(nn.Module):
@@ -67,6 +143,11 @@ class LstmEmbeddingModel(nn.Module):
 
 
     def forward(self, e, x):
+        """
+        Arg:
+            e: [batch x sequence] (station id)
+            x: [batch x sequence x features] (features per time step, e.g., air temperature)
+        """
         emb = self.embedding(e)  # e in [batch x sequence x station_id]
         x = torch.cat((emb, x), 2)  # x in [batch x sequence x features]
         out, hidden = self.lstm(x)
@@ -429,22 +510,21 @@ class TransformerEmbeddingModel(nn.Module):
                         f"(causal + padding mask overlap)."
                     )
 
-
-    def compute_time_steps_since_last_observation(self, time_stamps):
-        """
-        time_stamps: [batch, seq_len] (time in days)
-        return: time_masks: [batch, seq_len] (True means missing value)
-        """
-        time_since = torch.full_like(obs_mask, -1, dtype=torch.float)  # or zeros
-        for b in range(B):
-            last = -1e9
-            for t in range(L):
-                if obs_mask[b, t]:
-                    last = 0.
-                    time_since[b, t] = 0.
-                else:
-                    last += 1.
-                    time_since[b, t] = last
+    # def compute_time_steps_since_last_observation(self, time_stamps):
+    #     """
+    #     time_stamps: [batch, seq_len] (time in days)
+    #     return: time_masks: [batch, seq_len] (True means missing value)
+    #     """
+    #     time_since = torch.full_like(obs_mask, -1, dtype=torch.float)  # or zeros
+    #     for b in range(B):
+    #         last = -1e9
+    #         for t in range(L):
+    #             if obs_mask[b, t]:
+    #                 last = 0.
+    #                 time_since[b, t] = 0.
+    #             else:
+    #                 last += 1.
+    #                 time_since[b, t] = last
 
 
 # # The self defined version for RoPE:
