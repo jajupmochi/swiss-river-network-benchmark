@@ -433,8 +433,9 @@ def evaluate_best_trial_isolated_station(
             model = ExtrapoLstmModel(
                 input_size, best_config['hidden_size'], best_config['num_layers'],
                 future_steps=best_config['future_steps'],
-                # Return hidden states for extrapolation evaluation so that these values can be used for graphlet:
-                return_hidden=True,
+                # Return all steps for extrapolation evaluation so that these values can be used for graphlet:
+                return_all_steps=True,
+                extrapo_mode=best_config.get('extrapo_mode', None)
             )
     elif method in ['transformer', 'transformer_graphlet']:
         model = TransformerModel(
@@ -462,8 +463,9 @@ def evaluate_best_trial_isolated_station(
             model = ExtrapoLstmEmbeddingModel(
                 input_size, num_embeddings, embedding_size, best_config['hidden_size'], best_config['num_layers'],
                 future_steps=best_config['future_steps'],
-                # Return hidden states for extrapolation evaluation so that these values can be used for graphlet:
-                return_hidden=True,  # fixme: debug
+                # Return all steps for extrapolation evaluation so that these values can be used for graphlet:
+                return_all_steps=True,
+                extrapo_mode=best_config.get('extrapo_mode', None)
             )
     elif 'transformer_embedding' == method:
         model = TransformerEmbeddingModel(
@@ -776,6 +778,8 @@ if __name__ == '__main__':
         'window_len': 90,  # fixme: debug
         'use_current_x': False,  # fixme: experiment
         'future_steps': 7,  # fixme: experiment. Only works if 'use_current_x' is False
+        # fixme: 'limo', 'future_embedding', 'recursive' only for extrapolation on lstm. 'none' for others:
+        'extrapo_mode': 'future_embedding',
         'verbose': 2,
     }
 
@@ -790,7 +794,7 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[0]
-        method = METHODS[5]
+        method = METHODS[0]
 
         # Transformer specific settings:
         if is_transformer_model(method):

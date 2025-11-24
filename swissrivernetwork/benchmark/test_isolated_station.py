@@ -11,6 +11,9 @@ from swissrivernetwork.experiment.error import compute_errors
 SHOW_PLOT = False
 
 
+# %% Model Inference Processes:
+
+
 def run_lstm_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None,
         config: dict = {}
@@ -19,6 +22,7 @@ def run_lstm_model(
 
     # Set up configurations:
     use_current_x = config.get('use_current_x', True)
+    extrapo_mode = config.get('extrapo_mode', None)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -48,6 +52,8 @@ def run_lstm_model(
     prediction_norm = []
     masks = []
     actual = []
+    # This can be "history_epoch_days" for LIMO mode or "full_epoch_days" for future_embedding mode:
+    epoch_days_to_record, preds_to_record = [], []  # for timewise extrapolation
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
@@ -64,6 +70,18 @@ def run_lstm_model(
             # Remove historical inputs and masks for forecasting:
             if not use_current_x:
                 future_steps = config['future_steps']
+                if extrapo_mode == 'future_embedding':
+                    # For future embedding extrapolation, "out" includes all predictions including historical ones:
+                    epoch_days_to_record.append(t.cpu().detach().numpy())
+                    preds_to_record.append(out.cpu().detach().numpy())
+                    out = out[..., -future_steps:, :]
+                else:
+                    raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+                    # For timewise extrapolation, "out" includes both predictions and history hidden states (saved for
+                    # future use such as graphlet):
+                    epoch_days_to_record.append(t[..., :-future_steps, :].cpu().detach().numpy())
+                    preds_to_record.append(out[1].cpu().detach().numpy())
+                    out = out[0]
                 y = y[..., -future_steps:, :]
                 t = t[..., -future_steps:, :]
 
@@ -89,10 +107,31 @@ def run_lstm_model(
     prediction_norm = np.concatenate([i.flatten() for i in prediction_norm], axis=0).flatten()
     masks = np.concatenate([i.flatten() for i in masks], axis=0).flatten()
     actual = np.concatenate([i.flatten() for i in actual], axis=0).flatten()
+    if not use_current_x:
+        if extrapo_mode == 'future_embedding':
+            epoch_days_to_record = np.concatenate([i.flatten() for i in epoch_days_to_record], axis=0).flatten()
+            preds_to_record = np.concatenate([i.flatten() for i in preds_to_record], axis=0).flatten()
+        else:
+            raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+            epoch_days_to_record = np.concatenate([i.flatten() for i in epoch_days_to_record], axis=0).flatten()
+            # Items in history_hiddens have shape (B, L_hist, D), we need to flatten all but the last dimension:
+            preds_to_record = np.concatenate([i.reshape(-1, i.shape[-1]) for i in preds_to_record], axis=0)
 
     n_total_time_steps = len(prediction_norm)  # fixme: check if it is correct for win_len == inf and single models.
 
-    if window_len is not None and use_current_x:  # Don't aggregate if forecasting
+    # Only aggregate epoch_days_to_record and preds_to_record for timewise extrapolation for dumping:
+    if not use_current_x:
+        unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+            epoch_days_to_record,
+            {
+                'preds_to_record': preds_to_record,
+            },
+            method='longest_history'
+        )
+        # Store epoch_days, prediction_norm and masks on all days:
+        epoch_days_to_record = unique_epoch_days
+        preds_to_record = aggregated_dict['preds_to_record']
+    elif window_len is not None:
         # Notice that `last` or `longest_history` do not work if dataloader is shuffled!
         unique_epoch_days, aggregated_dict = aggregate_day_predictions(
             epoch_days,
@@ -129,6 +168,13 @@ def run_lstm_model(
     }
     if not use_current_x:
         extra_resu['forcast_time_steps'] = forcast_time_steps[masks]
+        if extrapo_mode == 'future_embedding':
+            extra_resu['full_epoch_days'] = epoch_days_to_record
+            extra_resu['full_prediction_norm'] = preds_to_record
+        else:
+            raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+            # extra_resu['history_epoch_days'] = epoch_days_to_record
+            # extra_resu['history_hiddens'] = preds_to_record
 
     return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
@@ -279,27 +325,35 @@ def run_transformer_model(
     return epoch_days, prediction_norm, masks, actual, prediction, extra_resu
 
 
+# %% Utility Functions:
+
+
 def dump_predictions(
         graph_name: str,
         model: str,
-        station,
-        suffix,
-        epoch_days,
-        prediction,
+        station: str,
+        suffix: str,
+        epoch_days: np.ndarray,
+        prediction: np.ndarray,
         dump_dir: Path | str = 'swissrivernetwork/journal/dump'
 ):
-    if prediction.ndim > 1:
-        # Skip dumping multi-dimensional predictions for now. This is the case of forecasting.
-        return
-
     assert len(epoch_days) == len(prediction), 'not same amount'
 
-    df = pd.DataFrame(
-        data={
-            'epoch_day': epoch_days,
-            f'{station}_wt_hat': prediction
-        }
-    )
+    if prediction.ndim == 1:
+        df = pd.DataFrame(
+            data={
+                'epoch_day': epoch_days,
+                f'{station}_wt_hat': prediction
+            }
+        )
+    # This is the case for e.g., timewise extrapolation where we dump historical hidden states, e.g., for lstm:
+    elif prediction.ndim == 2:
+        data_dict = {'epoch_day': epoch_days}
+        for i in range(prediction.shape[1]):
+            data_dict[f'{station}_wt_hat_{i}'] = prediction[:, i]
+        df = pd.DataFrame(data=data_dict)
+    else:
+        raise ValueError('prediction must be 1D or 2D array!')
 
     pred_path = Path(dump_dir) / f'{graph_name}_{model}_{station}_{suffix}.csv'
     os.makedirs(pred_path.parent, exist_ok=True)
@@ -376,10 +430,48 @@ def plot(
     plt.close()
 
 
+def compute_metrics(
+        actual: np.ndarray, prediction: np.ndarray, extra_resu: dict, config: dict, station: str,
+        verbose: int
+):  # -> tuple[Any, floating[Any], float | ndarray[tuple[Any, ...], dtype[Any]] | Any, str, int]:
+    # Compute errors:
+    if config.get('use_current_x', True):
+        rmse, mae, nse = compute_errors(actual, prediction)
+        title = summary(station, rmse, mae, nse)
+        verbose > 1 and print(title)
+        len_pred = len(prediction)
+    else:
+        # For forecasting, compute errors for each forecast step:
+        n_future_steps = config['future_steps']
+        rmse = []
+        mae = []
+        nse = []
+        len_pred = []
+        for step in range(n_future_steps):
+            mask_step = extra_resu['forcast_time_steps'] == (step + 1)
+            actual_step = actual[mask_step]
+            prediction_step = prediction[mask_step]
+            rmse_step, mae_step, nse_step = compute_errors(actual_step, prediction_step)
+            rmse.append(rmse_step)
+            mae.append(mae_step)
+            nse.append(nse_step)
+            # verbose > 1 and print(
+            #     f'Station {station} -- Forecast Step {step + 1} --\tRMSE: {rmse_step:.3f}\tMAE: {mae_step:.3f}\tNSE: {nse_step:.3f}'
+            # )
+            len_pred.append(len(prediction_step))
+        title = f'Station {station} -- Overall Forecast --\tRMSE: {np.mean(rmse):.3f}\tMAE: {np.mean(mae):.3f}\tNSE: {np.mean(nse):.3f}'
+        verbose > 1 and print(title)
+    return rmse, mae, nse, len_pred, title
+
+
+# %% Main test processes:
+
+
 def test_graphlet(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
         predict_dump_dir: Path | str | None = None,
+        config: dict = {},
         verbose: int = 2
 ):
     # load normalizers
@@ -420,6 +512,7 @@ def test_transformer_graphlet(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
         predict_dump_dir: Path | str | None = None,
+        config: dict = {},
         verbose: int = 2
 ):
     # load normalizers
@@ -439,55 +532,20 @@ def test_transformer_graphlet(
 
     # run lstm model on it
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )
 
-    # comptue errors
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    # Compute errors:
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
     # create graphs
-    plot(
-        graph_name, 'transformer_graphlet', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
-
-
-def compute_metrics(
-        actual: np.ndarray, prediction: np.ndarray, extra_resu: dict, config: dict, station: str,
-        verbose: int
-):  # -> tuple[Any, floating[Any], float | ndarray[tuple[Any, ...], dtype[Any]] | Any, str, int]:
-    # Compute errors:
-    if config.get('use_current_x', True):
-        rmse, mae, nse = compute_errors(actual, prediction)
-        title = summary(station, rmse, mae, nse)
-        verbose > 1 and print(title)
-        len_pred = len(prediction)
-    else:
-        # For forecasting, compute errors for each forecast step:
-        n_future_steps = config['future_steps']
-        rmse = []
-        mae = []
-        nse = []
-        len_pred = []
-        for step in range(n_future_steps):
-            mask_step = extra_resu['forcast_time_steps'] == (step + 1)
-            actual_step = actual[mask_step]
-            prediction_step = prediction[mask_step]
-            rmse_step, mae_step, nse_step = compute_errors(actual_step, prediction_step)
-            rmse.append(rmse_step)
-            mae.append(mae_step)
-            nse.append(nse_step)
-            # verbose > 1 and print(
-            #     f'Station {station} -- Forecast Step {step + 1} --\tRMSE: {rmse_step:.3f}\tMAE: {mae_step:.3f}\tNSE: {nse_step:.3f}'
-            # )
-            len_pred.append(len(prediction_step))
-        title = f'Station {station} -- Overall Forecast --\tRMSE: {np.mean(rmse):.3f}\tMAE: {np.mean(mae):.3f}\tNSE: {np.mean(nse):.3f}'
-        verbose > 1 and print(title)
-    return rmse, mae, nse, len_pred, title
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'transformer_graphlet', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_lstm(
@@ -497,7 +555,7 @@ def test_lstm(
         config: dict = {},
         verbose: int = 2
 ):
-    model_name = model.__class__.__name__.lower().removesuffix('model').removeprefix('extrapo')
+    model_name = trim_lstm_model_name(model.__class__.__name__)
 
     # Prepare normalizers:
     df_train = read_csv_train(graph_name)
@@ -512,7 +570,11 @@ def test_lstm(
         model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )
     dump_predictions(
-        graph_name, model_name, station, 'test', epoch_days, prediction_norm,
+        graph_name, model_name, station, 'test',
+        extra_resu.get('full_epoch_days', epoch_days),
+        extra_resu.get('full_prediction_norm', prediction_norm),
+        # extra_resu.get('history_epoch_days', epoch_days),
+        # extra_resu.get('history_hiddens', prediction_norm),
         dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 
@@ -523,7 +585,11 @@ def test_lstm(
         model, df_train, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )  # do not denormalize
     dump_predictions(
-        graph_name, model_name, station, 'train', epoch_days_train, prediction_norm_train,
+        graph_name, model_name, station, 'train',
+        extra_resu_train.get('full_epoch_days', epoch_days_train),
+        extra_resu_train.get('full_prediction_norm', prediction_norm_train),
+        # extra_resu_train.get('history_epoch_days', epoch_days_train),
+        # extra_resu_train.get('history_hiddens', prediction_norm_train),
         dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
     )
 

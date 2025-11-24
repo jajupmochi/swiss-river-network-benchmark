@@ -220,7 +220,7 @@ if __name__ == '__main__':
     methods = [
         'transformer_embedding', 'transformer_stgnn', 'transformer', 'transformer_graphlet',
         'lstm_embedding', 'stgnn', 'lstm', 'graphlet'
-    ][4:6]
+    ][7:8]
     graphs = ['swiss-1990', 'swiss-2010', 'zurich'][0:3]  # fixme
     positional_encodings = ['none']  # fixme: for lstm
     # positional_encodings = ['learnable', 'sinusoidal', 'rope', 'none'][0:3]  # Only for transformer
@@ -234,8 +234,8 @@ if __name__ == '__main__':
     # --- For all models:
     use_current_xs = [False]  # fixme: whether to use current time step features (e.g., air temperature) as input
     future_steps = [7]  # fixme: days to predict ahead. Only works if 'use_current_x' is False.
-    # only used for lstm models when 'use_current_x' is False. Comment it for transformer models.
-    extrapo_modes = ['future_embedding']  # fixme: 'future_embedding' or 'limo' or 'recursive'
+    # only used for lstm models when 'use_current_x' is False. Set to 'none' for transformer models.
+    extrapo_modes = ['future_embedding']  # fixme: 'future_embedding' or 'limo' or 'recursive', or 'none'
     # --- Other settings:
     resumes = [False]  # fixme: depends on exps. Whether to resume from previous checkpoints
 

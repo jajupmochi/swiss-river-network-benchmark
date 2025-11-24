@@ -454,3 +454,11 @@ def get_proper_infer_batchsize(method: str, graph_name: str) -> int:
         if graph_name in ['swiss-1990']:
             return 128
     return 256
+
+
+def trim_lstm_model_name(name: str) -> str:
+    name = name.lower()
+    name = name.removeprefix('extrapo')  # for extrapolation lstm models
+    name = name.split('model')  # Can be e.g. 'lstmmodel' or 'lstmmodelFEmbed'
+    name = ''.join(name[:-1])  # remove 'model' suffix and the following parts
+    return name
