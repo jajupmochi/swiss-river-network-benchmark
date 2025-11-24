@@ -45,5 +45,17 @@ def trim_checkpoint():
 
 
 if __name__ == '__main__':
-    # trim_checkpoint()
-    trim_all_experiments()
+    # Gather args from command line:
+    import argparse
+    parser = argparse.ArgumentParser(description='Trim Ray checkpoints in `swissrivernetwork` outputs.')
+    parser.add_argument('--root_dir', type=str, default=None, required=False,
+                        help='The root directory containing all experiments.')
+    args = parser.parse_args()
+
+    root_dir = args.root_dir
+    if root_dir is not None:
+        OUTPUT_DIR = Path(root_dir).resolve()
+        trim_all_experiments()
+    else:
+        # trim_checkpoint()
+        trim_all_experiments()
