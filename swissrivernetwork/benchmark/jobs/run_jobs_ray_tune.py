@@ -100,8 +100,10 @@ def get_job_script_gpu(id_str):
 #
 # GPUs architecture and number
 # ----------------------------
+#SBATCH --account=gratis  # for UBELIX
 #SBATCH --partition=gpu # @todo: to change it back p100, v100
-##SBATCH --qos=job_gpu_preemptable # @fixme: this is a must if one wants to use a100 gpu on UBELIX cluster, but it can be preempted by investors' tasks.
+##SBATCH --qos=job_gpu_preemptable # Deprecated since 2025.12.08: this is a must if one wants to use a100 gpu on UBELIX cluster, but it can be preempted by investors' tasks.
+#SBATCH --qos=job_gratis  # @fixme: for UBELIX, change as needed  "job_gratis": free tier, max 2x 4090 or 1x h100
 ##SBATCH --no-requeue  # this option ensure that the job, if preempted, won't be re-queued but canceled instead: 
 ## GPUs per compute node
 ##   gpu:4 (maximum) for gpu_k80
@@ -143,7 +145,9 @@ def get_job_script_cpu(id_str):
 
 ##SBATCH --exclusive
 #SBATCH --job-name=""" + '"' + prefix_kw + r""".cpu.""" + id_str + r""""
+#SBATCH --account=gratis  # for UBELIX
 #SBATCH --partition=epyc2,bdw # @todo: to change it back
+#SBATCH --qos=job_gratis  # @fixme: for UBELIX, change as needed  "job_gratis": free tier, max 2x 4090 or 1x h100
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=jajupmochi@gmail.com
 #SBATCH --output="outputs/""" + prefix_kw + r""".cpu.""" + id_str + r""".o%J"
