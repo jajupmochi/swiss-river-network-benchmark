@@ -738,6 +738,8 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         self.temporal_func = temporal_func
         self.use_current_x: bool = kwargs['use_current_x']
         self.future_steps = kwargs.get('future_steps', 1)
+        # whether to return all steps when use_current_x is False:
+        self.return_all_steps = kwargs.get('return_all_steps', False)
         self.kwargs = kwargs
 
         # Validate input        
@@ -863,13 +865,15 @@ class SpatioTemporalEmbeddingModel(nn.Module):
                     target = self.linear(target)
                     target = target.unsqueeze(-1)
                 elif self.kwargs.get('extrapo_mode') == 'future_embedding':
-                    target = target[..., -self.future_steps:, :]  # only use the future steps
                     target = self.linear(target)
+                    if not self.return_all_steps:
+                        target = target[..., -self.future_steps:, :]  # only use the future steps
                 else:
                     raise ValueError(f'Unknown extrapo_mode: {self.kwargs.get("extrapo_mode")}.')
             elif self.temporal_func == 'transformer_embedding':
-                target = target[..., -self.future_steps:, :]  # only use the future steps
                 target = self.linear(target)
+                if not self.return_all_steps:
+                    target = target[..., -self.future_steps:, :]  # only use the future steps
             else:
                 raise ValueError(f'Unknown temporal_func: {self.temporal_func}.')
         return target

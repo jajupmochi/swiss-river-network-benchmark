@@ -7,9 +7,8 @@ from swissrivernetwork.benchmark.dataset import STGNNSequenceFullDataset, STGNNS
 from swissrivernetwork.benchmark.dataset import read_stations, read_csv_train, read_csv_test
 # from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.benchmark.model import *
-from swissrivernetwork.benchmark.test_isolated_station import summary
+from swissrivernetwork.benchmark.test_isolated_station import compute_metrics
 from swissrivernetwork.benchmark.util import *
-from swissrivernetwork.experiment.error import compute_errors
 
 
 def fit_column_normalizers(df):
@@ -26,9 +25,14 @@ def fit_column_normalizers(df):
 def test_stgnn(
         graph_name, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', method: str | None = None,
+        config: dict = {},
         verbose: int = 2
 ):
     infer_time_total = time.time()
+
+    # Set up configurations:
+    use_current_x = config.get('use_current_x', True)
+    extrapo_mode = config.get('extrapo_mode', None)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -70,6 +74,8 @@ def test_stgnn(
     # Compute this:
     # epoch_days, prediction_norm, mask, actual, prediction
     epoch_days, prediction_norm, actual, masks = [], [], [], []
+    # This can be "history_epoch_days" for LIMO mode or "full_epoch_days" for future_embedding mode:
+    epoch_days_to_record, preds_to_record = [], []  # for timewise extrapolation
     with torch.no_grad():
         model.eval()
         for (t, e, x, y) in dataloader:
@@ -80,6 +86,25 @@ def test_stgnn(
 
             # # Check for only one batch:
             # assert 1 == out.shape[0] and 1 == y.shape[0], 'only one batch supported!'
+
+            # Remove historical inputs and masks for forecasting:
+            if not use_current_x:
+                future_steps = config['future_steps']
+                # For future embedding extrapolation, "out" includes all predictions including historical ones:
+                epoch_days_to_record.append(t.cpu().detach().numpy())
+                preds_to_record.append(out.cpu().detach().numpy())
+                out = out[..., -future_steps:, :]
+                # todo: this may be incorrect if using limo mode
+                # if extrapo_mode == 'future_embedding':
+                # else:
+                #     raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+                #     # For timewise extrapolation, "out" includes both predictions and history hidden states (saved for
+                #     # future use such as graphlet):
+                #     epoch_days_to_record.append(t[..., :-future_steps, :].cpu().detach().numpy())
+                #     preds_to_record.append(out[1].cpu().detach().numpy())
+                #     out = out[0]
+                y = y[..., -future_steps:, :]
+                t = t[..., -future_steps:, :]
 
             # Split the predictions per station:
             mask = ~torch.isnan(y)
@@ -101,19 +126,54 @@ def test_stgnn(
     prediction_norm = [i for p in prediction_norm for i in p]
     actual = [i for a in actual for i in a]
     masks = [i for m in masks for i in m]
+    if not use_current_x:
+        epoch_days_to_record = [i for t in epoch_days_to_record for i in t]
+        preds_to_record = [i for p in preds_to_record for i in p]
+        # todo: this may be incorrect if using limo mode
+        # if extrapo_mode == 'future_embedding':
+        # else:
+        #     raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+        #     epoch_days_to_record = np.concatenate([i.flatten() for i in epoch_days_to_record], axis=0).flatten()
+        #     # Items in history_hiddens have shape (B, L_hist, D), we need to flatten all but the last dimension:
+        #     preds_to_record = np.concatenate([i.reshape(-1, i.shape[-1]) for i in preds_to_record], axis=0)
 
     # fixme: check if it is correct for full sequences:
     n_total_time_steps = np.sum([p.shape[0] * p.shape[1] for p in prediction_norm])
 
     # Combine arrays:
     all_epoch_days, all_actual, all_prediction, all_masks = [], [], [], []
+    all_epoch_days_to_record, all_preds_to_record, all_forcast_time_steps = [], [], []  # for extrapolation only
     for i, station in enumerate(stations):
         station_epoch_days = np.concatenate([e[i] for e in epoch_days], axis=0).flatten()
         station_prediction_norm = np.concatenate([p[i] for p in prediction_norm], axis=0).flatten()
         station_masks = np.concatenate([m[i] for m in masks], axis=0).flatten()
         station_actual = np.concatenate([a[i] for a in actual], axis=0).flatten()
+        if not use_current_x:
+            # and extrapo_mode == 'future_embedding': todo: this may be incorrect if using limo mode
+            station_epoch_days_to_record = np.concatenate([e[i] for e in epoch_days_to_record], axis=0).flatten()
+            station_preds_to_record = np.concatenate([p[i] for p in preds_to_record], axis=0).flatten()
 
-        if check_is_aggregation_needed(dataloader):
+        # Only aggregate epoch_days_to_record and preds_to_record for timewise extrapolation for dumping:
+        if not use_current_x:
+            station_epoch_days_to_record, aggregated_dict = aggregate_day_predictions(
+                station_epoch_days_to_record,
+                {
+                    'preds_to_record': station_preds_to_record,
+                },
+                method='longest_history'
+            )
+            station_preds_to_record = aggregated_dict['preds_to_record']
+            all_epoch_days_to_record.append(station_epoch_days_to_record)
+            all_preds_to_record.append(station_preds_to_record)
+
+            # Create a time step array as a reference for forecasting:
+            n_future_steps = config['future_steps']
+            assert station_actual.size % n_future_steps == 0, 'Forcasting: total size must be divisible by n_future_steps.'
+            n_samples = station_actual.size // n_future_steps
+            forcast_time_steps = np.tile(np.arange(1, n_future_steps + 1), n_samples)
+            all_forcast_time_steps.append(forcast_time_steps[station_masks])  # masked
+
+        elif check_is_aggregation_needed(dataloader):
             station_epoch_days, aggregated_dict = aggregate_day_predictions(
                 station_epoch_days,
                 {
@@ -124,11 +184,11 @@ def test_stgnn(
                 method='longest_history'
             )
             station_masks = aggregated_dict['mask']
-            station_prediction_norm = aggregated_dict['prediction_norm'][station_masks]
-            station_actual = aggregated_dict['actual'][station_masks]
-        else:
-            station_prediction_norm = station_prediction_norm[station_masks]
-            station_actual = station_actual[station_masks]
+            station_prediction_norm = aggregated_dict['prediction_norm']
+            station_actual = aggregated_dict['actual']
+
+        station_prediction_norm = station_prediction_norm[station_masks]
+        station_actual = station_actual[station_masks]
 
         # Denormalize predictions
         station_prediction = normalizers[f'{station}_wt'].inverse_transform(
@@ -146,6 +206,16 @@ def test_stgnn(
         'infer_time_per_time_step': [infer_time_total / n_total_time_steps] * n_stations,
         'n_total_time_steps': [n_total_time_steps / n_stations] * n_stations,
     }
+    if not use_current_x:
+        extra_resu['forcast_time_steps'] = all_forcast_time_steps
+        extra_resu['full_epoch_days'] = all_epoch_days_to_record
+        extra_resu['full_prediction_norm'] = all_preds_to_record
+        #  todo: this may be incorrect if using limo mode
+        # if extrapo_mode == 'future_embedding':
+        # else:
+        #     raise NotImplementedError('Only future_embedding extrapo_mode is supported for LSTM now!')
+        #     # extra_resu['history_epoch_days'] = epoch_days_to_record
+        #     # extra_resu['history_hiddens'] = preds_to_record
 
     # Compute errors
     rmses = []
@@ -153,9 +223,10 @@ def test_stgnn(
     nses = []
     ns = []
     for i, station in enumerate(stations):
-        rmse, mae, nse = compute_errors(all_actual[i], all_prediction[i])
-        title = summary(station, rmse, mae, nse)
-        verbose > 1 and print(title)
+        cur_extra_resu = {k: v[i] for k, v in extra_resu.items()}
+        rmse, mae, nse, len_pred, title = compute_metrics(
+            all_actual[i], all_prediction[i], cur_extra_resu, config, station, verbose
+        )
 
         # # Plot Figure of Test Data  # fixme: enable plotting as needed
         # plot(
@@ -167,7 +238,7 @@ def test_stgnn(
         rmses.append(rmse)
         maes.append(mae)
         nses.append(nse)
-        ns.append(len(all_prediction[i]))
+        ns.append(len_pred)
 
     return rmses, maes, nses, ns, (all_actual, all_prediction, all_epoch_days), extra_resu
 

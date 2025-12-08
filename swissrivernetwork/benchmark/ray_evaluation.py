@@ -329,7 +329,10 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
             best_config['num_layers'], best_config['num_convs'], best_config['num_heads'],
             edge_hidden_size=best_config.get('edge_hidden_size'),
             temporal_func='lstm_embedding',
-            # fixme: revise for extrapolation
+            use_current_x=best_config['use_current_x'],
+            future_steps=best_config.get('future_steps', 1),
+            return_all_steps=True,  # for extrapolation evaluation
+            extrapo_mode=best_config.get('extrapo_mode', None)
         )
     elif 'transformer_stgnn' == method:
         input_size = 1
@@ -352,7 +355,8 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
             missing_value_method=best_config['missing_value_method'],
             use_current_x=best_config['use_current_x'],
             positional_encoding=best_config.get('positional_encoding', 'rope'),
-            # fixme: revise for extrapolation
+            future_steps=best_config.get('future_steps', 1),
+            return_all_steps=True,  # for extrapolation evaluation
         )
     else:
         raise ValueError(f'Method {method} does not use single model training.')
@@ -471,19 +475,18 @@ def evaluate_best_trial_isolated_station(
         model = TransformerEmbeddingModel(
             input_size, num_embeddings=num_embeddings if best_config['use_station_embedding'] else 0,
             embedding_size=best_config['embedding_size'],
-            num_heads=best_config['num_heads'],
+            num_heads=best_config['num_t_heads'],  # fixme: this might be wrong for old models, they use num_heads
             num_layers=best_config['num_layers'],
             dim_feedforward=best_config['dim_feedforward'],
             dropout=best_config['dropout'],
             d_model=best_config['d_model'] if best_config.get('d_model', None) else int(
-                best_config['ratio_heads_to_d_model'] * best_config['num_heads']
+                best_config['ratio_heads_to_d_model'] * best_config['num_t_heads']
             ),
             max_len=settings['max_len'],  # todo: should these be set in config?
             missing_value_method=settings['missing_value_method'],
             use_current_x=settings['use_current_x'],
             positional_encoding=settings['positional_encoding'],
             future_steps=best_config.get('future_steps', 1),
-            # fixme: debug
             return_all_steps=True,  # Return all steps for extrapolation so that these values can be used for graphlet
         )
     else:
@@ -527,6 +530,7 @@ def evaluate_best_trial_isolated_station(
         predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
         test_resu = test_transformer_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
+            method=method,
             config=best_config,
             verbose=settings.get('verbose', 2)
         )
@@ -614,7 +618,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
             iterator = enumerate(stations)
 
         for i, station in iterator:
-            # # fixme: debug only:
+            # debug only:
             # if i > 1:
             #     break
 
@@ -701,13 +705,35 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         actuals, predictions, epoch_day_list = preds
 
         # collect per station
-        for i, station in enumerate(stations):
-            col_station.append(station)
-            col_rmse.append(rmses[i])
-            col_mae.append(maes[i])
-            col_nse.append(nses[i])
-            col_n.append(ns[i])
-        col_extra_resu = {f'extra__{k}': v for k, v in extra_resu.items()}
+        if use_current_x:
+            for i, station in enumerate(stations):
+                col_station.append(station)
+                col_rmse.append(rmses[i])
+                col_mae.append(maes[i])
+                col_nse.append(nses[i])
+                col_n.append(ns[i])
+            col_extra_resu = {f'extra__{k}': v for k, v in extra_resu.items()}
+            forcast_time_steps = []
+        else:  # extrapolation forcasting:
+            for i, station in enumerate(stations):
+                cur_max_horizon = len(rmses[i])  # In this case, these metrics are lists
+                col_station += [station] * cur_max_horizon
+                col_rmse += rmses[i]
+                col_mae += maes[i]
+                col_nse += nses[i]
+                col_n += ns[i]  # n is a list of numbers of test samples / predictions for each horizon
+                for k, v in extra_resu.items():
+                    v = v[i]
+                    if k.startswith('forcast') or isinstance(v, np.ndarray):
+                        continue
+                    if f'extra__{k}' not in col_extra_resu:
+                        col_extra_resu[f'extra__{k}'] = []
+                    col_extra_resu[f'extra__{k}'] += [v] * cur_max_horizon
+                if 'forcast_time_steps' not in col_extra_resu:
+                    col_extra_resu['forcast_time_steps'] = []
+                col_extra_resu['forcast_time_steps'] += list(range(1, cur_max_horizon + 1))
+
+            forcast_time_steps = extra_resu.get('forcast_time_steps', [])
 
     verbose > 1 and print('METHOD LEARNABLE PARAMETERS:', total_params)
 
@@ -778,8 +804,8 @@ if __name__ == '__main__':
         'window_len': 90,  # fixme: debug
         'use_current_x': False,  # fixme: experiment
         'future_steps': 7,  # fixme: experiment. Only works if 'use_current_x' is False
-        # fixme: 'limo', 'future_embedding', 'recursive' only for extrapolation on lstm. 'none' for others:
-        'extrapo_mode': 'future_embedding',
+        # fixme: 'limo', 'future_embedding', 'recursive' only for extrapolation on lstm. None for others:
+        'extrapo_mode': None,  # None, 'future_embedding'
         'verbose': 2,
     }
 
@@ -794,12 +820,12 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[0]
-        method = METHODS[0]
+        method = METHODS[7]
 
         # Transformer specific settings:
         if is_transformer_model(method):
             # Reset positional encoding:
-            settings['positional_encoding'] = 'learnable'  # fixme: test, 'learnable' or 'sinusoidal' or 'rope' or None
+            settings['positional_encoding'] = 'sinusoidal'  # fixme: test, 'learnable' or 'sinusoidal' or 'rope' or None
 
         settings['path_extra_keys'] = get_run_extra_key(settings)
 

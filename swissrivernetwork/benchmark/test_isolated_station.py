@@ -154,6 +154,7 @@ def run_lstm_model(
         assert actual.size % n_future_steps == 0, 'Forcasting: total size must be divisible by n_future_steps.'
         n_samples = actual.size // n_future_steps
         forcast_time_steps = np.tile(np.arange(1, n_future_steps + 1), n_samples)
+        forcast_time_steps = forcast_time_steps[masks]  # masked
 
     # Apply mask on actual and prediction:
     actual = actual[masks]
@@ -167,7 +168,7 @@ def run_lstm_model(
         'n_total_time_steps': n_total_time_steps
     }
     if not use_current_x:
-        extra_resu['forcast_time_steps'] = forcast_time_steps[masks]
+        extra_resu['forcast_time_steps'] = forcast_time_steps
         if extrapo_mode == 'future_embedding':
             extra_resu['full_epoch_days'] = epoch_days_to_record
             extra_resu['full_prediction_norm'] = preds_to_record
@@ -181,7 +182,9 @@ def run_lstm_model(
 
 def run_transformer_model(
         model, df, normalizer_at, normalizer_wt, embedding_idx=None, use_embedding=False, window_len: int | None = None,
-        config: dict = {}
+        graph_name: str | None = None,
+        method: str | None = None,
+        config: dict = {},
 ):
     """
     The returned epoch_days, prediction_norm, masks, and possible full_epoch_days and full_prediction_norm include all
@@ -210,7 +213,9 @@ def run_transformer_model(
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=get_proper_infer_batchsize(method, graph_name), shuffle=False, drop_last=False
+        )
 
     infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
     infer_end_gpu_time = torch.cuda.Event(enable_timing=True)
@@ -491,27 +496,28 @@ def test_graphlet(
 
     # run lstm model on it
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
     )
 
-    # comptue errors
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    # Compute errors:
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
-    # create graphs
-    plot(
-        graph_name, 'graphlet', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+    # Plot Figure of Test Data
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'graphlet', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
+
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_transformer_graphlet(
         graph_name, station, model, window_len: int | None = None,
         dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
         predict_dump_dir: Path | str | None = None,
+        method: str | None = None,
         config: dict = {},
         verbose: int = 2
 ):
@@ -532,7 +538,8 @@ def test_transformer_graphlet(
 
     # run lstm model on it
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config
+        model, df, normalizer_at, normalizer_wt, use_embedding=False, window_len=window_len, config=config,
+        graph_name=graph_name, method=method
     )
 
     # Compute errors:
@@ -664,7 +671,9 @@ def test_transformer(
 
 def test_lstm_embedding(
         graph_name, station, i, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        config: dict = {},
+        verbose: int = 2
 ):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
@@ -673,27 +682,29 @@ def test_lstm_embedding(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_lstm_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len,
+        config=config
     )
 
     # Compute errors:
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
     # Plot Figure of Test Data
-    plot(
-        graph_name, 'lstm_embedding', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'lstm_embedding', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 def test_transformer_embedding(
         graph_name, station, i, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', verbose: int = 2
+        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump',
+        config: dict = {},
+        verbose: int = 2
 ):
     df_train = read_csv_train(graph_name)
     df_train = select_isolated_station(df_train, station)
@@ -702,22 +713,22 @@ def test_transformer_embedding(
     df = read_csv_test(graph_name)
     df = select_isolated_station(df, station)
     epoch_days, prediction_norm, mask, actual, prediction, extra_resu = run_transformer_model(
-        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len
+        model, df, normalizer_at, normalizer_wt, embedding_idx=i, use_embedding=True, window_len=window_len,
+        config=config
     )
 
     # Compute errors:
-    rmse, mae, nse = compute_errors(actual, prediction)
-    title = summary(station, rmse, mae, nse)
-    verbose > 1 and print(title)
+    rmse, mae, nse, len_pred, title = compute_metrics(actual, prediction, extra_resu, config, station, verbose)
 
     # Plot Figure of Test Data
-    plot(
-        graph_name, 'transformer_embedding', station, epoch_days[mask], actual, prediction, title,
-        plot_diff=True,  # debug
-        dump_dir=dump_dir
-    )
+    if config.get('use_current_x', True):  # fixme: test
+        plot(
+            graph_name, 'transformer_embedding', station, epoch_days[mask], actual, prediction, title,
+            plot_diff=True,  # debug
+            dump_dir=dump_dir
+        )
 
-    return rmse, mae, nse, len(prediction), (actual, prediction, epoch_days[mask]), extra_resu
+    return rmse, mae, nse, len_pred, (actual, prediction, epoch_days[mask]), extra_resu
 
 
 if __name__ == '__main__':
