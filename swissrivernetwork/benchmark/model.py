@@ -740,7 +740,10 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         self.future_steps = kwargs.get('future_steps', 1)
         # whether to return all steps when use_current_x is False:
         self.return_all_steps = kwargs.get('return_all_steps', False)
+        self.use_station_embedding = kwargs.get('use_station_embedding', True)
         self.kwargs = kwargs
+
+        self.input_emb_for_temporal = not (temporal_func == 'lstm_embedding' and not self.use_station_embedding)
 
         # Validate input        
         assert self.num_convs > 0, 'num_convs must be positive.'
@@ -755,12 +758,21 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         # Temporal Module: based on an LSTMEmbeddingModel per Node
         if temporal_func == 'lstm_embedding':
             if self.use_current_x:  # non-extrapolation scenario:
-                self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
+                if self.use_station_embedding:
+                    self.temporal = LstmEmbeddingModel(
+                        input_size, num_embeddings, embedding_size, hidden_size, num_layers
+                    )
+                else:
+                    self.temporal = LstmModel(input_size, hidden_size, num_layers)
             elif kwargs.get('extrapo_mode') in [None, 'limo']:
                 # self.input_preprocessor will remove the future steps from input x, so that the LSTM only sees
                 # historical data without information leakage:
+                if not self.use_station_embedding:
+                    raise NotImplementedError('LstmModel does not support extrapolation yet.')
                 self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
             elif kwargs.get('extrapo_mode') == 'future_embedding':
+                if not self.use_station_embedding:
+                    raise NotImplementedError('ExtrapoLstmEmbeddingModelFEmbed does not support no embedding yet.')
                 self.temporal = ExtrapoLstmEmbeddingModelFEmbed(
                     input_size, num_embeddings, embedding_size, hidden_size, num_layers,
                     future_steps=self.future_steps,
@@ -772,7 +784,7 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         elif temporal_func == 'transformer_embedding':
             self.temporal = TransformerEmbeddingModel(
                 input_size=input_size,
-                num_embeddings=num_embeddings,  # num_embeddings if kwargs.get('use_station_embedding', True) else 0,
+                num_embeddings=num_embeddings if kwargs.get('use_station_embedding', True) else 0,
                 embedding_size=embedding_size,
                 num_heads=kwargs['num_t_heads'],
                 num_layers=num_layers,
@@ -849,8 +861,11 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         hs = []
         for i in range(self.stations):
             x_node = x[:, i, :, :]
-            e = torch.full((x_node.shape[0], x_node.shape[1]), i, dtype=torch.long).to(x.device)
-            out_node = self.temporal(e, x_node)
+            if self.input_emb_for_temporal:
+                e = torch.full((x_node.shape[0], x_node.shape[1]), i, dtype=torch.long).to(x.device)
+                out_node = self.temporal(e, x_node)
+            else:
+                out_node = self.temporal(x_node)
             hs.append(out_node)
         return torch.stack(hs, dim=1)  # [batch x node x sequence x latent]
 

@@ -201,7 +201,7 @@ def run_experiment(
     """
     # Each experiment has one time
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Use same time for all!
-    # now = '2025-09-15_14-53-11'  # fixme: debug only
+    # now = '2025-09-15_14-53-11'  # debug only
     storage_path = (CUR_ABS_DIR / '../../' / storage_path).resolve() if storage_path else None
     # For transformer_embedding, GPU per epoch is around 50 seconds, CPU around 14-40 minutes
     # Using GPU is much faster. Notice when only one GPU is present, set the `resources_per_trial['gpu']` to a float
@@ -329,6 +329,8 @@ def run_experiment(
         search_space['use_current_x'] = config.use_current_x
         search_space['future_steps'] = config.get('future_steps', 1)
         search_space['extrapo_mode'] = config.get('extrapo_mode', None)
+        # --- Embedded models specific:
+        search_space['use_station_embedding'] = config.use_station_embedding
 
         trainer = partial(train_lstm_embedding, settings=config, verbose=verbose)
 
@@ -360,6 +362,8 @@ def run_experiment(
         # --- Transformer specific:
         search_space['max_len'] = config.max_len
         search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        # --- Embedded models specific:
+        search_space['use_station_embedding'] = config.use_station_embedding
 
         if config.missing_value_method is None:
             trainer = partial(train_transformer_embedding, settings=config, verbose=verbose)
@@ -394,6 +398,8 @@ def run_experiment(
         search_space['use_current_x'] = config.use_current_x
         search_space['future_steps'] = config.get('future_steps', 1)
         search_space['extrapo_mode'] = config.get('extrapo_mode', None)
+        # --- Embedded models specific:
+        search_space['use_station_embedding'] = config.use_station_embedding
 
         trainer = partial(train_stgnn, settings=config, verbose=verbose)
 
@@ -426,6 +432,8 @@ def run_experiment(
         # Transformer specific:
         search_space['max_len'] = config.max_len
         search_space['positional_encoding'] = config.positional_encoding  # None, 'sinusoidal', 'rope', 'learnable'
+        # --- Embedded models specific:
+        search_space['use_station_embedding'] = config.use_station_embedding
 
         if config.missing_value_method is None:
             trainer = partial(train_transformer_stgnn, settings=config, verbose=verbose)
@@ -541,6 +549,11 @@ def parse_config():
         '-ml', '--max_len', required=False, type=int, default=None,
         help='Maximum sequence length for transformer models. If less than window_len, will be set to window_len. Default is 90.'
     )
+    # Embedded models specific:
+    parser.add_argument(
+        '-use', '--use_station_embedding', required=False, type=str2bool, nargs='?', const=True, default=True,
+        help='Whether to use station embeddings in models that support it.'
+    )
     # General:
     parser.add_argument('-v', '--verbose', required=False, type=int, help='Verbosity level.')
     parser.add_argument(
@@ -581,9 +594,9 @@ if __name__ == '__main__':
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'graphlet.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_graphlet.yaml',
-            # 'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
+            'config': CUR_ABS_DIR / 'configs' / 'lstm_embedding.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_embedding.yaml',
-            'config': CUR_ABS_DIR / 'configs' / 'stgnn.yaml',
+            # 'config': CUR_ABS_DIR / 'configs' / 'stgnn.yaml',
             # 'config': CUR_ABS_DIR / 'configs' / 'transformer_stgnn.yaml',
             'graph': 'swiss-1990',  # 'swiss-1990', 'swiss-2010', 'zurich'
             'dev_run': True,  # fixme: debug
@@ -591,12 +604,15 @@ if __name__ == '__main__':
             'window_len': 90,
             'missing_value_method': 'none',  # 'mask_embedding',  # 'mask_embedding', 'interpolation'
             'short_subsequence_method': 'drop',  # 'pad' or 'drop'
-            'use_current_x': False,  # fixme: debug, True or False (future-token prediction)
+            'use_current_x': True,  # fixme: debug, True or False (future-token prediction)
+            'future_steps': 0,  # Only works if 'use_current_x' is False
             'max_mask_consecutive': 12,  # only used when missing_value_method is 'mask_embedding'
             'max_mask_ratio': 0.5,
             'resume': False,  # fixme: debug
-            'future_steps': 7,  # Only works if 'use_current_x' is False
-            'extrapo_mode': 'future_embedding',  # 'limo', 'future_embedding', 'recursive'
+            'extrapo_mode': 'future_embedding',  # 'limo', 'future_embedding', 'recursive',
+            #  Only valid for models with station embeddings, e.g., lstm_embedding, transformer_embedding, stgnn
+            #  and transformer_stgnn:
+            'use_station_embedding': False,  # fixme: debug
         }
 
         if not is_transformer_model(debug_cfg['config'].stem):

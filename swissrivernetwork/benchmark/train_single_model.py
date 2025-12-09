@@ -48,20 +48,27 @@ def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int
         dataloader_valid = torch.utils.data.DataLoader(dataset_valid, shuffle=False, drop_last=False)
 
     if config.get('use_current_x', True):
-        model = LstmEmbeddingModel(
-            1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers']
-        )
+        if config.get('use_station_embedding', True):
+            model = LstmEmbeddingModel(
+                1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers']
+            )
+        else:
+            model = LstmModel(1, config['hidden_size'], config['num_layers'])
     else:
-        model = ExtrapoLstmEmbeddingModel(
-            1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
-            future_steps=config['future_steps'],
-            return_all_steps=False,
-            extrapo_mode=config.get('extrapo_mode', None)
-        )
+        if config.get('use_station_embedding', True):
+            model = ExtrapoLstmEmbeddingModel(
+                1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
+                future_steps=config['future_steps'],
+                return_all_steps=False,
+                extrapo_mode=config.get('extrapo_mode', None)
+            )
+        else:
+            raise NotImplementedError('ExtrapoLstmModel without embedding not implemented yet.')
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid),
+        use_embedding=config.get('use_station_embedding', True),
         normalizer_at=normalizers_at, normalizer_wt=normalizers_wt, settings=settings, verbose=verbose
     )
 
@@ -128,18 +135,22 @@ def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
     )
 
     model = SpatioTemporalEmbeddingModel(
-        config['gnn_conv'], 1, num_embeddings, config['embedding_size'], config['hidden_size'], config['num_layers'],
+        config['gnn_conv'], 1, num_embeddings,
+        config['embedding_size'], config['hidden_size'], config['num_layers'],
         config['num_convs'], config['num_heads'], edge_hidden_size=config.get('edge_hidden_size'),
         temporal_func='lstm_embedding',
         use_current_x=config['use_current_x'],
         future_steps=config.get('future_steps', 1),
         return_all_steps=False,
-        extrapo_mode=config.get('extrapo_mode', None)
+        extrapo_mode=config.get('extrapo_mode', None),
+        use_station_embedding=config.get('use_station_embedding', True)
     )
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=False, edges=edges,
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid),
+        use_embedding=False,  # It does not matter, since stgnn creates embeddings internally
+        edges=edges,
         normalizer_wt=normalizer_wt,
         settings=settings, verbose=verbose
     )
@@ -186,7 +197,7 @@ def train_transformer_embedding(config, settings: benedict = benedict({}), verbo
     # print(f'{INFO_TAG}The positional encoding is set to:', config.get('positional_encoding', 'rope'), 'MUHAHA')
     # exit()  # debug
     model = TransformerEmbeddingModel(
-        1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
+        1, num_embeddings=num_embeddings if config.get('use_station_embedding', True) else 0,
         embedding_size=config['embedding_size'],
         num_heads=config['num_t_heads'],
         num_layers=config['num_layers'],
@@ -204,7 +215,9 @@ def train_transformer_embedding(config, settings: benedict = benedict({}), verbo
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid),
+        # Embedding is always an input to the transformer model, embedding is ignored if num_embeddings=0:
+        use_embedding=True,
         normalizer_at=normalizers_at, normalizer_wt=normalizers_wt, settings=settings, verbose=verbose
     )
 
@@ -281,7 +294,7 @@ def train_masked_transformer_embedding(config, settings: benedict = benedict({})
     )
 
     model = TransformerEmbeddingModel(
-        1, num_embeddings=num_embeddings if config['use_station_embedding'] else 0,
+        1, num_embeddings=num_embeddings if config.get('use_station_embedding', True) else 0,
         embedding_size=config['embedding_size'],
         num_heads=config['num_t_heads'],
         num_layers=config['num_layers'],
@@ -298,7 +311,9 @@ def train_masked_transformer_embedding(config, settings: benedict = benedict({})
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=True,
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid),
+        # Embedding is always an input to the transformer model, embedding is ignored if num_embeddings=0:
+        use_embedding=True,
         normalizer_at=normalizers_at, normalizer_wt=normalizers_wt, settings=settings, verbose=verbose
     )
 
@@ -362,11 +377,14 @@ def train_transformer_stgnn(config, settings: benedict = benedict({}), verbose: 
         use_current_x=config['use_current_x'],
         positional_encoding=config.get('positional_encoding', 'rope'),
         future_steps=config.get('future_steps', 1),
+        use_station_embedding=config.get('use_station_embedding', True)
     )
 
     # Run Training Loop!
     training_loop(
-        config, dataloader_train, dataloader_valid, model, len(dataset_valid), use_embedding=False, edges=edges,
+        config, dataloader_train, dataloader_valid, model, len(dataset_valid),
+        use_embedding=False,  # It does not matter, since stgnn creates embeddings internally
+        edges=edges,
         normalizer_wt=normalizer_wt,
         settings=settings, verbose=verbose
     )
@@ -380,7 +398,7 @@ if __name__ == '__main__':
     # graph_name = 'swiss-2010'
     graph_name = 'swiss-1990'
 
-    method = 'stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
+    method = 'transformer_stgnn'  # 'lstm_embedding', 'stgnn', 'transformer_embedding', or 'transformer_stgnn'
 
     # read stations:
     print(f'{INFO_TAG}Stations in graph {graph_name}:')
@@ -408,12 +426,15 @@ if __name__ == '__main__':
         # what to do if subsequence is shorter than window_len, 'pad' or 'drop'.
         # Applied on both training and validation sets:
         'short_subsequence_method': 'drop',  # fixme: debug: only 'pad' for win len > 90
+        # --- Conigs for embedding models:
+        # Only valid for lstm_embedding, transformer_embedding, stgnn and transformer_stgnn:
+        'use_station_embedding': False,  # fixme:
         # --- Exp configs used for all models:
         # 'mask_embedding' or 'interpolation' or 'zero' or None
         'missing_value_method': None,  # fixme: test. based on lstm or transformer
-        'use_current_x': False,  # fixme: whether to use the current days' features as input to predict next day
-        'future_steps': 7,  # fixme: days to predict ahead.
-        'extrapo_mode':  'future_embedding',  # 'future_embedding' or 'recursive' or 'limo'
+        'use_current_x': True,  # fixme: whether to use the current days' features as input to predict next day
+        'future_steps': 0,  # fixme: days to predict ahead.
+        'extrapo_mode': None,  # 'future_embedding' or 'recursive' or 'limo'
     }
 
     # Extra config:
@@ -438,7 +459,6 @@ if __name__ == '__main__':
             'num_layers': 4,
             'dim_feedforward': 128,
             'dropout': 0.1,
-            'use_station_embedding': True,
             'max_len': max(500, config['window_len']),  # maximum length of the input sequence (for positional encoding)
             'positional_encoding': 'rope',  # 'sinusoidal' or 'rope' or 'learnable' or None
             # --- Updated for transformer models:

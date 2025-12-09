@@ -213,6 +213,8 @@ def get_run_extra_key(config: benedict | dict) -> str:
         extra_key += f'-fs{config.future_steps}'
         if 'extrapo_mode' in config and config.extrapo_mode is not None and config.extrapo_mode != 'limo':
             extra_key += f'-{config.extrapo_mode}'
+    if not config.get('use_station_embedding', True):
+        extra_key += '-noSEmb'
     if 'window_len' in config and config.window_len is not None:
         extra_key += f'-wl{config.window_len}'
     if 'missing_value_method' in config and config.missing_value_method is not None:
