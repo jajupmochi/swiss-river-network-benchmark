@@ -256,7 +256,7 @@ if __name__ == '__main__':
         'max_mask_consecutive': max_mask_consecutives,
         'future_steps': future_steps,
         'extrapo_mode': extrapo_modes,
-        'use_station_embedding': [use_station_embeddings],
+        'use_station_embedding': use_station_embeddings,
         'resume': resumes,
     }
 
