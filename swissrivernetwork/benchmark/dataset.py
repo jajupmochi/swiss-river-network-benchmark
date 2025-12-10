@@ -13,7 +13,7 @@ INFO_TAG = "\033[94m[info]\033[0m "  # Blue
 SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
-# Utility functions
+# %% --- Utility functions:
 
 def read_stations(graph_name, base_dir: str | Path = PROJ_DIR):
     x, _ = read_graph(graph_name, base_dir=base_dir)
@@ -96,20 +96,69 @@ def train_valid_split(config, df):
     return df_train, df_valid
 
 
-# Dataset classes
+# $$ --- Noise addition functions:
+
+
+def add_gaussian_noise(data: np.ndarray, noise_level=0.01):
+    """
+    Add Gaussian noise to the data.
+
+    Args:
+        data (np.ndarray): Original data.
+        noise_level (float): Standard deviation of the Gaussian noise as a fraction of the data's standard deviation.
+    """
+    if noise_level <= 1e-9:
+        return data
+    sigma = np.std(data) * noise_level
+    noise = np.random.normal(0, sigma, data.shape)
+    return data + noise
+
+
+def add_impulse_noise(data: np.ndarray, probability: float = 0.01, scale_factor: float = 5.0):
+    """
+    Add impulse noise (spikes) to the data.
+
+    Args:
+        data (np.ndarray): Original data.
+        probability (float): Probability of a spike occurring at each data point. E.g., 0.01 means 1% of the data points
+            will be spikes.
+        scale_factor (float): Magnitude of the spikes to be added or subtracted. Scaled by the standard deviation of the
+            data.
+    """
+    if probability <= 1e-9 or scale_factor <= 1e-9:
+        return data
+    noisy_data = data.copy()
+    n_samples = len(data)
+    n_spikes = int(n_samples * probability)
+    data_std = np.std(data)
+    magnitude = data_std * scale_factor
+    # Randomly select indices for spikes
+    spike_indices = np.random.choice(n_samples, n_spikes, replace=False)
+    noisy_data[spike_indices] += np.random.choice([-magnitude, magnitude], size=n_spikes)
+    return noisy_data
+
+
+# %% --- Dataset classes
+
 
 class SequenceDataset(torch.utils.data.Dataset):
 
     def __init__(
             self, window_len, df, embedding_idx,
             short_subsequence_method: str = 'drop',  # 'pad' or 'drop'
-            name: str = ''
+            name: str = '',
+            **kwargs
     ):
         self.name = name
         self.window_len = window_len
         self.df = df
         self.embedding_idx = embedding_idx
         self.short_subsequence_method = short_subsequence_method
+
+        noise_type = kwargs.get('noise_type')
+        if noise_type is not None:
+            noise_kwargs = kwargs.get('noise_kwargs')
+            self.df = self.add_noise(self.df, noise_type, noise_kwargs)
 
         self.stations = None
         self.sequences = []
@@ -256,6 +305,24 @@ class SequenceDataset(torch.utils.data.Dataset):
         return (t, embs, x, y)
 
 
+    @staticmethod
+    def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        at = df['air_temperature'].values
+        if noise_type == 'gaussian_a':
+            noise_level = noise_kwargs.get('noise_level')
+            at_noisy = add_gaussian_noise(at, noise_level=noise_level)
+            df['air_temperature'] = at_noisy
+            return df
+        elif noise_type == 'impulse_a':
+            probability = noise_kwargs.get('probability')
+            scale_factor = noise_kwargs.get('scale_factor', 5.0)
+            at_noisy = add_impulse_noise(at, probability=probability, scale_factor=scale_factor)
+            df['air_temperature'] = at_noisy
+            return df
+        else:
+            raise ValueError(f'Unknown noise_type: {noise_type}.')
+
+
     def as_stgnn_tensors(self, df):
         ts = []
         xs = []
@@ -284,8 +351,8 @@ class SequenceFullDataset(SequenceDataset):
     '''
 
 
-    def __init__(self, df, embedding_idx=None, name: str = ''):
-        super().__init__(0, df, embedding_idx, name=name)  # window_len=0 means full sequences
+    def __init__(self, df, embedding_idx=None, name: str = '', **kwargs):
+        super().__init__(0, df, embedding_idx, name=name, **kwargs)  # window_len=0 means full sequences
 
 
     def __len__(self):
@@ -302,8 +369,8 @@ class SequenceFullDataset(SequenceDataset):
 
 class SequenceWindowedDataset(SequenceDataset):
 
-    def __init__(self, window_len, df, embedding_idx=None, name: str = '', dev_run: bool = False):
-        super().__init__(window_len, df, embedding_idx, name=name)
+    def __init__(self, window_len, df, embedding_idx=None, name: str = '', dev_run: bool = False, **kwargs):
+        super().__init__(window_len, df, embedding_idx, name=name, **kwargs)
         self.dev_run = dev_run
 
 
@@ -336,12 +403,15 @@ class SequenceMaskedDataset(SequenceDataset):
     def __init__(
             self, window_len, df, embedding_idx, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
             short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
-            name: str = ''
+            name: str = '',
+            **kwargs
     ):
         self.max_mask_ratio = max_mask_ratio
         self.max_mask_consecutive = max_mask_consecutive
         # self.time_masks = None  # will be set in extract_sequences
-        super().__init__(window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method, name=name)
+        super().__init__(
+            window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method, name=name, **kwargs
+        )
 
 
     def extract_sequences(self):
@@ -461,12 +531,14 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
             max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
             short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
             name: str = '',
-            dev_run: bool = False
+            dev_run: bool = False,
+            **kwargs
     ):
         super().__init__(
             window_len, df, embedding_idx, max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
             short_subsequence_method=short_subsequence_method,
-            name=name
+            name=name,
+            **kwargs
         )
         self.dev_run = dev_run
 
@@ -497,8 +569,8 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
 
 class STGNNSequenceFullDataset(SequenceFullDataset):
 
-    def __init__(self, df, stations):
-        super().__init__(df)
+    def __init__(self, df, stations, **kwargs):
+        super().__init__(df, **kwargs)
         self.stations = stations
 
 
@@ -508,8 +580,8 @@ class STGNNSequenceFullDataset(SequenceFullDataset):
 
 class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
 
-    def __init__(self, window_len, df, stations, dev_run: bool = False):
-        super().__init__(window_len, df, dev_run=dev_run)
+    def __init__(self, window_len, df, stations, dev_run: bool = False, **kwargs):
+        super().__init__(window_len, df, dev_run=dev_run, **kwargs)
         self.stations = stations
 
 

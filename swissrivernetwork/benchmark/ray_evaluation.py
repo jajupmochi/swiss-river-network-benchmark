@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import scipy
 from halo import Halo
 from ray.tune import ExperimentAnalysis
 
@@ -17,7 +18,7 @@ from swissrivernetwork.benchmark.test_isolated_station import (
 )
 from swissrivernetwork.benchmark.test_single_model import test_stgnn
 from swissrivernetwork.benchmark.util import (
-    get_run_extra_key, extract_neighbors, is_transformer_model, get_latest_run_path
+    get_run_extra_key, extract_neighbors, is_transformer_model, get_latest_run_path, get_evaluation_path_keys
 )
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
 
@@ -42,16 +43,25 @@ def compute_stats(df: pd.DataFrame, verbose: int = 2):
 
     returns a new DataFrame with the original data and the statistics appended at the bottom.
     """
-    stats = {'Station': ['Mean', 'Std', 'Median', 'Min', 'Max']}
+    stats = {'Station': ['Mean', 'Std', 'Median', 'Min', 'Max', 'CI95']}
     metric_keys = ['RMSE', 'MAE', 'NSE', 'N']
     extra_resu_keys = [k for k in df.keys().to_list() if k.startswith('extra__')]
+    assert not df[metric_keys].isnull().values.any(), 'DataFrame contains NaN values in metric columns.'
+
     for key in metric_keys + extra_resu_keys:
+        mean = df[key].mean()
+        std = df[key].std()
+        if std == 0:
+            ci95 = [mean, mean]
+        else:
+            ci95 = scipy.stats.t.interval(0.95, len(df[key]) - 1, loc=mean, scale=scipy.stats.sem(df[key]))
         stats[key] = [
-            df[key].mean(),
-            df[key].std(),
+            mean,
+            std,
             df[key].median(),
             df[key].min(),
             df[key].max(),
+            ci95[1] - mean  # Upper bound of 95% CI minus mean
         ]
     stats_df = pd.DataFrame(stats)
     verbose > 1 and print(f'\n{INFO_TAG}STATISTICS:')
@@ -59,6 +69,23 @@ def compute_stats(df: pd.DataFrame, verbose: int = 2):
     # Append statistics to the original DataFrame
     df_stats = pd.concat([df, stats_df], ignore_index=True)
     return df_stats
+
+
+# # debug only: catch runtime warnings here:
+# try:
+#     import warnings
+#
+#     with warnings.catch_warnings():
+#         warnings.simplefilter("error", category=RuntimeWarning)
+#         ci95 = scipy.stats.t.interval(0.95, len(df[key]) - 1, loc=mean, scale=scipy.stats.sem(df[key]))
+#     # warnings.simplefilter("ignore", category=RuntimeWarning)
+# except Exception as e:
+#     print(f'{ISSUE_TAG}Warning during statistics computation: {e}')
+#     print(df[key])
+#     print('len:', len(df[key]))
+#     print('scale: ', scipy.stats.sem(df[key]))
+#     print('mean: ', mean)
+#     print('ci95: ', ci95)
 
 
 def get_metrics_from_ray_trial(
@@ -505,8 +532,12 @@ def evaluate_best_trial_isolated_station(
     best_trial = {'all': best_trial_all, 'last': best_trial_last}
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
+    best_config.update({k: v for k, v in settings.items() if k not in best_config})
+
+    # eval_path_keys = get_evaluation_path_keys(settings)
+
     if 'lstm' == method:
-        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+        predict_dump_dir = DUMP_DIR / 'predictions' / f'{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}'
         test_resu = test_lstm(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             config=best_config,
@@ -775,7 +806,9 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
         plt.savefig(test_dir / f'figure_{graph_name}_{method}.png', dpi=150)
 
     if return_extra:
-        extra = {'model_size': total_params, 'forcast_time_steps': forcast_time_steps}
+        extra = {'model_size': total_params}
+        if not use_current_x:
+            extra.update({'forcast_time_steps': forcast_time_steps})
         return df, extra
     else:
         return df
@@ -802,10 +835,13 @@ if __name__ == '__main__':
         'missing_value_method': None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         'positional_encoding': 'none',  # fixme: 'none for lstm, 'learnable' or 'sinusoidal' or 'rope' or None
         'window_len': 90,  # fixme: debug
-        'use_current_x': False,  # fixme: experiment
-        'future_steps': 7,  # fixme: experiment. Only works if 'use_current_x' is False
+        'use_current_x': True,  # fixme: experiment
+        'future_steps': 0,  # fixme: experiment. Only works if 'use_current_x' is False
         # fixme: 'limo', 'future_embedding', 'recursive' only for extrapolation on lstm. None for others:
         'extrapo_mode': None,  # None, 'future_embedding'
+        'noise_type': 'impulse_a',  # 'gaussian_a' or 'impulse_a' or None. Default None
+        # e.g., {'noise_level': 0.1} for gaussian_a, {'probability': 0.1, 'scale_factor': 5.0} for impulse_a
+        'noise_kwargs': {'probability': 0.1, 'scale_factor': 5.0},
         'verbose': 2,
     }
 
@@ -819,8 +855,8 @@ if __name__ == '__main__':
     # Single Run
     SINGLE_RUN = True
     if SINGLE_RUN:
-        graph_name = GRAPH_NAMES[0]
-        method = METHODS[7]
+        graph_name = GRAPH_NAMES[2]
+        method = METHODS[0]
 
         # Transformer specific settings:
         if is_transformer_model(method):

@@ -23,6 +23,7 @@ def run_lstm_model(
     # Set up configurations:
     use_current_x = config.get('use_current_x', True)
     extrapo_mode = config.get('extrapo_mode', None)
+    noise_settings = {k: v for k, v in config.items() if k.startswith('noise_')}
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -41,7 +42,7 @@ def run_lstm_model(
         dataset = SequenceFullDataset(df, embedding_idx)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
-        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
+        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx, **noise_settings)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False)
 
     infer_start_gpu_time = torch.cuda.Event(enable_timing=True)
@@ -340,19 +341,60 @@ def dump_predictions(
         suffix: str,
         epoch_days: np.ndarray,
         prediction: np.ndarray,
-        dump_dir: Path | str = 'swissrivernetwork/journal/dump'
+        dump_dir: Path | str = 'swissrivernetwork/journal/dump',
+        append_args: dict = {}
 ):
     assert len(epoch_days) == len(prediction), 'not same amount'
 
+    pred_path = Path(dump_dir) / f'{graph_name}_{model}_{station}_{suffix}.csv'
+
     if prediction.ndim == 1:
-        df = pd.DataFrame(
-            data={
-                'epoch_day': epoch_days,
-                f'{station}_wt_hat': prediction
-            }
-        )
+        noise_type = append_args.get('noise_type')
+        if noise_type is None:
+            df = pd.DataFrame(
+                data={
+                    'epoch_day': epoch_days,
+                    f'{station}_wt_hat': prediction
+                }
+            )
+        else:
+            col_key = f'__{noise_type}'
+            if noise_type == 'gaussian_a':
+                col_key += f'__level_{append_args["noise_kwargs"]["noise_level"]}'
+            elif noise_type == 'impulse_a':
+                col_key += f'__prob_{append_args["noise_kwargs"]["probability"]}__scale_{append_args["noise_kwargs"]["scale_factor"]}'
+            else:
+                raise ValueError(f'Unknown noise_type: {noise_type}')
+            df = pd.DataFrame(
+                data={
+                    'epoch_day': epoch_days,
+                    f'{station}_wt_hat{col_key}': prediction
+                }
+            )
+            if pred_path.is_file():
+                df_prev = pd.read_csv(pred_path)
+                if 'epoch_day' not in df_prev.columns or 'epoch_day' not in df.columns:
+                    raise ValueError('`epoch_day` column missing in existing or new prediction file.')
+                if df_prev['epoch_day'].duplicated().any() or df['epoch_day'].duplicated().any():
+                    raise ValueError('Duplicate `epoch_day` values found in existing or new data.')
+                # ensure same dtype for epoch_day
+                # Here int loaded from .csv is int64, which is different from the df we created (int32):
+                if df_prev['epoch_day'].dtype == 'int64' and df['epoch_day'].dtype == 'int32':
+                    df['epoch_day'] = df['epoch_day'].astype('int64')
+                else:
+                    raise ValueError('Incompatible `epoch_day` dtypes between existing and new data.')
+
+                # set index and prepare merge/replace by epoch_day
+                df_prev = df_prev.set_index('epoch_day')
+                df_new = df.set_index('epoch_day')
+
+                # 1. Get df_new rows first; 2. find in df_prev if not exist or NaN in df_new; 3. combine indices and
+                # cols with union:
+                df = df_new.combine_first(df_prev).sort_index(axis=1).reset_index()
+
     # This is the case for e.g., timewise extrapolation where we dump historical hidden states, e.g., for lstm:
     elif prediction.ndim == 2:
+        raise NotImplementedError('2D prediction dumping is not implemented yet!')
         data_dict = {'epoch_day': epoch_days}
         for i in range(prediction.shape[1]):
             data_dict[f'{station}_wt_hat_{i}'] = prediction[:, i]
@@ -360,7 +402,6 @@ def dump_predictions(
     else:
         raise ValueError('prediction must be 1D or 2D array!')
 
-    pred_path = Path(dump_dir) / f'{graph_name}_{model}_{station}_{suffix}.csv'
     os.makedirs(pred_path.parent, exist_ok=True)
     df.to_csv(pred_path, index=False)
 
@@ -582,7 +623,8 @@ def test_lstm(
         extra_resu.get('full_prediction_norm', prediction_norm),
         # extra_resu.get('history_epoch_days', epoch_days),
         # extra_resu.get('history_hiddens', prediction_norm),
-        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir),
+        append_args=config
     )
 
     # Run on Train data as well:
@@ -597,7 +639,8 @@ def test_lstm(
         extra_resu_train.get('full_prediction_norm', prediction_norm_train),
         # extra_resu_train.get('history_epoch_days', epoch_days_train),
         # extra_resu_train.get('history_hiddens', prediction_norm_train),
-        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir),
+        append_args=config
     )
 
     # Compute errors:

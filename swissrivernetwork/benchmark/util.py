@@ -470,3 +470,16 @@ def trim_lstm_model_name(name: str) -> str:
     name = name.split('model')  # Can be e.g. 'lstmmodel' or 'lstmmodelFEmbed'
     name = ''.join(name[:-1])  # remove 'model' suffix and the following parts
     return name
+
+
+def get_evaluation_path_keys(config: benedict | dict) -> str:
+    """
+    This is the path keys related only to evaluation process, such as noise on data, etc.
+    """
+    path_keys = ''
+    noise_type = config.get('noise_type')
+    if noise_type is not None and noise_type != 'none':
+        path_keys += f'-noise'
+        # if noise_type == 'gaussian_w':
+        #     noise_level = config.get('noise_level')
+    return path_keys
