@@ -1,0 +1,25 @@
+[project]
+name = "river-temp-app"
+version = "0.1.0"
+description = "河流温度预测科研项目"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "streamlit",
+    "pandas",
+    "numpy",
+    "plotly",
+    "joblib",
+    "scikit-learn",
+    "huggingface_hub"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# 如果你想配置 uv 的具体工具行为（可选）
+[tool.uv]
+dev-dependencies = [
+    "pytest",  # 开发时测试用，部署不需要
+]

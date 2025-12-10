@@ -1,0 +1,7 @@
+streamlit
+pandas
+numpy
+plotly
+joblib
+scikit-learn
+huggingface_hub  # Download models from HF Model Hub
