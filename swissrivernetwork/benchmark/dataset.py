@@ -42,6 +42,23 @@ def select_isolated_station(df, station):
     )
 
 
+def select_conditioned_columns(df: pd.DataFrame, **kwargs):
+    noise_type = kwargs.get('noise_type')
+    noise_kwargs = kwargs.get('noise_kwargs')
+    if noise_type == 'gaussian_a':
+        col_suffix = f'__{noise_type}__level_{float(noise_kwargs.get("noise_level")):g}'
+    elif noise_type == 'impulse_a':
+        col_suffix = f'__{noise_type}__prob_{float(noise_kwargs.get("probability")):g}__scale_{float(noise_kwargs.get("scale_factor")):g}'
+    else:
+        raise ValueError(f'Unknown noise_type: {noise_type}.')
+    col_names = [col for col in df.columns if col.endswith(col_suffix)]  # can be e.g., 5 and 5.0, which causes issues
+    if len(col_names) != 1:
+        raise ValueError(f'Expected exactly one column with suffix {col_suffix}, but found {len(col_names)}.')
+    return df[['epoch_day', col_names[0]]].rename(
+        columns={col_names[0]: col_names[0][:-len(col_suffix)]}
+    )
+
+
 def read_csv_test(graph_name, base_dir: str | Path = PROJ_DIR):
     return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_test.csv')
 
@@ -307,18 +324,25 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        # todo: there is a small problem: when using graphlet, the neighbor predictions are done by previous lstm model,
+        # which uses a different random seed than the current one. So the noise added here is not exactly the same
+        # as that in the neighbor predictions. But this should be a minor issue.
         at = df['air_temperature'].values
+        df['air_temperature'] = SequenceDataset.add_noise_to_array(at, noise_type, noise_kwargs)
+        return df
+
+
+    @staticmethod
+    def add_noise_to_array(arr: np.ndarray, noise_type: str, noise_kwargs: dict) -> np.ndarray:
         if noise_type == 'gaussian_a':
             noise_level = noise_kwargs.get('noise_level')
-            at_noisy = add_gaussian_noise(at, noise_level=noise_level)
-            df['air_temperature'] = at_noisy
-            return df
+            arr_noisy = add_gaussian_noise(arr, noise_level=noise_level)
+            return arr_noisy
         elif noise_type == 'impulse_a':
             probability = noise_kwargs.get('probability')
             scale_factor = noise_kwargs.get('scale_factor', 5.0)
-            at_noisy = add_impulse_noise(at, probability=probability, scale_factor=scale_factor)
-            df['air_temperature'] = at_noisy
-            return df
+            arr_noisy = add_impulse_noise(arr, probability=probability, scale_factor=scale_factor)
+            return arr_noisy
         else:
             raise ValueError(f'Unknown noise_type: {noise_type}.')
 
@@ -578,6 +602,15 @@ class STGNNSequenceFullDataset(SequenceFullDataset):
         return super().as_stgnn_tensors(df)
 
 
+    @staticmethod
+    def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        for col in df.columns:
+            if col.endswith('_at'):
+                at = df[col].values
+                df[col] = SequenceDataset.add_noise_to_array(at, noise_type, noise_kwargs)
+        return df
+
+
 class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
 
     def __init__(self, window_len, df, stations, dev_run: bool = False, **kwargs):
@@ -587,3 +620,8 @@ class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
 
     def as_tensors(self, df):
         return super().as_stgnn_tensors(df)
+
+
+    @staticmethod
+    def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        return STGNNSequenceFullDataset.add_noise(df, noise_type, noise_kwargs)

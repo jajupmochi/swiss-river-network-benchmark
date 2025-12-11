@@ -39,7 +39,7 @@ def run_lstm_model(
     # df['air_temperature'] = df['air_temperature'].fillna(-1)
 
     if window_len is None:
-        dataset = SequenceFullDataset(df, embedding_idx)
+        dataset = SequenceFullDataset(df, embedding_idx, **noise_settings)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
         dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx, **noise_settings)
@@ -195,6 +195,7 @@ def run_transformer_model(
 
     # Set up configurations:
     use_current_x = config.get('use_current_x', True)
+    noise_settings = {k: v for k, v in config.items() if k.startswith('noise_')}
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -210,10 +211,10 @@ def run_transformer_model(
     # df['air_temperature'] = df['air_temperature'].fillna(-1)
 
     if window_len is None:
-        dataset = SequenceFullDataset(df, embedding_idx)
+        dataset = SequenceFullDataset(df, embedding_idx, **noise_settings)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)
     else:
-        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx)
+        dataset = SequenceWindowedDataset(window_len, df, embedding_idx=embedding_idx, **noise_settings)
         dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=get_proper_infer_batchsize(method, graph_name), shuffle=False, drop_last=False
         )
@@ -360,9 +361,9 @@ def dump_predictions(
         else:
             col_key = f'__{noise_type}'
             if noise_type == 'gaussian_a':
-                col_key += f'__level_{append_args["noise_kwargs"]["noise_level"]}'
+                col_key += f'__level_{float(append_args["noise_kwargs"]["noise_level"]):g}'
             elif noise_type == 'impulse_a':
-                col_key += f'__prob_{append_args["noise_kwargs"]["probability"]}__scale_{append_args["noise_kwargs"]["scale_factor"]}'
+                col_key += f'__prob_{float(append_args["noise_kwargs"]["probability"]):g}__scale_{float(append_args["noise_kwargs"]["scale_factor"]):g}'
             else:
                 raise ValueError(f'Unknown noise_type: {noise_type}')
             df = pd.DataFrame(
@@ -533,6 +534,10 @@ def test_graphlet(
     predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
     df_neighs = [read_csv_prediction_test(graph_name, 'lstm', neigh, predict_dump_dir=predict_dump_dir) for neigh in
                  neighs]
+    if config.get('noise_type') is not None:
+        df_neighs = [select_conditioned_columns(
+            df_neigh, noise_type=config['noise_type'], noise_kwargs=config.get('noise_kwargs', {})
+        ) for df_neigh in df_neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
@@ -575,6 +580,10 @@ def test_transformer_graphlet(
     predict_dump_dir = dump_dir if predict_dump_dir is None else predict_dump_dir
     df_neighs = [read_csv_prediction_test(graph_name, 'transformer', neigh, predict_dump_dir=predict_dump_dir)
                  for neigh in neighs]
+    if config.get('noise_type') is not None:
+        df_neighs = [select_conditioned_columns(
+            df_neigh, noise_type=config['noise_type'], noise_kwargs=config.get('noise_kwargs', {})
+        ) for df_neigh in df_neighs]
     df = merge_graphlet_dfs(df, df_neighs)
 
     # run lstm model on it
@@ -682,7 +691,8 @@ def test_transformer(
         graph_name, model_name, station, 'test',
         extra_resu.get('full_epoch_days', epoch_days),
         extra_resu.get('full_prediction_norm', prediction_norm),
-        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir),
+        append_args=config
     )
 
     # Run on Train data as well:
@@ -695,7 +705,8 @@ def test_transformer(
         graph_name, model_name, station, 'train',
         extra_resu_train.get('full_epoch_days', epoch_days_train),
         extra_resu_train.get('full_prediction_norm', prediction_norm_train),
-        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir)
+        dump_dir=(dump_dir if predict_dump_dir is None else predict_dump_dir),
+        append_args=config
     )
 
     # Compute errors:

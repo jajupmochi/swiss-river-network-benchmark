@@ -396,6 +396,8 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
     # Model summary
     total_params = parameter_count(model)
 
+    best_config.update({k: v for k, v in settings.items() if k not in best_config})
+
     best_trial = {'all': best_trial_all, 'last': best_trial_last}
     window_len = settings['window_len'] if 'window_len' in settings else best_config.get('window_len', None)
 
@@ -499,15 +501,18 @@ def evaluate_best_trial_isolated_station(
                 extrapo_mode=best_config.get('extrapo_mode', None)
             )
     elif 'transformer_embedding' == method:
+        # todo: for some old models, num_heads is used instead of num_t_heads. This is a monkey patch here. Revise it
+        # later.
+        num_t_heads = best_config.get('num_t_heads', best_config['num_heads'])
         model = TransformerEmbeddingModel(
             input_size, num_embeddings=num_embeddings if best_config['use_station_embedding'] else 0,
             embedding_size=best_config['embedding_size'],
-            num_heads=best_config['num_t_heads'],  # fixme: this might be wrong for old models, they use num_heads
+            num_heads=num_t_heads,
             num_layers=best_config['num_layers'],
             dim_feedforward=best_config['dim_feedforward'],
             dropout=best_config['dropout'],
             d_model=best_config['d_model'] if best_config.get('d_model', None) else int(
-                best_config['ratio_heads_to_d_model'] * best_config['num_t_heads']
+                best_config['ratio_heads_to_d_model'] * num_t_heads
             ),
             max_len=settings['max_len'],  # todo: should these be set in config?
             missing_value_method=settings['missing_value_method'],
@@ -544,21 +549,21 @@ def evaluate_best_trial_isolated_station(
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer' == method:
-        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+        predict_dump_dir = DUMP_DIR / 'predictions' / f'{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}'
         test_resu = test_transformer(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'graphlet' == method:
-        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+        predict_dump_dir = DUMP_DIR / 'predictions' / f'{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}'
         test_resu = test_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             config=best_config,
             verbose=settings.get('verbose', 2)
         )
     elif 'transformer_graphlet' == method:
-        predict_dump_dir = DUMP_DIR / 'predictions' / settings.get('path_extra_keys', '')
+        predict_dump_dir = DUMP_DIR / 'predictions' / f'{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}'
         test_resu = test_transformer_graphlet(
             graph_name, station, model, window_len=window_len, dump_dir=DUMP_DIR, predict_dump_dir=predict_dump_dir,
             method=method,
@@ -856,7 +861,7 @@ if __name__ == '__main__':
     SINGLE_RUN = True
     if SINGLE_RUN:
         graph_name = GRAPH_NAMES[2]
-        method = METHODS[0]
+        method = METHODS[7]
 
         # Transformer specific settings:
         if is_transformer_model(method):

@@ -33,6 +33,7 @@ def test_stgnn(
     # Set up configurations:
     use_current_x = config.get('use_current_x', True)
     extrapo_mode = config.get('extrapo_mode', None)
+    noise_settings = {k: v for k, v in config.items() if k.startswith('noise_')}
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -59,10 +60,10 @@ def test_stgnn(
 
     # Create Dataset
     if window_len is None:
-        dataset = STGNNSequenceFullDataset(df, stations)
+        dataset = STGNNSequenceFullDataset(df, stations, **noise_settings)
         dataloader = torch.utils.data.DataLoader(dataset, shuffle=False)  # fixme: drop_last? and the other locations?
     else:
-        dataset = STGNNSequenceWindowedDataset(window_len, df, stations)
+        dataset = STGNNSequenceWindowedDataset(window_len, df, stations, **noise_settings)
         dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=get_proper_infer_batchsize(method, graph_name), shuffle=False, drop_last=False
         )
