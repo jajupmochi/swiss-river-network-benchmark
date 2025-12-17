@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -21,6 +22,9 @@ from swissrivernetwork.benchmark.util import (
     get_run_extra_key, extract_neighbors, is_transformer_model, get_latest_run_path, get_evaluation_path_keys
 )
 from swissrivernetwork.gbr25.graph_exporter import plot_graph
+
+# debug: change as needed:
+warnings.filterwarnings("ignore", message="enable_nested_tensor is True, but self.use_nested_tensor is False")
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -503,7 +507,7 @@ def evaluate_best_trial_isolated_station(
     elif 'transformer_embedding' == method:
         # todo: for some old models, num_heads is used instead of num_t_heads. This is a monkey patch here. Revise it
         # later.
-        num_t_heads = best_config.get('num_t_heads', best_config['num_heads'])
+        num_t_heads = (best_config.get('num_t_heads') or best_config['num_heads'])
         model = TransformerEmbeddingModel(
             input_size, num_embeddings=num_embeddings if best_config['use_station_embedding'] else 0,
             embedding_size=best_config['embedding_size'],
