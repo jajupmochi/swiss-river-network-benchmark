@@ -4,3 +4,10 @@ __pycache__/
 *.csv
 *.png
 *.pgf
+
+swissrivernetwork/benchmark/outputs/*
+!swissrivernetwork/benchmark/outputs/*.py
+!swissrivernetwork/benchmark/outputs/*.ipynb
+swissrivernetwork/benchmark/dump/*
+swissrivernetwork/benchmark/wandb/*
+playground/torchexplorer_standalone/*

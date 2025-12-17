@@ -6,6 +6,6 @@ odfpy
 notebook
 torch_geometric
 seaborn
-ray
-"ray[tune]"
+# ray
+ray[tune]
 scikit-learn
