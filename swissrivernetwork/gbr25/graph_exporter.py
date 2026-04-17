@@ -1,20 +1,15 @@
-import torch
-import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-
-from torch_geometric.data import Data
+import seaborn as sns
+import torch
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from swissrivernetwork.util.datetime import to_datetime, from_unix_days
-
-'''
+"""
 This Script exports the Graph such that we can use Graph Neural Networks on it
-'''
+"""
 
 
 def remove_node(x, e, node_to_remove):
-    new_x = torch.cat([x[:node_to_remove], x[node_to_remove + 1:]], dim=0)
+    new_x = torch.cat([x[:node_to_remove], x[node_to_remove + 1 :]], dim=0)
     mask = e != node_to_remove
     new_e = e[:, mask[0] & mask[1]]
     new_e[new_e > node_to_remove] -= 1  # update index
@@ -22,8 +17,20 @@ def remove_node(x, e, node_to_remove):
 
 
 def plot_graph(
-        nodes, e, information=None, color=None, vmin=None, vmax=None, colorbarlabel=None, noisy_node=None, cmap=None,
-        skipcolorbar=False, title=None, skipmargin=False, use_static_color=False, verbose: int = 2
+    nodes,
+    e,
+    information=None,
+    color=None,
+    vmin=None,
+    vmax=None,
+    colorbarlabel=None,
+    noisy_node=None,
+    cmap=None,
+    skipcolorbar=False,
+    title=None,
+    skipmargin=False,
+    use_static_color=False,
+    verbose: int = 2,
 ):
     node_positions = nodes[:, :2].numpy()
     edges = e.numpy()
@@ -35,22 +42,22 @@ def plot_graph(
     if color is not None:
         min_color = min(list(color.values()))
         max_color = max(list(color.values()))
-        verbose > 1 and print('min_color', min_color, 'max_color', max_color)
+        verbose > 1 and print("min_color", min_color, "max_color", max_color)
 
     # Plot Edges
     for start, end in e.T:
         x_coords = [node_positions[start, 0], node_positions[end, 0]]
         y_coords = [node_positions[start, 1], node_positions[end, 1]]
-        ax.plot(x_coords, y_coords, 'k-', alpha=0.8, zorder=1, linewidth=0.8)
+        ax.plot(x_coords, y_coords, "k-", alpha=0.8, zorder=1, linewidth=0.8)
 
-    # get min and max coordintaes    
+    # get min and max coordintaes
     if not skipmargin:
         margin = 0.05
         x_coords = node_positions[:, 0]
         y_coords = node_positions[:, 1]
         min_x, max_x = min(x_coords), max(x_coords)
         min_y, max_y = min(y_coords), max(y_coords)
-        verbose > 1 and print('margin ratio: (delta_x): ', max_x - min_x, 'delta y:', max_y - min_y)
+        verbose > 1 and print("margin ratio: (delta_x): ", max_x - min_x, "delta y:", max_y - min_y)
         margin_x = margin * (max_x - min_x)
         margin_y = margin * (max_y - min_y)
         ax.set_xlim(min_x - margin_x, max_x + margin_x)
@@ -61,7 +68,7 @@ def plot_graph(
 
     # or magma_r
     if cmap is None:
-        cmap = 'viridis_r' if noisy_node is None else 'Blues'  # use other color map for degeneration
+        cmap = "viridis_r" if noisy_node is None else "Blues"  # use other color map for degeneration
     # cmap = 'coolwarm' # only for diff plots
     size = 50 if noisy_node is None else 1000
 
@@ -74,18 +81,18 @@ def plot_graph(
             c = color[text]
             if not use_static_color:
                 scatter = ax.scatter(
-                    x, y, c=c, cmap=cmap, s=size, edgecolors='k', zorder=3, vmin=vmin, vmax=vmax, linewidth=0.3
+                    x, y, c=c, cmap=cmap, s=size, edgecolors="k", zorder=3, vmin=vmin, vmax=vmax, linewidth=0.3
                 )
             else:
                 scatter = ax.scatter(
-                    x, y, color=c, s=size, edgecolors='k', zorder=3, vmin=vmin, vmax=vmax, linewidth=0.3
+                    x, y, color=c, s=size, edgecolors="k", zorder=3, vmin=vmin, vmax=vmax, linewidth=0.3
                 )  # single color
             # scatter = ax.scatter(x, y, c=c, cmap=cmap, s=size, zorder=3, vmin=vmin, vmax=vmax) # no edgecolor
         else:
             if text == noisy_node:
-                ax.scatter(x, y, c='red', s=size, edgecolors='k', zorder=2)
+                ax.scatter(x, y, c="red", s=size, edgecolors="k", zorder=2)
             else:
-                ax.scatter(x, y, c='white', s=size, edgecolors='k', zorder=2)
+                ax.scatter(x, y, c="white", s=size, edgecolors="k", zorder=2)
                 # ax.scatter(x, y, c='red', s=size, edgecolors='k', zorder=2)
 
         # plt.scatter(node_positions[:, 0], node_positions[:, 1], c='red', s=500, edgecolors='k', zorder=2)
@@ -111,7 +118,7 @@ def plot_graph(
     if title is not None:
         plt.title(title)
     else:
-        plt.gca().axis('off')
+        plt.gca().axis("off")
 
     if scatter is not None and not skipcolorbar:
         divider = make_axes_locatable(ax)
@@ -121,29 +128,29 @@ def plot_graph(
 
 def plot_nan_locations(total):
     plt.figure(figsize=(10, 6))
-    sns.heatmap(total.isna(), cbar=False, cmap='viridis')
-    plt.title('Nan Values Locations')
-    plt.xlabel('Stations')
-    plt.ylabel('Time')
+    sns.heatmap(total.isna(), cbar=False, cmap="viridis")
+    plt.title("Nan Values Locations")
+    plt.xlabel("Stations")
+    plt.ylabel("Time")
 
 
-def plot_values(total, title='Water Temperatures'):
+def plot_values(total, title="Water Temperatures"):
     plt.figure(figsize=(10, 6))
-    sns.heatmap(total.drop(columns=['epoch_day', 'has_nan']), cmap='viridis')
+    sns.heatmap(total.drop(columns=["epoch_day", "has_nan"]), cmap="viridis")
     plt.title(title)
-    plt.xlabel('Stations')
-    plt.ylabel('Time')
+    plt.xlabel("Stations")
+    plt.ylabel("Time")
 
 
-def plot_linegraph_values(total, title='Water Temperatures'):
+def plot_linegraph_values(total, title="Water Temperatures"):
     plt.figure(figsize=(10, 6))
 
-    for column in total.drop(columns=['epoch_day', 'has_nan']):
-        sns.lineplot(data=total, x=total['epoch_day'], y=column, label=column)
+    for column in total.drop(columns=["epoch_day", "has_nan"]):
+        sns.lineplot(data=total, x=total["epoch_day"], y=column, label=column)
 
     plt.title(title)
-    plt.xlabel('Time')
-    plt.ylabel('Temperature')
+    plt.xlabel("Time")
+    plt.ylabel("Temperature")
     plt.legend()
 
 
@@ -156,8 +163,8 @@ def graph_export(x, e, dump_dir, graph_name):
 
     # Read the Water Data and Create a Union of all values (remove missing data)
     stations = [str(row[2].item()) for row in x]
-    if '-1' in stations:
-        stations.remove('-1')
+    if "-1" in stations:
+        stations.remove("-1")
     print(stations, len(stations))
     water_reader = RawBafuReaderFactory.create_water_temperature_alltime_reader()
 
@@ -166,18 +173,18 @@ def graph_export(x, e, dump_dir, graph_name):
     # rename all the dataframes:
     stripped_dfs = []
     for station, df in zip(stations, dfs):
-        df = df[['epoch_day', 'Wert']].rename(columns={'Wert': station})
+        df = df[["epoch_day", "Wert"]].rename(columns={"Wert": station})
         stripped_dfs.append(df)
 
     # join data frames
     total = stripped_dfs[0]
     for df in stripped_dfs[1:]:
-        total = total.merge(df, on='epoch_day', how='outer')
+        total = total.merge(df, on="epoch_day", how="outer")
 
-    total['has_nan'] = total.isna().any(axis=1)  # create has_nan values:
+    total["has_nan"] = total.isna().any(axis=1)  # create has_nan values:
 
     # persist the water data:
-    total.to_csv(f'{dump_dir}/water_temperature_{graph_name}.csv', index=False)
+    total.to_csv(f"{dump_dir}/water_temperature_{graph_name}.csv", index=False)
 
     # inspect the water data:
 
@@ -186,7 +193,7 @@ def graph_export(x, e, dump_dir, graph_name):
     # plot_linegraph_values(total)
 
     # select rows with no missing data
-    total_values_only = total[total['has_nan'] == False]
+    total_values_only = total[total["has_nan"] == False]
     plot_values(total_values_only)
     plot_linegraph_values(total_values_only)
     plt.show()
@@ -195,14 +202,14 @@ def graph_export(x, e, dump_dir, graph_name):
     # Drop the Huge Data Table, where each node has all available Data
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from swissrivernetwork.reader.graph_reader import ResourceRiverReaderFactory
 
     # use 2010 version:
-    GRAPH_VERSION = ['1990', '2010'][1]
+    GRAPH_VERSION = ["1990", "2010"][1]
 
-    # Read Graph Structure (Rhine only)    
-    rhine_reader = ResourceRiverReaderFactory.rhein_reader(f'-{GRAPH_VERSION}')
+    # Read Graph Structure (Rhine only)
+    rhine_reader = ResourceRiverReaderFactory.rhein_reader(f"-{GRAPH_VERSION}")
 
     x, e = rhine_reader.read()
     # print(x, e)
@@ -211,6 +218,6 @@ if __name__ == '__main__':
     x, e = remove_node(x, e, 2)  # station 2106 => idx=2
     x, e = remove_node(x, e, 0)  # station -1 => idx=0
     # persist graph data:
-    torch.save((x, e), f'swissrivernetwork/gbr25/dump/graph_{GRAPH_VERSION}.pth')
+    torch.save((x, e), f"swissrivernetwork/gbr25/dump/graph_{GRAPH_VERSION}.pth")
 
-    graph_export(rhine_reader, 'swissrivernetwork/gbr25/dump/', GRAPH_VERSION)
+    graph_export(rhine_reader, "swissrivernetwork/gbr25/dump/", GRAPH_VERSION)

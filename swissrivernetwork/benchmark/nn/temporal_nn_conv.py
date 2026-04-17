@@ -6,6 +6,7 @@ tempo_nn_conv
 @Author: linlin
 @Date: Oct 15 2025
 """
+
 import torch
 from torch import Tensor
 from torch_geometric.nn import NNConv
@@ -24,7 +25,6 @@ class TemporalNNConv(NNConv):
           edge features :math:`(|\mathcal{E}|, D)`
 
     """
-
 
     def message(self, x_j: Tensor, edge_attr: Tensor) -> Tensor:
         """

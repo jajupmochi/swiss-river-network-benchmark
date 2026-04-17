@@ -8,7 +8,7 @@ positional_embedding
 """
 
 import math
-from typing import Callable, Union, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch
@@ -24,7 +24,6 @@ class LearnablePositionalEncoding(nn.Module):
         self.pe = nn.Parameter(torch.zeros(max_len, dim))
         self.max_len = max_len
 
-
     def forward(self, x):
         """
         x: shape (batch, seq_len, dim)
@@ -32,7 +31,7 @@ class LearnablePositionalEncoding(nn.Module):
         """
         seq_len = x.size(1)
         if seq_len > self.max_len:
-            raise ValueError(f'Sequence length {seq_len} exceeds maximum length {self.max_len}.')
+            raise ValueError(f"Sequence length {seq_len} exceeds maximum length {self.max_len}.")
         pos_encoding = self.pe[:seq_len, :]  # shape (seq_len, dim)
         pos_encoding = pos_encoding.unsqueeze(0)  # shape (1, seq_len, dim)
         return x + pos_encoding
@@ -50,19 +49,19 @@ class SinusoidalPositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0)  # shape (1, max_len, dim)
         self.register_buffer("pe", pe, persistent=False)
 
-
     def forward(self, x):
         """
         x: shape (batch, seq_len, dim)
         return: same shape with positional encoding added
         """
-        return x + self.pe[:, :x.size(1)]
+        return x + self.pe[:, : x.size(1)]
 
 
 # %%
 # Unfortunately, the implementation for the RoPE in this section is not correct. Valid RMSE goes up rather than down.
 # We use Huggingface's implementation instead in the end.
 # See [class ``benchmark.model.TransformerEmbeddingModel``](model.py) for details.
+
 
 # ---- rotary embedding (Su et al. 2021) ----
 def rotate_half(x):
@@ -86,14 +85,13 @@ class RotaryEmbedding(nn.Module):
         self.register_buffer("cos_cached", emb.cos()[None, :, :], persistent=False)
         self.register_buffer("sin_cached", emb.sin()[None, :, :], persistent=False)
 
-
     def forward(self, q, k):
         """
         q, k: (batch, seq_len, n_heads, head_dim)
         return: rotated q, k with same shape
         """
-        cos = self.cos_cached[:, :q.size(1), None, :]  # (1, seq_len, 1, head_dim)
-        sin = self.sin_cached[:, :q.size(1), None, :]
+        cos = self.cos_cached[:, : q.size(1), None, :]  # (1, seq_len, 1, head_dim)
+        sin = self.sin_cached[:, : q.size(1), None, :]
         q_rot = (q * cos) + (rotate_half(q) * sin)
         k_rot = (k * cos) + (rotate_half(k) * sin)
         return q_rot, k_rot
@@ -107,11 +105,9 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
     https://github.com/huggingface/transformers/blob/main/src/transformers/models/roformer/modeling_roformer.py#L49).
     """
 
-
     def __init__(self, num_positions: int, embedding_dim: int, padding_idx: Optional[int] = None) -> None:
         super().__init__(num_positions, embedding_dim)
         self._init_weight()  # added
-
 
     def _init_weight(self):
         """
@@ -128,11 +124,9 @@ class RoFormerSinusoidalPositionalEmbedding(nn.Embedding):
         out[:, sentinel:] = torch.FloatTensor(np.cos(position_enc[:, 1::2]))
         self.weight = nn.Parameter(out, requires_grad=False)
 
-
     @torch.no_grad()
     def forward(
-            self, input_ids_shape: torch.Size, past_key_values_length: int = 0,
-            position_ids: Optional[torch.Tensor] = None
+        self, input_ids_shape: torch.Size, past_key_values_length: int = 0, position_ids: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         """`input_ids_shape` is expected to be [bsz x seqlen]."""
         if position_ids is None:
@@ -150,23 +144,22 @@ class FlexibleTransformerEncoderLayer(nn.TransformerEncoderLayer):
     the required interface of attention module.
     """
 
-
     def __init__(
-            self,
-            d_model: int,
-            nhead: int,
-            max_len: int = 5000,
-            dim_feedforward: int = 2048,
-            self_attn: nn.Module | None = None,
-            self_attn_kwargs: dict = {},
-            dropout: float = 0.1,
-            activation: Union[str, Callable[[Tensor], Tensor]] = F.relu,
-            layer_norm_eps: float = 1e-5,
-            batch_first: bool = False,
-            norm_first: bool = False,
-            bias: bool = True,
-            device=None,
-            dtype=None,
+        self,
+        d_model: int,
+        nhead: int,
+        max_len: int = 5000,
+        dim_feedforward: int = 2048,
+        self_attn: nn.Module | None = None,
+        self_attn_kwargs: dict = {},
+        dropout: float = 0.1,
+        activation: Union[str, Callable[[Tensor], Tensor]] = F.relu,
+        layer_norm_eps: float = 1e-5,
+        batch_first: bool = False,
+        norm_first: bool = False,
+        bias: bool = True,
+        device=None,
+        dtype=None,
     ) -> None:
         super().__init__(
             d_model,
@@ -184,8 +177,9 @@ class FlexibleTransformerEncoderLayer(nn.TransformerEncoderLayer):
         self.embed_positions = RoFormerSinusoidalPositionalEmbedding(max_len, d_model // nhead)
         if self_attn is not None:
             factory_kwargs = {"device": device, "dtype": dtype}
-            self_attn_kwargs['attention_forward_kwargs'] = {
-                'embed_positions': self.embed_positions, 'past_key_values_length': 0
+            self_attn_kwargs["attention_forward_kwargs"] = {
+                "embed_positions": self.embed_positions,
+                "past_key_values_length": 0,
             }
             self.self_attn = self_attn(
                 d_model,
@@ -199,22 +193,21 @@ class FlexibleTransformerEncoderLayer(nn.TransformerEncoderLayer):
 
 
 class FlexibleMultiheadAttention(nn.MultiheadAttention):
-
     def __init__(
-            self,
-            embed_dim,
-            num_heads,
-            multi_head_attention_forward: Optional[Callable] = None,
-            attention_forward_kwargs: dict = {},
-            dropout=0.0,
-            bias=True,
-            add_bias_kv=False,
-            add_zero_attn=False,
-            kdim=None,
-            vdim=None,
-            batch_first=False,
-            device=None,
-            dtype=None,
+        self,
+        embed_dim,
+        num_heads,
+        multi_head_attention_forward: Optional[Callable] = None,
+        attention_forward_kwargs: dict = {},
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
+        batch_first=False,
+        device=None,
+        dtype=None,
     ) -> None:
         super().__init__(
             embed_dim,
@@ -235,17 +228,16 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             self.multi_head_attention_forward = multi_head_attention_forward
         self.attention_forward_kwargs = attention_forward_kwargs
 
-
     def forward(
-            self,
-            query: Tensor,
-            key: Tensor,
-            value: Tensor,
-            key_padding_mask: Optional[Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[Tensor] = None,
-            average_attn_weights: bool = True,
-            is_causal: bool = False,
+        self,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        key_padding_mask: Optional[Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[Tensor] = None,
+        average_attn_weights: bool = True,
+        is_causal: bool = False,
     ) -> tuple[Tensor, Optional[Tensor]]:
         """
         Copied from [``nn.MultiheadAttention``](https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html),
@@ -253,9 +245,9 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
         """
         why_not_fast_path = ""
         if (
-                (attn_mask is not None and torch.is_floating_point(attn_mask))
-                or (key_padding_mask is not None)
-                and torch.is_floating_point(key_padding_mask)
+            (attn_mask is not None and torch.is_floating_point(attn_mask))
+            or (key_padding_mask is not None)
+            and torch.is_floating_point(key_padding_mask)
         ):
             why_not_fast_path = "floating-point masks are not supported for fast path."
 
@@ -283,21 +275,23 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
         if not is_fastpath_enabled:
             why_not_fast_path = "torch.backends.mha.get_fastpath_enabled() was not True"
         elif not is_batched:
-            why_not_fast_path = (
-                f"input not batched; expected query.dim() of 3 but got {query.dim()}"
-            )
+            why_not_fast_path = f"input not batched; expected query.dim() of 3 but got {query.dim()}"
         elif query is not key or key is not value:
             # When lifting this restriction, don't forget to either
             # enforce that the dtypes all match or test cases where
             # they don't!
             why_not_fast_path = "non-self attention was used (query, key, and value are not the same Tensor)"
         elif self.in_proj_bias is not None and query.dtype != self.in_proj_bias.dtype:
-            why_not_fast_path = f"dtypes of query ({query.dtype}) and self.in_proj_bias ({self.in_proj_bias.dtype}) don't match"
+            why_not_fast_path = (
+                f"dtypes of query ({query.dtype}) and self.in_proj_bias ({self.in_proj_bias.dtype}) don't match"
+            )
         elif self.in_proj_weight is None:
             why_not_fast_path = "in_proj_weight was None"
         elif query.dtype != self.in_proj_weight.dtype:
             # this case will fail anyway, but at least they'll get a useful error message.
-            why_not_fast_path = f"dtypes of query ({query.dtype}) and self.in_proj_weight ({self.in_proj_weight.dtype}) don't match"
+            why_not_fast_path = (
+                f"dtypes of query ({query.dtype}) and self.in_proj_weight ({self.in_proj_weight.dtype}) don't match"
+            )
         elif self.training:
             why_not_fast_path = "training is enabled"
         elif (self.num_heads % 2) != 0:
@@ -312,13 +306,9 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             why_not_fast_path = "add_zero_attn was enabled"
         elif not self._qkv_same_embed_dim:
             why_not_fast_path = "_qkv_same_embed_dim was not True"
-        elif query.is_nested and (
-                key_padding_mask is not None or attn_mask is not None
-        ):
-            why_not_fast_path = (
-                "supplying both src_key_padding_mask and src_mask at the same time \
+        elif query.is_nested and (key_padding_mask is not None or attn_mask is not None):
+            why_not_fast_path = "supplying both src_key_padding_mask and src_mask at the same time \
                                  is not supported with NestedTensor input"
-            )
         elif torch.is_autocast_enabled():
             why_not_fast_path = "autocast is enabled"
 
@@ -343,17 +333,13 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
                     "some Tensor argument's device is neither one of "
                     f"cpu, cuda or {torch.utils.backend_registration._privateuse1_backend_name}"
                 )
-            elif torch.is_grad_enabled() and any(
-                    _arg_requires_grad(x) for x in tensor_args
-            ):
+            elif torch.is_grad_enabled() and any(_arg_requires_grad(x) for x in tensor_args):
                 why_not_fast_path = (
                     "grad is enabled and at least one of query or the "
                     "input/output projection weights or biases requires_grad"
                 )
             if not why_not_fast_path:
-                merged_mask, mask_type = self.merge_masks(
-                    attn_mask, key_padding_mask, query
-                )
+                merged_mask, mask_type = self.merge_masks(attn_mask, key_padding_mask, query)
 
                 if self.in_proj_bias is not None and self.in_proj_weight is not None:
                     return torch._native_multi_head_attention(
@@ -374,8 +360,8 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
 
         any_nested = query.is_nested or key.is_nested or value.is_nested
         assert not any_nested, (
-                "MultiheadAttention does not support NestedTensor outside of its fast path. "
-                + f"The fast path was not hit because {why_not_fast_path}"
+            "MultiheadAttention does not support NestedTensor outside of its fast path. "
+            + f"The fast path was not hit because {why_not_fast_path}"
         )
 
         if self.batch_first and is_batched:
@@ -443,7 +429,6 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             return attn_output.transpose(1, 0), attn_output_weights
         else:
             return attn_output, attn_output_weights
-
 
     # # A monkey patch implementation of forward function, which replaces the call to
     # # nn.functional.multi_head_attention_forward with self.multi_head_attention_forward:
@@ -515,35 +500,34 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             return query_layer, key_layer, value_layer
         return query_layer, key_layer
 
-
     @staticmethod
     def multi_head_attention_forward_with_rope(
-            query: Tensor,
-            key: Tensor,
-            value: Tensor,
-            embed_dim_to_check: int,
-            num_heads: int,
-            in_proj_weight: Optional[Tensor],
-            in_proj_bias: Optional[Tensor],
-            bias_k: Optional[Tensor],
-            bias_v: Optional[Tensor],
-            add_zero_attn: bool,
-            dropout_p: float,
-            out_proj_weight: Tensor,
-            out_proj_bias: Optional[Tensor],
-            training: bool = True,
-            key_padding_mask: Optional[Tensor] = None,
-            need_weights: bool = True,
-            attn_mask: Optional[Tensor] = None,
-            use_separate_proj_weight: bool = False,
-            q_proj_weight: Optional[Tensor] = None,
-            k_proj_weight: Optional[Tensor] = None,
-            v_proj_weight: Optional[Tensor] = None,
-            static_k: Optional[Tensor] = None,
-            static_v: Optional[Tensor] = None,
-            average_attn_weights: bool = True,
-            is_causal: bool = False,
-            **kwargs,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        embed_dim_to_check: int,
+        num_heads: int,
+        in_proj_weight: Optional[Tensor],
+        in_proj_bias: Optional[Tensor],
+        bias_k: Optional[Tensor],
+        bias_v: Optional[Tensor],
+        add_zero_attn: bool,
+        dropout_p: float,
+        out_proj_weight: Tensor,
+        out_proj_bias: Optional[Tensor],
+        training: bool = True,
+        key_padding_mask: Optional[Tensor] = None,
+        need_weights: bool = True,
+        attn_mask: Optional[Tensor] = None,
+        use_separate_proj_weight: bool = False,
+        q_proj_weight: Optional[Tensor] = None,
+        k_proj_weight: Optional[Tensor] = None,
+        v_proj_weight: Optional[Tensor] = None,
+        static_k: Optional[Tensor] = None,
+        static_v: Optional[Tensor] = None,
+        average_attn_weights: bool = True,
+        is_causal: bool = False,
+        **kwargs,
     ) -> tuple[Tensor, Optional[Tensor]]:
         """
         Almost identical to torch.nn.functional.multi_head_attention_forward,
@@ -591,9 +575,7 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
                 average_attn_weights=average_attn_weights,
             )
 
-        is_batched = F._mha_shape_check(
-            query, key, value, key_padding_mask, attn_mask, num_heads
-        )
+        is_batched = F._mha_shape_check(query, key, value, key_padding_mask, attn_mask, num_heads)
 
         # For unbatched input, we unsqueeze at the expected batch-dim to pretend that the input
         # is batched, run the computation and before returning squeeze the
@@ -654,37 +636,25 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             head_dim = embed_dim.div(num_heads, rounding_mode="trunc")
         else:
             head_dim = embed_dim // num_heads
-        assert head_dim * num_heads == embed_dim, (
-            f"embed_dim {embed_dim} not divisible by num_heads {num_heads}"
-        )
+        assert head_dim * num_heads == embed_dim, f"embed_dim {embed_dim} not divisible by num_heads {num_heads}"
         if use_separate_proj_weight:
             # allow MHA to have different embedding dimensions when separate projection weights are used
             assert key.shape[:2] == value.shape[:2], (
                 f"key's sequence and batch dims {key.shape[:2]} do not match value's {value.shape[:2]}"
             )
         else:
-            assert key.shape == value.shape, (
-                f"key shape {key.shape} does not match value shape {value.shape}"
-            )
+            assert key.shape == value.shape, f"key shape {key.shape} does not match value shape {value.shape}"
 
         #
         # compute in-projection
         #
         if not use_separate_proj_weight:
-            assert in_proj_weight is not None, (
-                "use_separate_proj_weight is False but in_proj_weight is None"
-            )
+            assert in_proj_weight is not None, "use_separate_proj_weight is False but in_proj_weight is None"
             q, k, v = F._in_projection_packed(query, key, value, in_proj_weight, in_proj_bias)
         else:
-            assert q_proj_weight is not None, (
-                "use_separate_proj_weight is True but q_proj_weight is None"
-            )
-            assert k_proj_weight is not None, (
-                "use_separate_proj_weight is True but k_proj_weight is None"
-            )
-            assert v_proj_weight is not None, (
-                "use_separate_proj_weight is True but v_proj_weight is None"
-            )
+            assert q_proj_weight is not None, "use_separate_proj_weight is True but q_proj_weight is None"
+            assert k_proj_weight is not None, "use_separate_proj_weight is True but k_proj_weight is None"
+            assert v_proj_weight is not None, "use_separate_proj_weight is True but v_proj_weight is None"
             if in_proj_bias is None:
                 b_q = b_k = b_v = None
             else:
@@ -705,11 +675,11 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
 
         # RoPE
         # [sequence_length, embed_size_per_head] -> [batch_size, num_heads, sequence_length, embed_size_per_head]
-        embed_positions = kwargs['embed_positions']
+        embed_positions = kwargs["embed_positions"]
         hidden_states_shape = (q.shape[1], q.shape[0])
         # Original code in Huggingface:
         # sinusoidal_pos = self.embed_positions(hidden_states.shape[:-1], past_key_values_length)[None, None, :, :]
-        sinusoidal_pos = embed_positions(hidden_states_shape, kwargs.get('past_key_values_length', 0))[None, None, :, :]
+        sinusoidal_pos = embed_positions(hidden_states_shape, kwargs.get("past_key_values_length", 0))[None, None, :, :]
         q = q.permute(1, 0, 2).contiguous().view(bsz, -1, num_heads, head_dim).transpose(1, 2)
         k = k.permute(1, 0, 2).contiguous().view(bsz, -1, num_heads, head_dim).transpose(1, 2)
         q, k = FlexibleMultiheadAttention.apply_rotary_position_embeddings(sinusoidal_pos, q, k)
@@ -727,9 +697,7 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             assert static_k.size(0) == bsz * num_heads, (
                 f"expecting static_k.size(0) of {bsz * num_heads}, but got {static_k.size(0)}"
             )
-            assert static_k.size(2) == head_dim, (
-                f"expecting static_k.size(2) of {head_dim}, but got {static_k.size(2)}"
-            )
+            assert static_k.size(2) == head_dim, f"expecting static_k.size(2) of {head_dim}, but got {static_k.size(2)}"
             k = static_k
         if static_v is None:
             v = v.view(v.shape[0], bsz * num_heads, head_dim).transpose(0, 1)
@@ -738,9 +706,7 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             assert static_v.size(0) == bsz * num_heads, (
                 f"expecting static_v.size(0) of {bsz * num_heads}, but got {static_v.size(0)}"
             )
-            assert static_v.size(2) == head_dim, (
-                f"expecting static_v.size(2) of {head_dim}, but got {static_v.size(2)}"
-            )
+            assert static_v.size(2) == head_dim, f"expecting static_v.size(2) of {head_dim}, but got {static_v.size(2)}"
             v = static_v
 
         if attn_mask is not None:
@@ -759,9 +725,7 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
                         f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}."
                     )
             else:
-                raise RuntimeError(
-                    f"attn_mask's dimension {attn_mask.dim()} is not supported"
-                )
+                raise RuntimeError(f"attn_mask's dimension {attn_mask.dim()} is not supported")
 
         # add bias along batch dimension (currently second)
         if bias_k is not None and bias_v is not None:
@@ -780,12 +744,8 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
         # add zero attention along batch dimension (now first)
         if add_zero_attn:
             zero_attn_shape = (bsz * num_heads, 1, head_dim)
-            k = torch.cat(
-                [k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1
-            )
-            v = torch.cat(
-                [v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1
-            )
+            k = torch.cat([k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1)
+            v = torch.cat([v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1)
             if attn_mask is not None:
                 attn_mask = F.pad(attn_mask, (0, 1))
             if key_padding_mask is not None:
@@ -821,14 +781,10 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             _B, _Nt, E = q.shape
             q_scaled = q * math.sqrt(1.0 / float(E))
 
-            assert not (is_causal and attn_mask is None), (
-                "FIXME: is_causal not implemented for need_weights"
-            )
+            assert not (is_causal and attn_mask is None), "FIXME: is_causal not implemented for need_weights"
 
             if attn_mask is not None:
-                attn_output_weights = torch.baddbmm(
-                    attn_mask, q_scaled, k.transpose(-2, -1)
-                )
+                attn_output_weights = torch.baddbmm(attn_mask, q_scaled, k.transpose(-2, -1))
             else:
                 attn_output_weights = torch.bmm(q_scaled, k.transpose(-2, -1))
             attn_output_weights = F.softmax(attn_output_weights, dim=-1)
@@ -837,9 +793,7 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
 
             attn_output = torch.bmm(attn_output_weights, v)
 
-            attn_output = (
-                attn_output.transpose(0, 1).contiguous().view(tgt_len * bsz, embed_dim)
-            )
+            attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len * bsz, embed_dim)
             attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
             attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
 
@@ -867,12 +821,8 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
             k = k.view(bsz, num_heads, src_len, head_dim)
             v = v.view(bsz, num_heads, src_len, head_dim)
 
-            attn_output = F.scaled_dot_product_attention(
-                q, k, v, attn_mask, dropout_p, is_causal
-            )
-            attn_output = (
-                attn_output.permute(2, 0, 1, 3).contiguous().view(bsz * tgt_len, embed_dim)
-            )
+            attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p, is_causal)
+            attn_output = attn_output.permute(2, 0, 1, 3).contiguous().view(bsz * tgt_len, embed_dim)
 
             attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
             attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
@@ -901,4 +851,6 @@ def apply_rope(q: Tensor, k: Tensor) -> tuple[Tensor, Tensor]:
     q = torch.stack([q1 * cos - q2 * sin, q1 * sin + q2 * cos], dim=-1).flatten(-2)
     k = torch.stack([k1 * cos - k2 * sin, k1 * sin + k2 * cos], dim=-1).flatten(-2)
     return q, k
+
+
 # %%

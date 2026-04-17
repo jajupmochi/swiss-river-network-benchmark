@@ -22,11 +22,17 @@ def trim_all_experiments():
 
         print('\n***********************')
         print(f'Trimming checkpoints in {path_name}...')
-        trim_checkpoints(
-            OUTPUT_DIR / path_name.name, keep_best_n=5, anchor_metric='validation_mse', mode='min', if_trim_best_n=True,
-            keep_best_for_trimmed_trials=True, keep_last_for_trimmed_trials=False, remove_seperated_marker_files=True,
-            verbose=True
-        )
+        try:
+            trim_checkpoints(
+                OUTPUT_DIR / path_name.name, keep_best_n=5, anchor_metric='validation_mse', mode='min', if_trim_best_n=True,
+                keep_best_for_trimmed_trials=False, keep_last_for_trimmed_trials=False, remove_seperated_marker_files=True,
+                verbose=True
+            )
+
+        except Exception as e:
+            print(f'Error occurred while trimming {path_name}: {e}')
+            print('Skipping to next experiment...')
+
         print('Done.')
         print('***********************')
 
