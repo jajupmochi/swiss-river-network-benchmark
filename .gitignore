@@ -11,3 +11,21 @@ swissrivernetwork/benchmark/outputs/*
 swissrivernetwork/benchmark/dump/*
 swissrivernetwork/benchmark/wandb/*
 playground/torchexplorer_standalone/*
+
+# IDE / tooling
+.idea/
+.ruff_cache/
+.pytest_cache/
+
+# Throwaway scripts
+swissrivernetwork/benchmark/test.py
+swissrivernetwork/benchmark/test2.py
+swissrivernetwork/util/myhalo.py
+swissrivernetwork/benchmark/visualize_results/app.py
+
+
+# Visualize-results scratch output
+swissrivernetwork/benchmark/visualize_results/.gradio/
+swissrivernetwork/benchmark/visualize_results/.ipynb_checkpoints/
+swissrivernetwork/benchmark/visualize_results/figures/
+swissrivernetwork/benchmark/visualize_results/outputs/
