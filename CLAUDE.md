@@ -17,6 +17,7 @@ Executable modules live in `swissrivernetwork/benchmark/`:
 - `uv run python -m swissrivernetwork.benchmark.ray_evaluation` — evaluate trained models.
 - `uv run python -m swissrivernetwork.benchmark.train_single_model` — train one unified model.
 - `uv run python -m swissrivernetwork.benchmark.train_isolated_station` — train per-station models.
+- `uv run python -m swissrivernetwork.benchmark.run_win_len_sweep` — sweep trained-at-wl=90 checkpoints across many eval window lengths; produces the CSVs behind paper Fig. 4 and the HLE dimension of Fig. 2. Runs ISOLATED then GRAPHLET in strict order; see the module docstring.
 
 For invocation details and flags, see `.claude/skills/run-benchmark/SKILL.md` or run `/run-benchmark`.
 

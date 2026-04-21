@@ -35,11 +35,16 @@ def extract_neighbors(graph_name, station, num_hops):
 
 
 def merge_graphlet_dfs(df, df_neighs):
+    # Inner join on epoch_day: graphlet can only predict on days where every
+    # neighbor has a prediction. At eval_wl == trained_wl (the normal case)
+    # neighbors cover every test day, so this is identical to the previous
+    # `how="outer"` merge. At eval_wl > trained_wl (or whenever the sliding
+    # window can't reach some test days) neighbors are missing those days —
+    # inner join correctly drops them from the target instead of leaving
+    # NaN holes in the neighbor feature columns.
     for df_neigh in df_neighs:
-        df = pd.merge(df, df_neigh, on="epoch_day", how="outer")
-        # fill NaN:
+        df = pd.merge(df, df_neigh, on="epoch_day", how="inner")
         col = df_neigh.columns[1]
-        # df[col] = df[col].fillna(-1)
         assert df[col].isna().sum() == 0, f"NaN in neigh {col} detected!"
     has_any_nan = df.drop(columns=["air_temperature", "water_temperature"]).isna().any().any()
     assert not has_any_nan, "There is a NaN in your data!"
@@ -488,6 +493,12 @@ def trim_lstm_model_name(name: str) -> str:
 def get_evaluation_path_keys(config: benedict | dict) -> str:
     """
     This is the path keys related only to evaluation process, such as noise on data, etc.
+
+    When the evaluation ``window_len`` differs from the trained ``window_len`` (stored on
+    ``config`` as ``trained_window_len``), an ``-evalwl{W}`` suffix is appended. This keeps
+    per-W wt_hat dumps from the isolated LSTM/Transformer separate so that a graphlet
+    evaluated at window length W reads neighbor predictions produced with the same W,
+    instead of picking up wt_hat leaked from the trained-wl run.
     """
     path_keys = ""
     noise_type = config.get("noise_type")
@@ -495,4 +506,8 @@ def get_evaluation_path_keys(config: benedict | dict) -> str:
         path_keys += "-noise"
         # if noise_type == 'gaussian_w':
         #     noise_level = config.get('noise_level')
+    eval_wl = config.get("window_len")
+    trained_wl = config.get("trained_window_len")
+    if eval_wl is not None and trained_wl is not None and eval_wl != trained_wl:
+        path_keys += f"-evalwl{eval_wl}"
     return path_keys

@@ -580,16 +580,26 @@ def evaluate_best_trial_isolated_station(
     total_params = parameter_count(model)
 
     best_trial = {"all": best_trial_all, "last": best_trial_last}
-    window_len = settings["window_len"] if "window_len" in settings else best_config.get("window_len", None)
+    trained_window_len = best_config.get("window_len", None)
+    window_len = settings["window_len"] if "window_len" in settings else trained_window_len
 
     best_config.update({k: v for k, v in settings.items() if k not in best_config})
 
-    # eval_path_keys = get_evaluation_path_keys(settings)
+    # Evaluation-time wt_hat dumps must be keyed by the *eval* window_len (not the trained
+    # one). Otherwise graphlet evaluated at window length W would read neighbor wt_hat
+    # produced at the trained wl (90), leaking long-history information into a short window.
+    eval_path_settings = {
+        **settings,
+        "window_len": window_len,
+        "trained_window_len": trained_window_len,
+    }
+    predict_dump_dir = (
+        DUMP_DIR
+        / "predictions"
+        / f"{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(eval_path_settings)}"
+    )
 
     if "lstm" == method:
-        predict_dump_dir = (
-            DUMP_DIR / "predictions" / f"{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}"
-        )
         test_resu = test_lstm(
             graph_name,
             station,
@@ -601,9 +611,6 @@ def evaluate_best_trial_isolated_station(
             verbose=settings.get("verbose", 2),
         )
     elif "transformer" == method:
-        predict_dump_dir = (
-            DUMP_DIR / "predictions" / f"{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}"
-        )
         test_resu = test_transformer(
             graph_name,
             station,
@@ -615,9 +622,6 @@ def evaluate_best_trial_isolated_station(
             verbose=settings.get("verbose", 2),
         )
     elif "graphlet" == method:
-        predict_dump_dir = (
-            DUMP_DIR / "predictions" / f"{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}"
-        )
         test_resu = test_graphlet(
             graph_name,
             station,
@@ -629,9 +633,6 @@ def evaluate_best_trial_isolated_station(
             verbose=settings.get("verbose", 2),
         )
     elif "transformer_graphlet" == method:
-        predict_dump_dir = (
-            DUMP_DIR / "predictions" / f"{settings.get('path_extra_keys', '')}{get_evaluation_path_keys(settings)}"
-        )
         test_resu = test_transformer_graphlet(
             graph_name,
             station,
@@ -729,7 +730,7 @@ def process_method(graph_name, method, output_dir: Path | None = None, settings:
                 desc="Processing Stations",
                 total=len(stations),
                 file=sys.stdout,
-                colour="lightblue",
+                colour="#add8e6",
             )
         else:
             iterator = enumerate(stations)
@@ -923,7 +924,7 @@ if __name__ == "__main__":
         "max_len": 500,
         "missing_value_method": None,  # 'mask_embedding' or 'interpolation' or 'zero' or None
         "positional_encoding": "none",  # fixme: 'none for lstm, 'learnable' or 'sinusoidal' or 'rope' or None
-        "window_len": 90,  # fixme: debug
+        "window_len": 14,  # default for training: 90. Set this to required window length for evaluation. fixme: debug
         "use_current_x": False,  # fixme: experiment
         "future_steps": 7,  # fixme: experiment. Only works if 'use_current_x' is False
         # fixme: 'limo', 'future_embedding', 'recursive' only for extrapolation on lstm. None for others:

@@ -65,6 +65,23 @@ uv run python -m swissrivernetwork.benchmark.train_isolated_station     # per-st
 
 Configuration is in the module `__main__` blocks — edit the hyperparameter block rather than passing flags.
 
+## 5. Window-length sweep (paper Fig. 4 / HLE metric)
+
+```bash
+uv run python -m swissrivernetwork.benchmark.run_win_len_sweep
+```
+
+Evaluates each `trained_wl = 90` checkpoint at many eval window lengths (default `[1, 3, 5, 7, 15, 30, 60, 90, 120, 150]` capped per dataset). Runs in two strict phases:
+
+1. **ISOLATED** — `lstm`, `transformer` (× PE in `{learnable, sinusoidal, rope}`) run test-time inference and dump `wt_hat` to `dump/predictions/<path_extra_keys>-evalwl{W}/`.
+2. **GRAPHLET** — `graphlet`, `transformer_graphlet` read those dumps as neighbor features.
+
+The `-evalwl{W}` suffix is appended by `util.get_evaluation_path_keys` whenever the eval W differs from the trained W. This prevents the earlier bug where every eval W shared one directory and graphlet silently read neighbor predictions written by the last W in the sweep. Graphlet sweep numbers produced **before** this fix are unreliable for W ≠ 90 — regenerate them.
+
+Outputs append to `visualize_results/outputs/win_lens/{graph}_{method}_win_lens_resu.csv`. If a row for the same `(wl)` or `(wl, pe)` already exists, the driver raises `FileExistsError` and prints a backup command; that is deliberate — back up the pre-fix CSVs before re-running instead of mixing rows.
+
+Set `DEBUG_SINGLE = True` in the `__main__` block to restrict to one `(graph, method, wl)` tuple for PyCharm breakpoint work. See the module docstring for which downstream notebooks consume the CSVs (`window_lens_resu.ipynb`, `visual_win_lens.ipynb`, `results_in_polar.ipynb`).
+
 ## Output hygiene
 
 `swissrivernetwork/benchmark/outputs/ray_results/` can grow to hundreds of trial directories. Use `swissrivernetwork/benchmark/outputs/trim_checkpoints.py` to prune. Never list that directory unfiltered.
