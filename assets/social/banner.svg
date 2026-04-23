@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 320" role="img" aria-label="Swiss River Network Benchmark banner">
+  <title>Swiss River Network Benchmark</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="320" fill="url(#bg)"/>
+  <g fill="none" stroke="url(#river)" stroke-width="8" stroke-linecap="round">
+    <path d="M40 180 C 320 120, 460 260, 760 240 S 1200 280, 1540 160"/>
+    <path d="M760 240 C 780 300, 900 310, 1000 290"/>
+  </g>
+  <g font-family="'Inter','Helvetica Neue',Arial,sans-serif" fill="#e2e8f0">
+    <text x="60"  y="130" font-size="54" font-weight="800">Swiss River Network Benchmark</text>
+    <text x="60"  y="180" font-size="24" font-weight="500" fill="#cbd5e1">Open benchmark · 3 graphs · 8 methods · 1 reproducible paper</text>
+    <text x="60"  y="230" font-size="20" font-weight="400" fill="#94a3b8">LSTM · Graphlet · ST-GNN · Transformer (+ Graphlet / Embedding / ST-GNN)</text>
+  </g>
+</svg>
