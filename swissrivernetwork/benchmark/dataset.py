@@ -1,3 +1,25 @@
+"""Dataset primitives for the Swiss River Network Benchmark.
+
+This module exposes:
+
+* :func:`read_graph` / :func:`read_csv_train` / :func:`read_csv_test` —
+  low-level graph + CSV readers for the three datasets
+  (``swiss-1990``, ``swiss-2010``, ``zurich``).
+* :func:`select_isolated_station` — pure column-select used by isolated
+  LSTM / Transformer training; does **not** drop rows.
+* :class:`SequenceDataset` — sliding-window dataset over per-station time
+  series. ``short_subsequence_method="drop"`` silently drops runs shorter
+  than ``window_len`` (this is why isolated ``wt_hat`` dumps at large eval
+  window lengths can cover fewer days than the raw test CSV — a fact that
+  motivates the inner-join in :func:`util.merge_graphlet_dfs`).
+* :class:`SequenceWindowedDataset` — graphlet-style dataset that stacks
+  neighbor features alongside the target station.
+
+The module is import-cheap (no torch CUDA calls at import time) so it can
+be imported by CPU-only tooling such as the CLI or the documentation
+builder.
+"""
+
 from pathlib import Path
 
 import numpy as np

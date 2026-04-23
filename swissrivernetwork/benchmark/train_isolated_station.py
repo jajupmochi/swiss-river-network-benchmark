@@ -1,3 +1,11 @@
+"""Train per-station isolated models without Ray Tune.
+
+One checkpoint per station, written under ``OUTPUT_DIR`` using the same
+directory layout as the Ray Tune driver so downstream
+:mod:`ray_evaluation` and :mod:`run_win_len_sweep` consume them
+transparently. Hyperparameters are edited inside the ``__main__`` block.
+"""
+
 from swissrivernetwork.benchmark.dataset import *
 from swissrivernetwork.benchmark.model import ExtrapoLstmModel, LstmModel, TransformerModel
 from swissrivernetwork.benchmark.training import training_loop

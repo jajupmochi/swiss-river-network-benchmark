@@ -1,3 +1,11 @@
+"""Build the three graph splits for the Swiss River Network Benchmark.
+
+Produces the ``swiss-1990``, ``swiss-2010``, and ``zurich`` datasets
+under ``swissrivernetwork/benchmark/data/``. Takes **no CLI flags** —
+edit the ``__main__`` block to change the input range or output layout.
+Run this once before training or evaluation.
+"""
+
 import os
 
 import matplotlib.pyplot as plt

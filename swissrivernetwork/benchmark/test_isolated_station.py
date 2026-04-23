@@ -1,3 +1,25 @@
+"""Test-time inference helpers for isolated / graphlet station models.
+
+This module is consumed by both :mod:`ray_evaluation` (paper tables) and
+:mod:`run_win_len_sweep` (Fig. 4 / HLE). The two most important entry
+points are:
+
+* :func:`run_lstm_model` / :func:`run_transformer_model` — inference on a
+  single station with a pre-trained isolated checkpoint. Writes
+  ``wt_hat`` predictions via :func:`dump_predictions` so that graphlet
+  evaluations can later pick them up as neighbor features.
+* :func:`test_graphlet` / :func:`test_transformer_graphlet` — graphlet
+  evaluation that reads the isolated dumps and joins them against the
+  target station CSV via :func:`util.merge_graphlet_dfs`.
+
+Sliding-window semantics
+------------------------
+The dumps only contain days that fall inside the aggregated sliding
+window on the test set. At ``eval_wl > trained_wl`` the dump is therefore
+*shorter* than the raw test CSV — this is expected and is the motivation
+for the inner-join in :func:`util.merge_graphlet_dfs`.
+"""
+
 import time
 
 import matplotlib.pyplot as plt

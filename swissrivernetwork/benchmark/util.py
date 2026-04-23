@@ -21,6 +21,27 @@ def save(object, checkpoint_dir, name):
 
 
 def extract_neighbors(graph_name, station, num_hops):
+    """Return the station IDs within ``num_hops`` of ``station`` on ``graph_name``.
+
+    The graph edges are first made undirected so that downstream/upstream
+    stations are treated symmetrically. The target station itself is excluded
+    from the returned list.
+
+    Parameters
+    ----------
+    graph_name:
+        One of ``swiss-1990``, ``swiss-2010``, ``zurich``.
+    station:
+        Station identifier (as ``str`` — the stored column is numeric but we
+        compare the string form throughout the codebase).
+    num_hops:
+        Number of hops to expand from ``station`` (1 = immediate neighbors).
+
+    Returns
+    -------
+    list[str]
+        Neighbor station IDs, excluding ``station``.
+    """
     # Use undirected edges:
     x, e = read_graph(graph_name)
     e = to_undirected(e)
@@ -35,6 +56,29 @@ def extract_neighbors(graph_name, station, num_hops):
 
 
 def merge_graphlet_dfs(df, df_neighs):
+    """Inner-join a target station's dataframe with its neighbors' ``wt_hat`` dumps.
+
+    The target ``df`` is a test CSV for one station (with raw measurements
+    for every test day) and ``df_neighs`` is a list of per-neighbor
+    dataframes carrying ``(epoch_day, <neighbor>_wt_hat)`` rows. The result
+    is a single dataframe indexed on ``epoch_day`` that contains the target
+    columns plus one ``wt_hat`` column per neighbor.
+
+    Why inner join
+    --------------
+    Graphlet can only make a prediction on days where **every** neighbor has
+    a prediction. At ``eval_wl == trained_wl`` (the normal case) neighbors
+    cover every test day, so an inner join is identical to the previous
+    ``how="outer"`` merge. At ``eval_wl > trained_wl`` (or whenever the
+    sliding window in the isolated dump can't reach some test days) the
+    neighbor dumps are missing those days — inner join correctly drops
+    those days from the target instead of leaving NaN holes in the neighbor
+    feature columns (which then tripped the downstream NaN assertion).
+
+    The per-column NaN assertion is retained as a defensive guard: the
+    inner join cannot introduce NaN in the neighbor columns, so any hit
+    indicates upstream data corruption.
+    """
     # Inner join on epoch_day: graphlet can only predict on days where every
     # neighbor has a prediction. At eval_wl == trained_wl (the normal case)
     # neighbors cover every test day, so this is identical to the previous
@@ -448,10 +492,17 @@ def is_valid_datetime(s: str) -> bool:
 
 
 def is_transformer_model(method: str) -> bool:
+    """Return True for any method whose name contains ``transformer``."""
     return "transformer" in method.lower()
 
 
 def str2bool(v):
+    """Argparse-compatible ``bool`` parser.
+
+    Accepts existing booleans (passthrough) or the literal strings
+    ``"true"`` / ``"false"`` (case-insensitive). Raises
+    :class:`argparse.ArgumentTypeError` for any other input.
+    """
     if isinstance(v, bool):
         return v
     if v.lower() in ("true",):

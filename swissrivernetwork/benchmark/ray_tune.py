@@ -1,3 +1,25 @@
+"""Ray Tune hyperparameter search for the Swiss River Network Benchmark.
+
+This is the *training + search* driver; companion
+:mod:`swissrivernetwork.benchmark.ray_evaluation` handles test-time
+evaluation of the trained checkpoints.
+
+The module installs ``RAY_CHDIR_TO_TRIAL_DIR=0`` at import time — Ray
+otherwise changes the working directory per trial and breaks the
+relative paths the dataset loader relies on. Do **not** remove that line.
+
+CLI flags are declared in the ``__main__`` block. Highlights:
+
+* ``-m, --method``  one of the eight methods (see ``README.md``).
+* ``-g, --graph``   one of ``swiss-1990`` / ``swiss-2010`` / ``zurich``.
+* ``-n, --num_samples``  random-search trials (default 200).
+* ``-wl, --window_len``  history window in days (default 90).
+* ``-r, --resume`` + ``-rts, --resume_timestamp``  resume a prior search.
+
+See :doc:`getting-started` or ``.claude/skills/run-benchmark`` for the
+full flag list.
+"""
+
 import argparse
 import os
 import sys
@@ -712,7 +734,6 @@ if __name__ == "__main__":
             #  Only valid for models with station embeddings, e.g., lstm_embedding, transformer_embedding, stgnn
             #  and transformer_stgnn:
             "use_station_embedding": False,  # fixme: debug
-
         }
 
         if not is_transformer_model(debug_cfg["config"].stem):

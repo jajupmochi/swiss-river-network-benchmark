@@ -1,3 +1,29 @@
+"""Evaluate Ray-tuned checkpoints for the Swiss River Network Benchmark.
+
+Unlike :mod:`swissrivernetwork.benchmark.ray_tune`, this driver takes
+**no CLI flags** — configuration is edited directly in the ``__main__``
+block at the bottom of the file (``settings`` dict plus the
+``GRAPH_NAMES`` / ``METHODS`` selections). This mirrors the workflow we
+use for the paper: pick a trial directory, tweak the noise / window-len /
+post-processing knobs, re-run.
+
+The evaluation entry point for a given ``(method, graph)`` pair is
+:func:`process_method`, which:
+
+1. Locates the best trial under ``outputs/ray_results/``.
+2. Reloads the trained model + data pipeline.
+3. Runs test-time inference and computes error metrics.
+4. Optionally dumps per-station ``wt_hat`` predictions for downstream
+   graphlet consumption — the dump path is scoped by
+   :func:`util.get_evaluation_path_keys`, which appends an
+   ``-evalwl{W}`` suffix when the eval window length differs from the
+   trained one (see also :mod:`run_win_len_sweep`).
+
+Outputs are written to
+``swissrivernetwork/benchmark/visualize_results/outputs/`` and
+``swissrivernetwork/benchmark/dump/predictions/``.
+"""
+
 import math
 import os
 import sys

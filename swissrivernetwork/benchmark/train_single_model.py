@@ -1,3 +1,13 @@
+"""Train a single unified model *without* Ray Tune.
+
+Companion to :mod:`train_isolated_station` (per-station models). Used for
+quick iteration and for producing the single-seed baselines referenced in
+the paper. Hyperparameters are edited in the ``__main__`` block at the
+bottom — there are no CLI flags. The trained checkpoint is written under
+``swissrivernetwork/benchmark/outputs/ray_results/`` following the same
+layout Ray Tune uses, so downstream evaluation code can consume either.
+"""
+
 from benedict import benedict
 
 from swissrivernetwork.benchmark.dataset import *
