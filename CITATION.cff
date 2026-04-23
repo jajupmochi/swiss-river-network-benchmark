@@ -1,0 +1,50 @@
+# CITATION.cff — how to cite this repository.
+# Schema: https://citation-file-format.github.io/
+cff-version: 1.2.0
+message: "If you use this software or the accompanying benchmark, please cite both the software and the paper below."
+title: "Swiss River Network Benchmark: Spatio-Temporal River Water Temperature Modeling"
+abstract: >-
+  Swiss River Network Benchmark is an open-source benchmark for spatio-temporal river water
+  temperature forecasting. It provides three graph datasets (swiss-1990, swiss-2010, zurich),
+  reference implementations of LSTM, Graphlet, ST-GNN, Transformer and graph-aware Transformer
+  variants, Ray Tune hyperparameter search, a window-length sweep driver, Gaussian/impulse
+  noise robustness experiments, and the visualization notebooks that produce every figure in
+  the accompanying paper.
+type: software
+authors:
+  - family-names: "Jia"
+    given-names: "Linlin"
+    orcid: "https://orcid.org/0000-0002-3226-8748"
+    email: "linlin.jia@unibe.ch"
+    affiliation: "University of Bern"
+  - family-names: "Fankhauser"
+    given-names: "Benjamin"
+    affiliation: "University of Bern"
+repository-code: "https://github.com/jajupmochi/swiss-river-network-benchmark"
+url: "https://github.com/jajupmochi/swiss-river-network-benchmark"
+license: MIT
+version: "0.1.0"
+date-released: "2026-04-21"
+keywords:
+  - hydrology
+  - river-temperature
+  - benchmark
+  - transformer
+  - graph-neural-networks
+  - spatio-temporal
+  - pytorch
+  - pytorch-geometric
+  - time-series-forecasting
+  - switzerland
+preferred-citation:
+  type: conference-paper
+  title: "Benchmarking Transformers on Spatio-Temporal River Water Temperature Modeling"
+  authors:
+    - family-names: "Jia"
+      given-names: "Linlin"
+    - family-names: "Fankhauser"
+      given-names: "Benjamin"
+  year: 2026
+  conference:
+    name: "International Conference on Pattern Recognition (ICPR)"
+  notes: "Under review."

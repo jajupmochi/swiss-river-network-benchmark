@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a new feature, model, dataset, or visualization.
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing an idea. Please tell us the scientific or engineering motivation.
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What gap does this feature close? Why does the benchmark need it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would the API, module, or config look like? Sketches are fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: paper_impact
+    attributes:
+      label: Does this change the paper numbers?
+      options:
+        - "No — purely additive / tooling / docs"
+        - "Yes — affects a reported metric"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Are you willing to contribute the implementation?
+      options:
+        - label: Yes, I plan to open a PR.
+        - label: No, but I can help review / test.

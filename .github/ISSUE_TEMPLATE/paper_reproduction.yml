@@ -1,0 +1,61 @@
+name: Paper reproduction issue
+description: Report numbers that do not match the paper.
+title: "[repro] "
+labels: ["reproducibility", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us keep the benchmark reproducible.
+        Please tell us exactly which figure / table / row / column you are reproducing.
+  - type: input
+    id: target
+    attributes:
+      label: Paper target
+      description: Example — "Table 3, swiss-2010 row, Transformer-Graphlet RoPE column" or "Fig. 4, HLE for transformer_embedding on zurich".
+    validations:
+      required: true
+  - type: dropdown
+    id: driver
+    attributes:
+      label: Driver that should produce the number
+      options:
+        - ray_evaluation
+        - run_win_len_sweep
+        - train_single_model / train_isolated_station
+        - Notebook only (visualize_results/*.ipynb)
+        - Other / unclear
+    validations:
+      required: true
+  - type: input
+    id: trial
+    attributes:
+      label: Trial directory (Ray Tune hash) or checkpoint path
+      placeholder: "e.g. outputs/ray_results/.../trial_abc123/"
+  - type: textarea
+    id: settings
+    attributes:
+      label: Your `settings` / config
+      description: Paste the relevant block from `ray_evaluation.py` or the CLI flags you used.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: got_vs_expected
+    attributes:
+      label: Got vs. expected
+      description: Report the number you obtained and the paper value you expected.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: post_fix
+    attributes:
+      label: Did you apply the eval-wl / inner-join fixes from `CHANGELOG.md`?
+      options:
+        - label: Yes, I am on a commit that contains both fixes.
+        - label: No, or unsure — please advise.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
