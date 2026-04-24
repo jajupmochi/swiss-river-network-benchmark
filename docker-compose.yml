@@ -1,0 +1,79 @@
+services:
+  base:
+    image: swiss-river-network-benchmark:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RAY_CHDIR_TO_TRIAL_DIR=0
+    volumes:
+      - .:/app
+      - srn-uv-cache:/root/.cache/uv
+
+  train:
+    extends:
+      service: base
+    profiles: ["train"]
+    command: srn tune -m transformer_embedding -g swiss-2010 -n 200 -wl 90 -pe rope
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  sweep:
+    extends:
+      service: base
+    profiles: ["train"]
+    command: srn sweep
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  app:
+    extends:
+      service: base
+    profiles: ["ui"]
+    command: >-
+      bash -lc "streamlit run swissrivernetwork/app/streamlit_app.py
+                --server.address=0.0.0.0 --server.port=8501
+                --server.headless=true --browser.gatherUsageStats=false"
+    ports:
+      - "8501:8501"
+
+  gradio:
+    extends:
+      service: base
+    profiles: ["ui"]
+    command: >-
+      bash -lc "python -m swissrivernetwork.app.gradio_app"
+    ports:
+      - "7860:7860"
+
+  jupyter:
+    extends:
+      service: base
+    profiles: ["notebook"]
+    command: >-
+      bash -lc "jupyter lab --ServerApp.ip=0.0.0.0 --ServerApp.port=8888
+                --ServerApp.open_browser=False --ServerApp.token=''
+                --ServerApp.password=''"
+    ports:
+      - "8888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+volumes:
+  srn-uv-cache: {}
