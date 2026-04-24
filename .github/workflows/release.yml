@@ -1,0 +1,89 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  wheels:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Build distributions
+        run: |
+          uv sync --no-cache --extra dist
+          uv run python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/*
+
+  desktop:
+    name: Desktop bundle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-x86_64
+          - os: macos-latest
+            artifact: macos-arm64
+          - os: windows-latest
+            artifact: win-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install UI-only deps
+        run: uv sync --no-cache --extra app --extra dist
+      - name: Build bundle
+        run: uv run pyinstaller packaging/swissrivernetwork.spec --clean --noconfirm
+      - name: Stage bundle (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          tar czf "SwissRiverNetworkBenchmark-${{ matrix.artifact }}.tar.gz" SwissRiverNetworkBenchmark
+          ls -lh SwissRiverNetworkBenchmark-${{ matrix.artifact }}.tar.gz
+      - name: Stage bundle (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path dist\SwissRiverNetworkBenchmark -DestinationPath "dist\SwissRiverNetworkBenchmark-${{ matrix.artifact }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.artifact }}
+          path: |
+            dist/SwissRiverNetworkBenchmark-*.tar.gz
+            dist/SwissRiverNetworkBenchmark-*.zip
+
+  publish:
+    name: Attach artefacts to the release
+    needs: [wheels, desktop]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Flatten
+        run: |
+          find dist -type f \( -name "*.whl" -o -name "*.tar.gz" -o -name "*.zip" \) -exec ls -l {} \;
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.whl
+            dist/**/*.tar.gz
+            dist/**/*.zip
+          generate_release_notes: true
