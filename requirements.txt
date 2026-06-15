@@ -1,11 +1,31 @@
-pandas
+# This file is kept only for legacy `pip install -r requirements.txt` workflows.
+# The canonical dependency declaration lives in `pyproject.toml` (PEP 621). The
+# `uv.lock` file at the repo root provides the reproducible pinned set.
+#
+# Recommended install:
+#     uv sync --no-cache
+#
+# If you must use pip without uv:
+#     pip install -e .
+
+halo
+ipywidgets
+kaleido
 matplotlib
-tensorboard
-scikit-image
-odfpy
 notebook
-torch_geometric
-seaborn
-# ray
+odfpy
+pandas
+plotly
+python-benedict
 ray[tune]
+rich
+scikit-image
 scikit-learn
+seaborn
+tensorboard
+torch
+torch-geometric
+torchinfo
+transformers
+typer
+wandb

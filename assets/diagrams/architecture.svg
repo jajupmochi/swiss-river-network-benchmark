@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-label="System architecture diagram">
+  <title>Swiss River Network Benchmark — system architecture</title>
+  <desc>Three-lane diagram showing Data → Model zoo → Drivers → Visualization / Apps. Placeholder; regenerate once the final figure is ready.</desc>
+  <defs>
+    <style>
+      .box { fill:#0f172a; stroke:#38bdf8; stroke-width:2; }
+      .box-alt { fill:#0f172a; stroke:#a78bfa; stroke-width:2; }
+      .box-warm { fill:#0f172a; stroke:#f59e0b; stroke-width:2; }
+      .label { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; fill:#e2e8f0; }
+      .lane-bg { fill:#020617; }
+      .arrow { stroke:#64748b; stroke-width:2; fill:none; marker-end:url(#arr); }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="520" class="lane-bg"/>
+
+  <!-- lane headers -->
+  <g class="label" font-size="18" font-weight="700" fill="#94a3b8">
+    <text x="100" y="40">Data</text>
+    <text x="420" y="40">Model zoo</text>
+    <text x="740" y="40">Drivers</text>
+    <text x="1020" y="40">Outputs</text>
+  </g>
+
+  <!-- Data boxes -->
+  <g class="label" font-size="14">
+    <rect x="40"  y="70"  width="200" height="60" rx="8" class="box"/>
+    <text x="140" y="100" text-anchor="middle" font-weight="600">swiss-1990</text>
+    <text x="140" y="120" text-anchor="middle" fill="#94a3b8">graph dataset</text>
+
+    <rect x="40"  y="150" width="200" height="60" rx="8" class="box"/>
+    <text x="140" y="180" text-anchor="middle" font-weight="600">swiss-2010</text>
+    <text x="140" y="200" text-anchor="middle" fill="#94a3b8">graph dataset</text>
+
+    <rect x="40"  y="230" width="200" height="60" rx="8" class="box"/>
+    <text x="140" y="260" text-anchor="middle" font-weight="600">zurich</text>
+    <text x="140" y="280" text-anchor="middle" fill="#94a3b8">graph dataset</text>
+  </g>
+
+  <!-- Model boxes -->
+  <g class="label" font-size="14">
+    <rect x="360" y="70"  width="200" height="46" rx="8" class="box-alt"/>
+    <text x="460" y="99" text-anchor="middle" font-weight="600">LSTM</text>
+
+    <rect x="360" y="130" width="200" height="46" rx="8" class="box-alt"/>
+    <text x="460" y="159" text-anchor="middle" font-weight="600">Graphlet</text>
+
+    <rect x="360" y="190" width="200" height="46" rx="8" class="box-alt"/>
+    <text x="460" y="219" text-anchor="middle" font-weight="600">ST-GNN</text>
+
+    <rect x="360" y="250" width="200" height="46" rx="8" class="box-alt"/>
+    <text x="460" y="279" text-anchor="middle" font-weight="600">Transformer (PE: learnable / sinusoidal / RoPE)</text>
+
+    <rect x="360" y="310" width="200" height="46" rx="8" class="box-alt"/>
+    <text x="460" y="339" text-anchor="middle" font-weight="600">Transformer + Graphlet / Embedding / ST-GNN</text>
+  </g>
+
+  <!-- Driver boxes -->
+  <g class="label" font-size="13">
+    <rect x="680" y="70"  width="220" height="46" rx="8" class="box-warm"/>
+    <text x="790" y="99" text-anchor="middle" font-weight="600">data_preparation</text>
+
+    <rect x="680" y="130" width="220" height="46" rx="8" class="box-warm"/>
+    <text x="790" y="159" text-anchor="middle" font-weight="600">ray_tune  (search)</text>
+
+    <rect x="680" y="190" width="220" height="46" rx="8" class="box-warm"/>
+    <text x="790" y="219" text-anchor="middle" font-weight="600">ray_evaluation</text>
+
+    <rect x="680" y="250" width="220" height="46" rx="8" class="box-warm"/>
+    <text x="790" y="279" text-anchor="middle" font-weight="600">run_win_len_sweep</text>
+
+    <rect x="680" y="310" width="220" height="46" rx="8" class="box-warm"/>
+    <text x="790" y="339" text-anchor="middle" font-weight="600">train_single / isolated</text>
+  </g>
+
+  <!-- Output boxes -->
+  <g class="label" font-size="13">
+    <rect x="980" y="70"  width="200" height="46" rx="8" class="box"/>
+    <text x="1080" y="99" text-anchor="middle" font-weight="600">figures / *.pdf</text>
+
+    <rect x="980" y="130" width="200" height="46" rx="8" class="box"/>
+    <text x="1080" y="159" text-anchor="middle" font-weight="600">win_lens/*.csv</text>
+
+    <rect x="980" y="190" width="200" height="46" rx="8" class="box"/>
+    <text x="1080" y="219" text-anchor="middle" font-weight="600">dump/predictions/</text>
+
+    <rect x="980" y="250" width="200" height="46" rx="8" class="box"/>
+    <text x="1080" y="279" text-anchor="middle" font-weight="600">Gradio / Streamlit app</text>
+
+    <rect x="980" y="310" width="200" height="46" rx="8" class="box"/>
+    <text x="1080" y="339" text-anchor="middle" font-weight="600">notebooks → paper</text>
+  </g>
+
+  <!-- arrows -->
+  <g>
+    <path class="arrow" d="M240 180 L360 180"/>
+    <path class="arrow" d="M560 220 L680 220"/>
+    <path class="arrow" d="M900 220 L980 220"/>
+  </g>
+
+  <!-- footer -->
+  <text x="600" y="490" text-anchor="middle" class="label" font-size="14" fill="#64748b">
+    Placeholder architecture diagram — regenerate with a polished vector asset before v1.0.
+  </text>
+</svg>

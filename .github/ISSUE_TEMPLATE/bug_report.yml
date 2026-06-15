@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a reproducible bug in the code or notebooks.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as you can.
+        For questions about reproducing the paper numbers, prefer the **Paper reproduction** template.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I am on the latest `main` (or can provide the commit hash below).
+          required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit hash
+      description: "Run `git rev-parse HEAD` in your clone and paste the result."
+      placeholder: "e.g. 81cbd3e"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - data_preparation
+        - ray_tune
+        - ray_evaluation
+        - run_win_len_sweep
+        - train_single_model / train_isolated_station
+        - visualize_results notebooks
+        - Gradio / Streamlit app
+        - CLI (srn)
+        - Installation / packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command you ran
+      description: Full invocation including flags. Use a code block.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour + full traceback
+      description: Paste text, not screenshots.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: |
+        Output of:
+        ```
+        python -V
+        uv --version
+        nvidia-smi | head -5
+        uv pip list | grep -E "torch|ray|transformers|pandas"
+        ```
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else — config file, dataset oddities, GPU memory, etc.

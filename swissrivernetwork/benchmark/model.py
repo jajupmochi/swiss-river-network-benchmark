@@ -6,26 +6,17 @@ import torch.nn.functional as F
 import torch_geometric
 import torch_geometric.nn as gnn
 
-from swissrivernetwork.benchmark.nn import TemporalNNConv, TemporalGATConv
-from swissrivernetwork.benchmark.transformer import (
-    SinusoidalPositionalEncoding,
-    LearnablePositionalEncoding
-)
-
+from swissrivernetwork.benchmark.nn import TemporalGATConv, TemporalNNConv
+from swissrivernetwork.benchmark.transformer import LearnablePositionalEncoding, SinusoidalPositionalEncoding
 
 # %% LSTM Models:
 
 
 class LstmModel(nn.Module):
-
     def __init__(self, input_size, hidden_size, num_layers):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
-
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, 1))
 
     def forward(self, x):
         out, hidden = self.lstm(x)  # x in [batch x sequence x features]
@@ -48,12 +39,12 @@ def ExtrapoLstmModel(*args, extrapo_mode: str | None = None, **kwargs):
             - None: Default setting (LIMO).
 
     """
-    if extrapo_mode is None or extrapo_mode == 'limo':
+    if extrapo_mode is None or extrapo_mode == "limo":
         return ExtrapoLstmModelLIMO(*args, **kwargs)
-    elif extrapo_mode == 'future_embedding':
+    elif extrapo_mode == "future_embedding":
         return ExtrapoLstmModelFEmbed(*args, **kwargs)
     else:
-        raise ValueError(f'Unknown extrapo_mode: {extrapo_mode}.')
+        raise ValueError(f"Unknown extrapo_mode: {extrapo_mode}.")
 
 
 class ExtrapoLstmModelLIMO(nn.Module):
@@ -62,18 +53,13 @@ class ExtrapoLstmModelLIMO(nn.Module):
     step is used to predict multiple future steps directly via a linear layer.
     """
 
-
     def __init__(self, input_size, hidden_size, num_layers, future_steps: int = 1, return_hidden: bool = True):
         super().__init__()
         self.future_steps = future_steps
         self.return_hidden = return_hidden
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, future_steps)
-        )
-
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, future_steps))
 
     def forward(self, x):
         x = x[:, : -self.future_steps]
@@ -85,12 +71,14 @@ class ExtrapoLstmModelLIMO(nn.Module):
 
 
 class ExtrapoLstmModelFEmbed(nn.Module):
-
     def __init__(
-            self, input_size: int, hidden_size: int, num_layers: int,
-            future_steps: int = 1,
-            d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
-            return_all_steps: bool = False  # whether to return all steps or only future steps
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        future_steps: int = 1,
+        d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
+        return_all_steps: bool = False,  # whether to return all steps or only future steps
     ):
         super().__init__()
         self.future_steps = future_steps
@@ -101,15 +89,11 @@ class ExtrapoLstmModelFEmbed(nn.Module):
         # Learnable embedding for future steps:
         self.future_step_embedding = nn.Parameter(torch.zeros(1, self.future_steps, d_future_emb))
         self.lstm = nn.LSTM(input_size=d_future_emb, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, 1))
 
         self.target_postprocessor = None
         if not return_all_steps:
-            self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
-
+            self.target_postprocessor = lambda target: target[:, -self.future_steps :, :]  # only return future steps
 
     def forward(self, x):
         x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
@@ -129,18 +113,13 @@ class ExtrapoLstmModelFEmbed(nn.Module):
 
 
 class LstmEmbeddingModel(nn.Module):
-
     def __init__(self, input_size, num_embeddings, embedding_size, hidden_size, num_layers):
         super().__init__()
         self.embedding = nn.Embedding(num_embeddings, embedding_size)
         self.lstm = nn.LSTM(
             input_size=input_size + embedding_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True
         )
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
-
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, 1))
 
     def forward(self, e, x):
         """
@@ -170,19 +149,18 @@ def ExtrapoLstmEmbeddingModel(*args, extrapo_mode: str | None = None, **kwargs):
             - None: Default setting (LIMO).
 
     """
-    if extrapo_mode is None or extrapo_mode == 'limo':
+    if extrapo_mode is None or extrapo_mode == "limo":
         return ExtrapoLstmEmbeddingModelLIMO(*args, **kwargs)
-    elif extrapo_mode == 'future_embedding':
+    elif extrapo_mode == "future_embedding":
         return ExtrapoLstmEmbeddingModelFEmbed(*args, **kwargs)
     else:
-        raise ValueError(f'Unknown extrapo_mode: {extrapo_mode}.')
+        raise ValueError(f"Unknown extrapo_mode: {extrapo_mode}.")
 
 
 class ExtrapoLstmEmbeddingModelLIMO(nn.Module):
     """
     LSTM model with extrapolation for missing values.
     """
-
 
     def __init__(self, input_size, num_embeddings, embedding_size, hidden_size, num_layers, future_steps: int = 1):
         super().__init__()
@@ -191,11 +169,7 @@ class ExtrapoLstmEmbeddingModelLIMO(nn.Module):
         self.lstm = nn.LSTM(
             input_size=input_size + embedding_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True
         )
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, future_steps)
-        )
-
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, future_steps))
 
     def forward(self, e, x):
         """
@@ -234,12 +208,16 @@ class ExtrapoLstmEmbeddingModelLIMO(nn.Module):
 
 
 class ExtrapoLstmEmbeddingModelFEmbed(nn.Module):
-
     def __init__(
-            self, input_size: int, num_embeddings: int, embedding_size: int, hidden_size: int, num_layers: int,
-            future_steps: int = 1,
-            d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
-            return_all_steps: bool = False  # whether to return all steps or only future steps
+        self,
+        input_size: int,
+        num_embeddings: int,
+        embedding_size: int,
+        hidden_size: int,
+        num_layers: int,
+        future_steps: int = 1,
+        d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
+        return_all_steps: bool = False,  # whether to return all steps or only future steps
     ):
         super().__init__()
         self.future_steps = future_steps
@@ -253,15 +231,11 @@ class ExtrapoLstmEmbeddingModelFEmbed(nn.Module):
         self.lstm = nn.LSTM(
             input_size=d_future_emb + embedding_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True
         )
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1)
-        )
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, 1))
 
         self.target_postprocessor = None
         if not return_all_steps:
-            self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
-
+            self.target_postprocessor = lambda target: target[:, -self.future_steps :, :]  # only return future steps
 
     def forward(self, e, x):
         x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
@@ -327,19 +301,25 @@ class TransformerEmbeddingModel(nn.Module):
             When use_current_x is True, this parameter is ignored and all steps are returned. Default is False.
     """
 
-
     def __init__(
-            self, input_size: int, num_embeddings: int, embedding_size: int, num_heads: int, num_layers: int,
-            dim_feedforward: int, dropout: float = 0.1,
-            d_model: int | None = None, ratio_heads_to_d_model: int | None = 8,
-            max_len: int = 500,
-            # 'mask_embedding' or 'interpolation' or 'zero' or None:
-            missing_value_method: str | None = 'mask_embedding',
-            use_current_x: bool = True,
-            positional_encoding: str = 'rope',  # 'learnable' or 'sinusoidal' or 'rope' or None
-            future_steps: int = 1,  # for extrapolation model. Only works if `use_current_x` is False.
-            d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
-            return_all_steps: bool = False  # whether to return all steps when use_current_x is False
+        self,
+        input_size: int,
+        num_embeddings: int,
+        embedding_size: int,
+        num_heads: int,
+        num_layers: int,
+        dim_feedforward: int,
+        dropout: float = 0.1,
+        d_model: int | None = None,
+        ratio_heads_to_d_model: int | None = 8,
+        max_len: int = 500,
+        # 'mask_embedding' or 'interpolation' or 'zero' or None:
+        missing_value_method: str | None = "mask_embedding",
+        use_current_x: bool = True,
+        positional_encoding: str = "rope",  # 'learnable' or 'sinusoidal' or 'rope' or None
+        future_steps: int = 1,  # for extrapolation model. Only works if `use_current_x` is False.
+        d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
+        return_all_steps: bool = False,  # whether to return all steps when use_current_x is False
     ):
         """
         Parameters
@@ -350,7 +330,7 @@ class TransformerEmbeddingModel(nn.Module):
         """
         super().__init__()
         self.use_current_x = use_current_x
-        self.use_mask_embedding = (missing_value_method == 'mask_embedding')
+        self.use_mask_embedding = missing_value_method == "mask_embedding"
         self.positional_encoding = positional_encoding
         self.future_steps = future_steps
 
@@ -361,14 +341,15 @@ class TransformerEmbeddingModel(nn.Module):
         self.input_proj = nn.Linear(input_size + (embedding_size if self.embedding else 0), d_model)
 
         if d_model is not None:
-            assert d_model % num_heads == 0, 'd_model must be multiple of num_heads.'
+            assert d_model % num_heads == 0, "d_model must be multiple of num_heads."
         else:
             assert d_model is None and ratio_heads_to_d_model is not None
             d_model = int(num_heads * ratio_heads_to_d_model)
 
         # Positional Encoding:
-        if positional_encoding == 'rope':
-            from transformers import RoFormerModel, RoFormerConfig
+        if positional_encoding == "rope":
+            from transformers import RoFormerConfig, RoFormerModel
+
             config = RoFormerConfig(
                 # todo: remove the entire word_embeddings from the model, in case that d_model is large.
                 vocab_size=1,  # Avoid building "big" word_embeddings. Default 50000. Can not set to 0, unfortunately.
@@ -382,16 +363,16 @@ class TransformerEmbeddingModel(nn.Module):
                 is_decoder=False,  # True for decoder, False for encoder. Default False.
                 use_cache=True,  # Whether the model should return the last key/values attentions. Default True.
                 rotary_value=False,  # If True, Use RoPE for value as well. Default False.
-                pad_token_id=0  # Padding token id. Default 0.
+                pad_token_id=0,  # Padding token id. Default 0.
             )
             self.transformer = RoFormerModel(config)
         else:
-            if positional_encoding == 'learnable':
+            if positional_encoding == "learnable":
                 self.pos_embedding = LearnablePositionalEncoding(d_model, max_len=max_len)
-            elif positional_encoding == 'sinusoidal':
+            elif positional_encoding == "sinusoidal":
                 self.pos_embedding = SinusoidalPositionalEncoding(d_model, max_len=max_len)
             else:
-                raise ValueError(f'Unknown positional_encoding: {positional_encoding}.')
+                raise ValueError(f"Unknown positional_encoding: {positional_encoding}.")
 
             encoder_layer = nn.TransformerEncoderLayer(
                 d_model=d_model, nhead=num_heads, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
@@ -400,10 +381,7 @@ class TransformerEmbeddingModel(nn.Module):
 
         # Final linear layer
         # dim_out_features = 1 if use_current_x else future_steps
-        self.linear = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(d_model, 1)
-        )
+        self.linear = nn.Sequential(nn.ReLU(), nn.Linear(d_model, 1))
 
         if self.use_mask_embedding:
             # Learnable embedding for missing values:
@@ -424,8 +402,9 @@ class TransformerEmbeddingModel(nn.Module):
                 else:
                     self.future_proj = nn.Linear(d_future_emb, d_model)
             if not return_all_steps:
-                self.target_postprocessor = lambda target: target[:, -self.future_steps:, :]  # only return future steps
-
+                self.target_postprocessor = lambda target: target[
+                    :, -self.future_steps :, :
+                ]  # only return future steps
 
     def forward(self, e, x, time_masks=None, pad_masks=None):
         """
@@ -436,7 +415,7 @@ class TransformerEmbeddingModel(nn.Module):
         pad_masks: [batch, seq_len] (Padding masks for short sequences. True means padding position, optional)
         """
         if x.isnan().any():
-            raise ValueError('Input contains NaN values! QK matrix will be corrupted.')
+            raise ValueError("Input contains NaN values! QK matrix will be corrupted.")
 
         if self.use_current_x:
             # Current value based prediction:
@@ -449,7 +428,7 @@ class TransformerEmbeddingModel(nn.Module):
             seq_len = x.size(1)
         else:
             # Separate historical observed values and future values to be predicted:
-            x_history = x[:, :-self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
+            x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
             # Add future step embeddings if needed:
             x_future = self.future_step_embedding  # [1, future_steps, d_future_emb]
             x_future = x_future.expand(x.size(0), -1, -1)  # [batch, future_steps, d_future_emb]
@@ -457,9 +436,9 @@ class TransformerEmbeddingModel(nn.Module):
             # Station embedding:
             if self.embedding:
                 emb = self.embedding(e)  # [batch, seq_len, embedding_size]
-                x_history = torch.cat((emb[:, :-self.future_steps, :], x_history), dim=-1)  # fuse embedding
+                x_history = torch.cat((emb[:, : -self.future_steps, :], x_history), dim=-1)  # fuse embedding
                 # [batch, future_steps, d_emb + d_future_emb]:
-                x_future = torch.cat((emb[:, -self.future_steps:, :], x_future), dim=-1)
+                x_future = torch.cat((emb[:, -self.future_steps :, :], x_future), dim=-1)
 
             x_history = self.input_proj(x_history)  # [batch, seq_len - future_steps, d_model]
             x_future = self.future_proj(x_future)  # [batch, future_steps, d_model]
@@ -467,7 +446,7 @@ class TransformerEmbeddingModel(nn.Module):
             x = torch.cat((x_history, x_future), dim=1)  # [batch, seq_len, d_model]
             seq_len = x.size(1)
 
-        if self.positional_encoding in ['learnable', 'sinusoidal']:
+        if self.positional_encoding in ["learnable", "sinusoidal"]:
             x = self.pos_embedding(x)  # add positional encoding
 
         if time_masks is not None and self.use_mask_embedding:
@@ -489,7 +468,7 @@ class TransformerEmbeddingModel(nn.Module):
         # if not self.use_mask_embedding:
         #     self.check_mask_validity(causal_mask, time_masks, x.size(0), seq_len)
 
-        if self.positional_encoding == 'rope':
+        if self.positional_encoding == "rope":
             # HuggingFace RoFormer expects input_ids or embeddings:
 
             # Construct attention mask for HuggingFace:
@@ -535,19 +514,15 @@ class TransformerEmbeddingModel(nn.Module):
             target = self.target_postprocessor(target)
         return target
 
-
-    def load_state_dict(
-            self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False
-    ):
-        if 'pos_embedding' in state_dict and 'pos_embedding.pe' not in state_dict:
+    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False):
+        if "pos_embedding" in state_dict and "pos_embedding.pe" not in state_dict:
             # Convert old positional encoding to new format:
-            state_dict['pos_embedding.pe'] = state_dict.pop('pos_embedding')
-        if not self.use_mask_embedding and 'mask_embedding' in state_dict:
+            state_dict["pos_embedding.pe"] = state_dict.pop("pos_embedding")
+        if not self.use_mask_embedding and "mask_embedding" in state_dict:
             # Remove mask embedding if not used:
             # CAUTION: this is a monkey patch. Make sure this is what you want.
-            state_dict.pop('mask_embedding')
+            state_dict.pop("mask_embedding")
         super().load_state_dict(state_dict, strict, assign)
-
 
     @staticmethod
     def check_mask_validity(mask, src_key_padding_mask, batch_size, seq_len):
@@ -577,8 +552,7 @@ class TransformerEmbeddingModel(nn.Module):
 
                 if row_mask.all():  # All positions are masked
                     raise ValueError(
-                        f"Invalid mask: batch={b}, position={t} is fully masked "
-                        f"(causal + padding mask overlap)."
+                        f"Invalid mask: batch={b}, position={t} is fully masked (causal + padding mask overlap)."
                     )
 
     # def compute_time_steps_since_last_observation(self, time_stamps):
@@ -711,18 +685,24 @@ class TransformerEmbeddingModel(nn.Module):
 
 
 class TransformerModel(TransformerEmbeddingModel):
-
     @override
     def forward(self, x, time_masks=None, pad_masks=None):
         return super().forward(None, x, time_masks=None, pad_masks=None)
 
 
 class SpatioTemporalEmbeddingModel(nn.Module):
-
     def __init__(
-            self, method, input_size, num_embeddings, embedding_size, hidden_size, num_layers, num_convs, num_heads,
-            temporal_func: str = 'lstm_embedding',  # 'lstm_embedding' or 'transformer_embedding'
-            **kwargs
+        self,
+        method,
+        input_size,
+        num_embeddings,
+        embedding_size,
+        hidden_size,
+        num_layers,
+        num_convs,
+        num_heads,
+        temporal_func: str = "lstm_embedding",  # 'lstm_embedding' or 'transformer_embedding'
+        **kwargs,
     ):
         super().__init__()
         self.method = method
@@ -736,27 +716,30 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         self.num_convs = num_convs
         self.num_heads = num_heads
         self.temporal_func = temporal_func
-        self.use_current_x: bool = kwargs['use_current_x']
-        self.future_steps = kwargs.get('future_steps', 1)
+        self.use_current_x: bool = kwargs["use_current_x"]
+        self.future_steps = kwargs.get("future_steps", 1)
         # whether to return all steps when use_current_x is False:
-        self.return_all_steps = kwargs.get('return_all_steps', False)
-        self.use_station_embedding = kwargs.get('use_station_embedding', True)
+        self.return_all_steps = kwargs.get("return_all_steps", False)
+        self.use_station_embedding = kwargs.get("use_station_embedding", True)
         self.kwargs = kwargs
 
-        self.input_emb_for_temporal = not (temporal_func == 'lstm_embedding' and not self.use_station_embedding)
+        self.input_emb_for_temporal = not (temporal_func == "lstm_embedding" and not self.use_station_embedding)
 
-        # Validate input        
-        assert self.num_convs > 0, 'num_convs must be positive.'
+        # Validate input
+        assert self.num_convs > 0, "num_convs must be positive."
 
         # Input processor:
-        if not self.use_current_x and temporal_func == 'lstm_embedding' and kwargs.get('extrapo_mode') in [None,
-                                                                                                           'limo']:
+        if (
+            not self.use_current_x
+            and temporal_func == "lstm_embedding"
+            and kwargs.get("extrapo_mode") in [None, "limo"]
+        ):
             self.input_preprocessor = lambda x: x[..., : -self.future_steps, :]
         else:
             self.input_preprocessor = None
 
         # Temporal Module: based on an LSTMEmbeddingModel per Node
-        if temporal_func == 'lstm_embedding':
+        if temporal_func == "lstm_embedding":
             if self.use_current_x:  # non-extrapolation scenario:
                 if self.use_station_embedding:
                     self.temporal = LstmEmbeddingModel(
@@ -764,96 +747,102 @@ class SpatioTemporalEmbeddingModel(nn.Module):
                     )
                 else:
                     self.temporal = LstmModel(input_size, hidden_size, num_layers)
-            elif kwargs.get('extrapo_mode') in [None, 'limo']:
+            elif kwargs.get("extrapo_mode") in [None, "limo"]:
                 # self.input_preprocessor will remove the future steps from input x, so that the LSTM only sees
                 # historical data without information leakage:
                 if not self.use_station_embedding:
-                    raise NotImplementedError('LstmModel does not support extrapolation yet.')
+                    raise NotImplementedError("LstmModel does not support extrapolation yet.")
                 self.temporal = LstmEmbeddingModel(input_size, num_embeddings, embedding_size, hidden_size, num_layers)
-            elif kwargs.get('extrapo_mode') == 'future_embedding':
+            elif kwargs.get("extrapo_mode") == "future_embedding":
                 if not self.use_station_embedding:
-                    raise NotImplementedError('ExtrapoLstmEmbeddingModelFEmbed does not support no embedding yet.')
+                    raise NotImplementedError("ExtrapoLstmEmbeddingModelFEmbed does not support no embedding yet.")
                 self.temporal = ExtrapoLstmEmbeddingModelFEmbed(
-                    input_size, num_embeddings, embedding_size, hidden_size, num_layers,
+                    input_size,
+                    num_embeddings,
+                    embedding_size,
+                    hidden_size,
+                    num_layers,
                     future_steps=self.future_steps,
-                    d_future_emb=kwargs.get('d_future_emb', 32),
-                    return_all_steps=True
+                    d_future_emb=kwargs.get("d_future_emb", 32),
+                    return_all_steps=True,
                 )
             else:
-                raise ValueError(f'Unknown extrapo_mode: {kwargs.get("extrapo_mode")}.')
-        elif temporal_func == 'transformer_embedding':
+                raise ValueError(f"Unknown extrapo_mode: {kwargs.get('extrapo_mode')}.")
+        elif temporal_func == "transformer_embedding":
             self.temporal = TransformerEmbeddingModel(
                 input_size=input_size,
-                num_embeddings=num_embeddings if kwargs.get('use_station_embedding', True) else 0,
+                num_embeddings=num_embeddings if kwargs.get("use_station_embedding", True) else 0,
                 embedding_size=embedding_size,
-                num_heads=kwargs['num_t_heads'],
+                num_heads=kwargs["num_t_heads"],
                 num_layers=num_layers,
-                dim_feedforward=kwargs['dim_feedforward'],
-                dropout=kwargs['dropout'],
+                dim_feedforward=kwargs["dim_feedforward"],
+                dropout=kwargs["dropout"],
                 d_model=hidden_size,
-                max_len=kwargs['max_len'],
-                missing_value_method=kwargs['missing_value_method'],
+                max_len=kwargs["max_len"],
+                missing_value_method=kwargs["missing_value_method"],
                 use_current_x=self.use_current_x,
-                positional_encoding=kwargs.get('positional_encoding', 'rope'),
+                positional_encoding=kwargs.get("positional_encoding", "rope"),
                 future_steps=self.future_steps,
             )
             if not self.use_current_x:
                 self.temporal.target_postprocessor = None  # This is equivalent to returning all steps
         else:
-            raise ValueError(f'Unknown temporal_func: {temporal_func}.')
+            raise ValueError(f"Unknown temporal_func: {temporal_func}.")
         self.temporal.linear = nn.Identity()  # remove linear layer
 
         # predefine linear layer
         # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size, 1))
         if not self.use_current_x and (
-                temporal_func == 'lstm_embedding' and kwargs.get('extrapo_mode') in [None, 'limo']
+            temporal_func == "lstm_embedding" and kwargs.get("extrapo_mode") in [None, "limo"]
         ):
             dim_out_features = self.future_steps
         else:
             dim_out_features = 1
         self.linear = nn.Linear(hidden_size, dim_out_features)
 
-        if self.method == 'GCN':
+        if self.method == "GCN":
             self.gconvs = nn.ModuleList(
                 [gnn.GCNConv(hidden_size, hidden_size, normalize=True, add_self_loops=True) for _ in range(num_convs)]
             )
 
-        elif self.method == 'GIN':
+        elif self.method == "GIN":
             nn_gin = nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.ReLU())
             self.gconvs = nn.ModuleList([gnn.GINConv(nn_gin) for _ in range(num_convs)])
 
-        elif self.method == 'GAT':
+        elif self.method == "GAT":
             # assert False, 'GAT is not supported'
             convs = []
             for i in range(num_convs):
-                concat = (i == (num_convs - 1))  # concat last layer
+                concat = i == (num_convs - 1)  # concat last layer
                 convs.append(
                     TemporalGATConv(
-                        hidden_size, hidden_size, heads=num_heads, concat=concat,
-                        add_self_loops=False  # self-loops are already added
+                        hidden_size,
+                        hidden_size,
+                        heads=num_heads,
+                        concat=concat,
+                        add_self_loops=False,  # self-loops are already added
                     )
                 )
             self.gconvs = nn.ModuleList(convs)
             # self.linear = nn.Sequential(nn.ReLU(),nn.Linear(hidden_size*num_heads, 1)) # fix linear layer
             self.linear = nn.Linear(hidden_size * num_heads, dim_out_features)  # fix linear layer
 
-        elif self.method == 'GraphSAGE':
+        elif self.method == "GraphSAGE":
             self.gconvs = nn.ModuleList([gnn.SAGEConv(hidden_size, hidden_size) for _ in range(num_convs)])
 
-        elif self.method == 'MPNN':
-            self.edge_hidden_size = kwargs.get('edge_hidden_size')
+        elif self.method == "MPNN":
+            self.edge_hidden_size = kwargs.get("edge_hidden_size")
             edge_network = nn.Sequential(
                 nn.Linear(1, self.edge_hidden_size),
                 nn.ReLU(),
-                nn.Linear(self.edge_hidden_size, hidden_size * hidden_size)
+                nn.Linear(self.edge_hidden_size, hidden_size * hidden_size),
             )
             self.gconvs = nn.ModuleList(
                 [TemporalNNConv(hidden_size, hidden_size, edge_network) for _ in range(num_convs)]
             )
 
         else:
-            raise ValueError(f'Unknown method: {self.method}.')
-
+            raise ValueError(f"Unknown method: {self.method}.")
 
     def apply_temporal_model(self, x):
         # input: batch x nodes x sequence x feature
@@ -869,30 +858,28 @@ class SpatioTemporalEmbeddingModel(nn.Module):
             hs.append(out_node)
         return torch.stack(hs, dim=1)  # [batch x node x sequence x latent]
 
-
     def postprocess_target(self, target):
         if self.use_current_x:
             target = self.linear(target)
         else:
-            if self.temporal_func == 'lstm_embedding':
-                if self.kwargs.get('extrapo_mode') in [None, 'limo']:
+            if self.temporal_func == "lstm_embedding":
+                if self.kwargs.get("extrapo_mode") in [None, "limo"]:
                     target = target[..., -1, :]  # only use the last time step
                     target = self.linear(target)
                     target = target.unsqueeze(-1)
-                elif self.kwargs.get('extrapo_mode') == 'future_embedding':
+                elif self.kwargs.get("extrapo_mode") == "future_embedding":
                     target = self.linear(target)
                     if not self.return_all_steps:
-                        target = target[..., -self.future_steps:, :]  # only use the future steps
+                        target = target[..., -self.future_steps :, :]  # only use the future steps
                 else:
-                    raise ValueError(f'Unknown extrapo_mode: {self.kwargs.get("extrapo_mode")}.')
-            elif self.temporal_func == 'transformer_embedding':
+                    raise ValueError(f"Unknown extrapo_mode: {self.kwargs.get('extrapo_mode')}.")
+            elif self.temporal_func == "transformer_embedding":
                 target = self.linear(target)
                 if not self.return_all_steps:
-                    target = target[..., -self.future_steps:, :]  # only use the future steps
+                    target = target[..., -self.future_steps :, :]  # only use the future steps
             else:
-                raise ValueError(f'Unknown temporal_func: {self.temporal_func}.')
+                raise ValueError(f"Unknown temporal_func: {self.temporal_func}.")
         return target
-
 
     def forward(self, x, edge_index):
         """
@@ -916,12 +903,12 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         # print('[DEBUG]: ', edge_index.shape, edge_index.dtype)
 
         extra_inputs = {}
-        if self.method == 'MPNN':
+        if self.method == "MPNN":
             # For MPNN, we need edge attributes, e.g., edge lengths.
             # edge_attr should be of shape [num_edges, num_edge_features] (Static for all samples and time steps).
             # Here we use a dummy edge_attr of ones
             edge_attr = torch.ones((edge_index.size(1), 1), device=edge_index.device)
-            extra_inputs['edge_attr'] = edge_attr
+            extra_inputs["edge_attr"] = edge_attr
 
         for g in range(0, self.num_convs):
             hs = F.relu(hs)

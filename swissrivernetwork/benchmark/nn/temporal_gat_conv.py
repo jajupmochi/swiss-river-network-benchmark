@@ -6,9 +6,9 @@ temporal_gat_conv
 @Author: linlin
 @Date: Oct 21 2025
 """
+
 from typing import Optional, Tuple, Union
 
-import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torch_geometric.nn import GATConv
@@ -45,7 +45,6 @@ class TemporalGATConv(GATConv):
         https://pytorch-geometric.readthedocs.io/en/2.5.3/generated/torch_geometric.nn.conv.GATConv.html
     """
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # In GATConv, node_dim is set to 0, which is not the default behavior of MessagePassing and does not match the
@@ -53,14 +52,13 @@ class TemporalGATConv(GATConv):
         # Notice: node_dim = -2 is not valid, since in some cases a head dimension is added after node dimension.
         self.node_dim = 2
 
-
     def forward(  # noqa: F811
-            self,
-            x: Union[Tensor, OptPairTensor],
-            edge_index: Adj,
-            edge_attr: OptTensor = None,
-            size: Size = None,
-            return_attention_weights: Optional[bool] = None,
+        self,
+        x: Union[Tensor, OptPairTensor],
+        edge_index: Adj,
+        edge_attr: OptTensor = None,
+        size: Size = None,
+        return_attention_weights: Optional[bool] = None,
     ) -> Union[
         Tensor,
         Tuple[Tensor, Tuple[Tensor, Tensor]],
@@ -152,12 +150,9 @@ class TemporalGATConv(GATConv):
                 if x_dst is not None:
                     num_nodes = min(num_nodes, x_dst.size(0))
                 num_nodes = min(size) if size is not None else num_nodes
-                edge_index, edge_attr = remove_self_loops(
-                    edge_index, edge_attr
-                )
+                edge_index, edge_attr = remove_self_loops(edge_index, edge_attr)
                 edge_index, edge_attr = add_self_loops(
-                    edge_index, edge_attr, fill_value=self.fill_value,
-                    num_nodes=num_nodes
+                    edge_index, edge_attr, fill_value=self.fill_value, num_nodes=num_nodes
                 )
             elif isinstance(edge_index, SparseTensor):
                 if self.edge_dim is None:
@@ -170,10 +165,7 @@ class TemporalGATConv(GATConv):
                     )
 
         # edge_updater_type: (alpha: OptPairTensor, edge_attr: OptTensor)
-        alpha = self.edge_updater(
-            edge_index, alpha=alpha, edge_attr=edge_attr,
-            size=size
-        )
+        alpha = self.edge_updater(edge_index, alpha=alpha, edge_attr=edge_attr, size=size)
 
         # propagate_type: (x: OptPairTensor, alpha: Tensor)
         out = self.propagate(edge_index, x=x, alpha=alpha, size=size)  # [B, T, n_nodes, heads, out_channels]
@@ -200,15 +192,18 @@ class TemporalGATConv(GATConv):
                 else:
                     return out, (edge_index, alpha)
             elif isinstance(edge_index, SparseTensor):
-                return out, edge_index.set_value(alpha, layout='coo')
+                return out, edge_index.set_value(alpha, layout="coo")
         else:
             return out
 
-
     def edge_update(
-            self, alpha_j: Tensor, alpha_i: OptTensor,
-            edge_attr: OptTensor, index: Tensor, ptr: OptTensor,
-            dim_size: Optional[int]
+        self,
+        alpha_j: Tensor,
+        alpha_i: OptTensor,
+        edge_attr: OptTensor,
+        index: Tensor,
+        ptr: OptTensor,
+        dim_size: Optional[int],
     ) -> Tensor:
         # Given edge-level attention coefficients for source and target nodes,
         # we simply need to sum them up to "emulate" concatenation:

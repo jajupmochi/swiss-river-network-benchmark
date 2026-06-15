@@ -1,0 +1,33 @@
+# Bundle sources, not caches or local outputs.
+.git
+.github
+.claude
+.venv
+.venv-*
+.mypy_cache
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/*.pyc
+build
+dist
+site
+*.egg-info
+
+# Heavy experiment outputs — never copy into an image.
+swissrivernetwork/benchmark/outputs/ray_results/
+swissrivernetwork/benchmark/dump/predictions/
+swissrivernetwork/benchmark/dump/predictions-backup/
+swissrivernetwork/benchmark/dump/test_results/
+swissrivernetwork/benchmark/dump/*.pth
+
+# IDEs & editors.
+.idea
+.vscode
+*.swp
+*.swo
+
+# Tooling state.
+.DS_Store
+Thumbs.db
+tmp/

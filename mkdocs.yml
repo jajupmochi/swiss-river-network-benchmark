@@ -1,0 +1,210 @@
+site_name: Swiss River Network Benchmark
+site_description: >
+  Reproducible open benchmark for spatio-temporal river water-temperature
+  modelling — ICPR 2026 submission.
+site_url: https://jajupmochi.github.io/swiss-river-network-benchmark/
+site_author: Linlin Jia
+copyright: "© 2025–2026 Linlin Jia. Released under the MIT License."
+
+repo_name: jajupmochi/swiss-river-network-benchmark
+repo_url: https://github.com/jajupmochi/swiss-river-network-benchmark
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jajupmochi/swiss-river-network-benchmark
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/swissrivernetwork/
+    - icon: simple/huggingface
+      link: https://huggingface.co/spaces/jajupmochi/swiss-river-network-benchmark
+  version:
+    provider: mike
+    default: latest
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
+  - mkdocs-jupyter:
+      execute: false
+      include: ["*.ipynb"]
+      ignore:
+        - "**/.ipynb_checkpoints/**"
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            show_signature_annotations: true
+            separate_signature: true
+            show_source: false
+            show_root_heading: true
+            heading_level: 2
+            members_order: source
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: true
+      reconfigure_material: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          nav_translations:
+            Home: 首页
+            "Getting started": 快速开始
+            "User guide": 用户指南
+            "For hydrologists": 水文学家
+            Tutorials: 教程
+            "Paper reproduction": 复现论文
+            "API reference": API 参考
+            Explainers: 原理讲解
+            "Developer guide": 开发者指南
+            Changelog: 变更日志
+            Citation: 引用
+            FAQ: 常见问题
+        - locale: de
+          name: Deutsch
+          nav_translations:
+            Home: Startseite
+            "Getting started": Einstieg
+            "User guide": Anwenderleitfaden
+            "For hydrologists": Für Hydrolog:innen
+            Tutorials: Tutorials
+            "Paper reproduction": Paper-Reproduktion
+            "API reference": API-Referenz
+            Explainers: Hintergründe
+            "Developer guide": Entwicklerleitfaden
+            Changelog: Änderungsprotokoll
+            Citation: Zitation
+            FAQ: FAQ
+        - locale: fr
+          name: Français
+          nav_translations:
+            Home: Accueil
+            "Getting started": Prise en main
+            "User guide": Guide utilisateur
+            "For hydrologists": Pour hydrologues
+            Tutorials: Tutoriels
+            "Paper reproduction": Reproduction du papier
+            "API reference": Référence API
+            Explainers: Explications
+            "Developer guide": Guide développeur
+            Changelog: Journal des modifications
+            Citation: Citation
+            FAQ: FAQ
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - Desktop app: getting-started/desktop.md
+      - LLM-agent install: getting-started/llm-agent.md
+  - User guide:
+      - user-guide/index.md
+      - For hydrologists: user-guide/for-hydrologists/index.md
+      - Datasets: user-guide/datasets.md
+      - Methods: user-guide/methods.md
+      - CLI reference: user-guide/cli.md
+  - Tutorials:
+      - tutorials/index.md
+      - One-station LSTM: tutorials/one-station-lstm.md
+      - Tuning a Transformer: tutorials/tune-transformer.md
+  - Paper reproduction:
+      - paper/index.md
+      - Window-length sweep: paper/window-length-sweep.md
+      - Noise robustness: paper/noise-robustness.md
+      - Figures: paper/figures.md
+  - API reference:
+      - api/index.md
+      - benchmark.util: api/benchmark-util.md
+      - benchmark.dataset: api/benchmark-dataset.md
+      - benchmark.model: api/benchmark-model.md
+  - Explainers:
+      - explainers/index.md
+      - Eval-window leakage: explainers/eval-window-leakage.md
+      - Graphlet NaN fix: explainers/graphlet-nan-fix.md
+  - Developer guide:
+      - developer-guide/index.md
+      - Working style: developer-guide/working-style.md
+      - Release process: developer-guide/release-process.md
+  - Citation: citation.md
+  - Changelog: changelog.md
+  - FAQ: faq.md

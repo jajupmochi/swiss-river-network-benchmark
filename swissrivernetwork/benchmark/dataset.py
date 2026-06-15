@@ -1,3 +1,25 @@
+"""Dataset primitives for the Swiss River Network Benchmark.
+
+This module exposes:
+
+* :func:`read_graph` / :func:`read_csv_train` / :func:`read_csv_test` —
+  low-level graph + CSV readers for the three datasets
+  (``swiss-1990``, ``swiss-2010``, ``zurich``).
+* :func:`select_isolated_station` — pure column-select used by isolated
+  LSTM / Transformer training; does **not** drop rows.
+* :class:`SequenceDataset` — sliding-window dataset over per-station time
+  series. ``short_subsequence_method="drop"`` silently drops runs shorter
+  than ``window_len`` (this is why isolated ``wt_hat`` dumps at large eval
+  window lengths can cover fewer days than the raw test CSV — a fact that
+  motivates the inner-join in :func:`util.merge_graphlet_dfs`).
+* :class:`SequenceWindowedDataset` — graphlet-style dataset that stacks
+  neighbor features alongside the target station.
+
+The module is import-cheap (no torch CUDA calls at import time) so it can
+be imported by CPU-only tooling such as the CLI or the documentation
+builder.
+"""
+
 from pathlib import Path
 
 import numpy as np
@@ -6,7 +28,7 @@ import torch
 from sklearn.preprocessing import MinMaxScaler
 
 CUR_ABS_DIR = Path(__file__).parent.resolve()
-PROJ_DIR = (CUR_ABS_DIR / '../../').resolve()
+PROJ_DIR = (CUR_ABS_DIR / "../../").resolve()
 
 ISSUE_TAG = "\033[91m[issue]\033[0m "  # Red
 INFO_TAG = "\033[94m[info]\033[0m "  # Blue
@@ -15,91 +37,92 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 # %% --- Utility functions:
 
+
 def read_stations(graph_name, base_dir: str | Path = PROJ_DIR):
     x, _ = read_graph(graph_name, base_dir=base_dir)
     return [str(i) for i in x[:, 2].numpy()]
 
 
 def read_graph(graph_name, base_dir: str | Path = PROJ_DIR):
-    return torch.load(f'{str(base_dir)}/swissrivernetwork/benchmark/dump/graph_{graph_name}.pth')
+    return torch.load(f"{str(base_dir)}/swissrivernetwork/benchmark/dump/graph_{graph_name}.pth")
 
 
 def read_csv_train(graph_name, base_dir: str | Path = PROJ_DIR):
-    return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_train.csv')  # DUPLICATE?!
+    return pd.read_csv(f"{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_train.csv")  # DUPLICATE?!
 
 
 def read_csv_prediction_train(
-        graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None,
-        base_dir: str | Path = PROJ_DIR
+    graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None, base_dir: str | Path = PROJ_DIR
 ):
-    predict_dump_dir = f'{base_dir}/swissrivernetwork/benchmark/dump/predictions' if predict_dump_dir is None else predict_dump_dir
-    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_{method}_{station}_train.csv')
+    predict_dump_dir = (
+        f"{base_dir}/swissrivernetwork/benchmark/dump/predictions" if predict_dump_dir is None else predict_dump_dir
+    )
+    return pd.read_csv(f"{predict_dump_dir}/{graph_name}_{method}_{station}_train.csv")
 
 
 def select_isolated_station(df, station):
-    return df[['epoch_day', f'{station}_wt', f'{station}_at']].rename(
-        columns={f'{station}_wt': 'water_temperature', f'{station}_at': 'air_temperature'}
+    return df[["epoch_day", f"{station}_wt", f"{station}_at"]].rename(
+        columns={f"{station}_wt": "water_temperature", f"{station}_at": "air_temperature"}
     )
 
 
 def select_conditioned_columns(df: pd.DataFrame, **kwargs):
-    noise_type = kwargs.get('noise_type')
-    noise_kwargs = kwargs.get('noise_kwargs')
-    if noise_type == 'gaussian_a':
-        col_suffix = f'__{noise_type}__level_{float(noise_kwargs.get("noise_level")):g}'
-    elif noise_type == 'impulse_a':
-        col_suffix = f'__{noise_type}__prob_{float(noise_kwargs.get("probability")):g}__scale_{float(noise_kwargs.get("scale_factor")):g}'
+    noise_type = kwargs.get("noise_type")
+    noise_kwargs = kwargs.get("noise_kwargs")
+    if noise_type == "gaussian_a":
+        col_suffix = f"__{noise_type}__level_{float(noise_kwargs.get('noise_level')):g}"
+    elif noise_type == "impulse_a":
+        col_suffix = f"__{noise_type}__prob_{float(noise_kwargs.get('probability')):g}__scale_{float(noise_kwargs.get('scale_factor')):g}"
     else:
-        raise ValueError(f'Unknown noise_type: {noise_type}.')
+        raise ValueError(f"Unknown noise_type: {noise_type}.")
     col_names = [col for col in df.columns if col.endswith(col_suffix)]  # can be e.g., 5 and 5.0, which causes issues
     if len(col_names) != 1:
-        raise ValueError(f'Expected exactly one column with suffix {col_suffix}, but found {len(col_names)}.')
-    return df[['epoch_day', col_names[0]]].rename(
-        columns={col_names[0]: col_names[0][:-len(col_suffix)]}
-    )
+        raise ValueError(f"Expected exactly one column with suffix {col_suffix}, but found {len(col_names)}.")
+    return df[["epoch_day", col_names[0]]].rename(columns={col_names[0]: col_names[0][: -len(col_suffix)]})
 
 
 def read_csv_test(graph_name, base_dir: str | Path = PROJ_DIR):
-    return pd.read_csv(f'{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_test.csv')
+    return pd.read_csv(f"{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_test.csv")
 
 
 def read_csv_prediction_test(
-        graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None,
-        based_dir: str | Path = PROJ_DIR
+    graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None, based_dir: str | Path = PROJ_DIR
 ):
-    predict_dump_dir = f'{based_dir}/swissrivernetwork/benchmark/dump/predictions' if predict_dump_dir is None else predict_dump_dir
-    return pd.read_csv(f'{predict_dump_dir}/{graph_name}_{method}_{station}_test.csv')
+    predict_dump_dir = (
+        f"{based_dir}/swissrivernetwork/benchmark/dump/predictions" if predict_dump_dir is None else predict_dump_dir
+    )
+    return pd.read_csv(f"{predict_dump_dir}/{graph_name}_{method}_{station}_test.csv")
 
 
 def read_station_data_from_df(df_all: pd.DataFrame, station: str):
-    return df_all[['epoch_day', f'{station}_wt', f'{station}_at']].rename(
-        columns={f'{station}_wt': f'{station}_wt_hat', f'{station}_at': f'{station}_at_hat'}
+    return df_all[["epoch_day", f"{station}_wt", f"{station}_at"]].rename(
+        columns={f"{station}_wt": f"{station}_wt_hat", f"{station}_at": f"{station}_at_hat"}
     )
 
 
 def normalize_isolated_station(df):
     # Normalize air temperature, water temperature
     normalizer_at = MinMaxScaler()
-    df['air_temperature'] = normalizer_at.fit_transform(df['air_temperature'].values.reshape(-1, 1))
+    df["air_temperature"] = normalizer_at.fit_transform(df["air_temperature"].values.reshape(-1, 1))
 
     # Handle NaN in air temperature:
-    if df['air_temperature'].isna().sum() > 0:
-        print('[DATA PREPARATION] counted NaN values in input:', df['air_temperature'].isna().sum())
-        assert False, 'We can not handle NaN in Input!'
+    if df["air_temperature"].isna().sum() > 0:
+        print("[DATA PREPARATION] counted NaN values in input:", df["air_temperature"].isna().sum())
+        assert False, "We can not handle NaN in Input!"
         # df['air_temperature'] = df['air_temperature'].fillna(-1)
 
     # NaN in Output will be masked
     normalizer_wt = MinMaxScaler()
-    df['water_temperature'] = normalizer_wt.fit_transform(df['water_temperature'].values.reshape(-1, 1))
-    if df['water_temperature'].isna().sum() > 0:
-        print('[DATA PREPARATION] counted NaN values in output:', df['water_temperature'].isna().sum())
+    df["water_temperature"] = normalizer_wt.fit_transform(df["water_temperature"].values.reshape(-1, 1))
+    if df["water_temperature"].isna().sum() > 0:
+        print("[DATA PREPARATION] counted NaN values in output:", df["water_temperature"].isna().sum())
 
     return df, normalizer_at, normalizer_wt
 
 
 def normalize_columns(df):
     normalizer = MinMaxScaler()
-    cols = df.columns.difference(['epoch_day', 'has_nan'])
+    cols = df.columns.difference(["epoch_day", "has_nan"])
     df_normalized = df.copy()
     df_normalized[cols] = pd.DataFrame(normalizer.fit_transform(df[cols]), columns=cols)
     return df_normalized, normalizer
@@ -107,7 +130,7 @@ def normalize_columns(df):
 
 def train_valid_split(config, df):
     # Split into Train and Validation:
-    train_size = int(config['train_split'] * len(df))
+    train_size = int(config["train_split"] * len(df))
     df_train = df.iloc[:train_size].reset_index(drop=True)
     df_valid = df.iloc[train_size:].reset_index(drop=True)
     return df_train, df_valid
@@ -159,12 +182,14 @@ def add_impulse_noise(data: np.ndarray, probability: float = 0.01, scale_factor:
 
 
 class SequenceDataset(torch.utils.data.Dataset):
-
     def __init__(
-            self, window_len, df, embedding_idx,
-            short_subsequence_method: str = 'drop',  # 'pad' or 'drop'
-            name: str = '',
-            **kwargs
+        self,
+        window_len,
+        df,
+        embedding_idx,
+        short_subsequence_method: str = "drop",  # 'pad' or 'drop'
+        name: str = "",
+        **kwargs,
     ):
         self.name = name
         self.window_len = window_len
@@ -172,9 +197,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.embedding_idx = embedding_idx
         self.short_subsequence_method = short_subsequence_method
 
-        noise_type = kwargs.get('noise_type')
+        noise_type = kwargs.get("noise_type")
         if noise_type is not None:
-            noise_kwargs = kwargs.get('noise_kwargs')
+            noise_kwargs = kwargs.get("noise_kwargs")
             self.df = self.add_noise(self.df, noise_type, noise_kwargs)
 
         self.stations = None
@@ -182,9 +207,8 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.sequence_lengths = []
         self.extract_sequences()
 
-
     def extract_sequences(self):
-        day_diff = self.df['epoch_day'].diff()
+        day_diff = self.df["epoch_day"].diff()
         breaks = day_diff != 1
         sequence_id = breaks.cumsum()
         sequences = self.df.index[breaks].values
@@ -200,11 +224,13 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.sequences = sequences
         self.sequence_lengths = sequence_lengths
 
-
     @staticmethod
     def process_short_subsequences(
-            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int,
-            short_subsequence_method: str,
+        df,
+        sequences: np.ndarray[int],
+        sequence_lengths: np.ndarray[int],
+        window_len: int,
+        short_subsequence_method: str,
     ):
         """
         Process sequences that are shorter than the window length.
@@ -212,17 +238,16 @@ class SequenceDataset(torch.utils.data.Dataset):
         Args:
             sequences (list[int]): List of subsequences, each represented by its start index at df.
         """
-        if short_subsequence_method == 'drop':
+        if short_subsequence_method == "drop":
             return SequenceDataset.process_short_subsequences_drop(df, sequences, sequence_lengths, window_len)
-        elif short_subsequence_method == 'pad':
+        elif short_subsequence_method == "pad":
             return SequenceDataset.process_short_subsequences_pad(df, sequences, sequence_lengths, window_len)
         else:
-            raise ValueError(f'Unknown short_subsequence_method: {short_subsequence_method}.')
-
+            raise ValueError(f"Unknown short_subsequence_method: {short_subsequence_method}.")
 
     @staticmethod
     def process_short_subsequences_drop(
-            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
+        df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
     ):
         # remove short sequences
         drop_sequences = sequence_lengths < 0
@@ -230,10 +255,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         sequence_lengths = sequence_lengths[~drop_sequences]
         return df, sequences, sequence_lengths
 
-
     @staticmethod
     def process_short_subsequences_pad(
-            df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
+        df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
     ):
         """
         Pad short sequences with nan values at the end to reach the desired window length. (Add and) revise the
@@ -257,11 +281,11 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         # Initialize padded df:
         dtype_dict = {col: df[col].dtype for col in df.columns}
-        if 'pad_mask' in dtype_dict:
+        if "pad_mask" in dtype_dict:
             columns = df.columns.tolist()
         else:
-            columns = df.columns.tolist() + ['pad_mask']
-            dtype_dict['pad_mask'] = bool
+            columns = df.columns.tolist() + ["pad_mask"]
+            dtype_dict["pad_mask"] = bool
         df_padded = pd.DataFrame(columns=columns).astype(dtype_dict)
 
         # Pad with nan rows at the end of each short sequence:
@@ -270,21 +294,21 @@ class SequenceDataset(torch.utils.data.Dataset):
         padded_lens = []
         for i_seq, (start, end) in enumerate(zip(starts, ends)):
             if end - start < 5:
-                print(f'{ISSUE_TAG}Removing sequence of length {ends - start} < 5 starting at index {start}!')
+                print(f"{ISSUE_TAG}Removing sequence of length {ends - start} < 5 starting at index {start}!")
                 # continue  todo: or raise error?
-                raise ValueError('Sequence too short!')
+                raise ValueError("Sequence too short!")
 
             df_sequence = df.iloc[start:end].copy()
-            if 'pad_mask' not in df_sequence.columns:
-                df_sequence['pad_mask'] = False  # False means we have a value, not a mask
+            if "pad_mask" not in df_sequence.columns:
+                df_sequence["pad_mask"] = False  # False means we have a value, not a mask
             seq_len = len(df_sequence)
             if seq_len < window_len:
                 # pad with 0 rows at the end. This may be better than nan for MLP and attention steps:
                 df_pad = pd.DataFrame(0, index=range(window_len - seq_len), columns=df.columns)
-                df_pad['epoch_day'] = -1  # Use -1 instead of nan, because epoch_day is int type.
+                df_pad["epoch_day"] = -1  # Use -1 instead of nan, because epoch_day is int type.
                 # Don't mask padded rows in time_mask, because these masks may be used for mask embeddings:
-                df_pad['time_mask'] = False
-                df_pad['pad_mask'] = True  # True means we have a mask / missing value to be ignored
+                df_pad["time_mask"] = False
+                df_pad["pad_mask"] = True  # True means we have a mask / missing value to be ignored
                 df_sequence = pd.concat([df_sequence, df_pad], ignore_index=True)
                 padded_lens.append(len(df_pad))
             else:
@@ -298,14 +322,13 @@ class SequenceDataset(torch.utils.data.Dataset):
             sequence_lengths = sequence_lengths - window_len + 1
         return df_padded, sequences, sequence_lengths
 
-
     def as_tensors(self, df):
-        t = torch.IntTensor(df['epoch_day'].values).unsqueeze(-1)
-        x = torch.FloatTensor(df['air_temperature'].values).unsqueeze(-1)
-        y = torch.FloatTensor(df['water_temperature'].values).unsqueeze(-1)
+        t = torch.IntTensor(df["epoch_day"].values).unsqueeze(-1)
+        x = torch.FloatTensor(df["air_temperature"].values).unsqueeze(-1)
+        y = torch.FloatTensor(df["water_temperature"].values).unsqueeze(-1)
 
         # check for predictions (wt_hat) (for graphlet models):
-        matches = df.columns.str.contains(r'_wt_hat$')
+        matches = df.columns.str.contains(r"_wt_hat$")
         matching_columns = df.columns[matches]
         neighs = [torch.FloatTensor(df[col].values).unsqueeze(-1) for col in matching_columns]
         for neigh in neighs:
@@ -317,44 +340,41 @@ class SequenceDataset(torch.utils.data.Dataset):
             embs = torch.LongTensor([self.embedding_idx] * x.shape[0])
 
         if t is None or embs is None or x is None or y is None:
-            print('haaaaaalt!')
+            print("haaaaaalt!")
 
         return (t, embs, x, y)
-
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
         # todo: there is a small problem: when using graphlet, the neighbor predictions are done by previous lstm model,
         # which uses a different random seed than the current one. So the noise added here is not exactly the same
         # as that in the neighbor predictions. But this should be a minor issue.
-        at = df['air_temperature'].values
-        df['air_temperature'] = SequenceDataset.add_noise_to_array(at, noise_type, noise_kwargs)
+        at = df["air_temperature"].values
+        df["air_temperature"] = SequenceDataset.add_noise_to_array(at, noise_type, noise_kwargs)
         return df
-
 
     @staticmethod
     def add_noise_to_array(arr: np.ndarray, noise_type: str, noise_kwargs: dict) -> np.ndarray:
-        if noise_type == 'gaussian_a':
-            noise_level = noise_kwargs.get('noise_level')
+        if noise_type == "gaussian_a":
+            noise_level = noise_kwargs.get("noise_level")
             arr_noisy = add_gaussian_noise(arr, noise_level=noise_level)
             return arr_noisy
-        elif noise_type == 'impulse_a':
-            probability = noise_kwargs.get('probability')
-            scale_factor = noise_kwargs.get('scale_factor', 5.0)
+        elif noise_type == "impulse_a":
+            probability = noise_kwargs.get("probability")
+            scale_factor = noise_kwargs.get("scale_factor", 5.0)
             arr_noisy = add_impulse_noise(arr, probability=probability, scale_factor=scale_factor)
             return arr_noisy
         else:
-            raise ValueError(f'Unknown noise_type: {noise_type}.')
-
+            raise ValueError(f"Unknown noise_type: {noise_type}.")
 
     def as_stgnn_tensors(self, df):
         ts = []
         xs = []
         ys = []
         for station in self.stations:
-            ts.append(torch.IntTensor(df['epoch_day'].values).unsqueeze(-1))
-            xs.append(torch.FloatTensor(df[f'{station}_at'].values).unsqueeze(-1))
-            ys.append(torch.FloatTensor(df[f'{station}_wt'].values).unsqueeze(-1))
+            ts.append(torch.IntTensor(df["epoch_day"].values).unsqueeze(-1))
+            xs.append(torch.FloatTensor(df[f"{station}_at"].values).unsqueeze(-1))
+            ys.append(torch.FloatTensor(df[f"{station}_wt"].values).unsqueeze(-1))
 
         t = torch.stack(ts, dim=0)
         x = torch.stack(xs, dim=0)
@@ -364,46 +384,40 @@ class SequenceDataset(torch.utils.data.Dataset):
         embs = torch.zeros((x.shape[0], x.shape[1]), dtype=torch.long)
 
         if t is None or embs is None or x is None or y is None:
-            print('haaaaaalt!')
+            print("haaaaaalt!")
 
         return (t, embs, x, y)
 
 
 class SequenceFullDataset(SequenceDataset):
-    '''
+    """
     Returns the full available sequence (no windowing)
-    '''
+    """
 
-
-    def __init__(self, df, embedding_idx=None, name: str = '', **kwargs):
+    def __init__(self, df, embedding_idx=None, name: str = "", **kwargs):
         super().__init__(0, df, embedding_idx, name=name, **kwargs)  # window_len=0 means full sequences
-
 
     def __len__(self):
         return len(self.sequences)
-
 
     def __getitem__(self, idx):
         start = self.sequences[idx]
         length = self.sequence_lengths[idx]
 
-        df = self.df.iloc[start:start + length]
+        df = self.df.iloc[start : start + length]
         return self.as_tensors(df)
 
 
 class SequenceWindowedDataset(SequenceDataset):
-
-    def __init__(self, window_len, df, embedding_idx=None, name: str = '', dev_run: bool = False, **kwargs):
+    def __init__(self, window_len, df, embedding_idx=None, name: str = "", dev_run: bool = False, **kwargs):
         super().__init__(window_len, df, embedding_idx, name=name, **kwargs)
         self.dev_run = dev_run
-
 
     def __len__(self):
         if self.dev_run:
             return min(10, np.sum(self.sequence_lengths))
         else:
             return np.sum(self.sequence_lengths)
-
 
     def __getitem__(self, idx):
         for i, length in enumerate(self.sequence_lengths):
@@ -415,7 +429,7 @@ class SequenceWindowedDataset(SequenceDataset):
             # idx is now in sequence:
             start = self.sequences[i] + idx
 
-            df = self.df.iloc[start:start + self.window_len]  # Windowed DF
+            df = self.df.iloc[start : start + self.window_len]  # Windowed DF
             return self.as_tensors(df)
 
 
@@ -423,12 +437,16 @@ class SequenceWindowedDataset(SequenceDataset):
 
 
 class SequenceMaskedDataset(SequenceDataset):
-
     def __init__(
-            self, window_len, df, embedding_idx, max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
-            short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
-            name: str = '',
-            **kwargs
+        self,
+        window_len,
+        df,
+        embedding_idx,
+        max_mask_ratio: float = 0.25,
+        max_mask_consecutive: int = 10,
+        short_subsequence_method: str = "pad",  # 'pad' or 'drop'
+        name: str = "",
+        **kwargs,
     ):
         self.max_mask_ratio = max_mask_ratio
         self.max_mask_consecutive = max_mask_consecutive
@@ -437,20 +455,19 @@ class SequenceMaskedDataset(SequenceDataset):
             window_len, df, embedding_idx, short_subsequence_method=short_subsequence_method, name=name, **kwargs
         )
 
-
     def extract_sequences(self):
-        day_diff = self.df['epoch_day'].diff()
+        day_diff = self.df["epoch_day"].diff()
         if (day_diff < 0).any():
-            raise ValueError('DataFrame must be sorted by epoch_day in ascending order!')
+            raise ValueError("DataFrame must be sorted by epoch_day in ascending order!")
         if (day_diff[1:].isna()).any():
-            raise ValueError('DataFrame must not contain NaN in ``epoch_day``!')
+            raise ValueError("DataFrame must not contain NaN in ``epoch_day``!")
 
-        large_breaks = (day_diff > self.max_mask_consecutive + 1)
+        large_breaks = day_diff > self.max_mask_consecutive + 1
 
         # Pad with 0 at row with small day gaps and add time_mask column:
         dtype_dict = {col: self.df[col].dtype for col in self.df.columns}
-        dtype_dict['time_mask'] = bool
-        df_padded = pd.DataFrame(columns=self.df.columns.tolist() + ['time_mask']).astype(dtype_dict)
+        dtype_dict["time_mask"] = bool
+        df_padded = pd.DataFrame(columns=self.df.columns.tolist() + ["time_mask"]).astype(dtype_dict)
         breaks = day_diff != 1  # bool
         sequence_id = breaks.cumsum()  # int, starting from 1
         sequences = self.df.index[breaks].values  # idx list
@@ -459,27 +476,27 @@ class SequenceMaskedDataset(SequenceDataset):
         ends = sequences + sequence_lengths  # idx list, exclusive
         for i_seq, (start, end) in enumerate(zip(starts, ends)):
             df_sequence = self.df.iloc[start:end].copy()
-            df_sequence['time_mask'] = False  # False means we have a value, not a mask
+            df_sequence["time_mask"] = False  # False means we have a value, not a mask
             df_padded = pd.concat([df_padded, df_sequence], ignore_index=True)
             if end >= len(self.df):
                 break
-            cur_day_diff = int(self.df.iloc[end]['epoch_day'] - self.df.iloc[end - 1]['epoch_day'])
+            cur_day_diff = int(self.df.iloc[end]["epoch_day"] - self.df.iloc[end - 1]["epoch_day"])
             if cur_day_diff <= self.max_mask_consecutive + 1:
                 # missing days to pad (if padding with nan, transformer QK matrix will corrupt even with mask):
                 # todo: check how it affects lstms
                 df_gaps = pd.DataFrame(0, index=range(cur_day_diff - 1), columns=self.df.columns)
-                df_gaps['epoch_day'] = range(
-                    int(self.df.iloc[end - 1]['epoch_day'] + 1), int(self.df.iloc[end]['epoch_day'])
+                df_gaps["epoch_day"] = range(
+                    int(self.df.iloc[end - 1]["epoch_day"] + 1), int(self.df.iloc[end]["epoch_day"])
                 )
-                df_gaps['time_mask'] = True  # True means we have a mask / missing value to be ignored
+                df_gaps["time_mask"] = True  # True means we have a mask / missing value to be ignored
                 df_padded = pd.concat([df_padded, df_gaps], ignore_index=True)
 
         self.df = df_padded.reset_index(drop=True)
 
         # Then, rerun the sequence extraction on the padded df:
-        day_diff = self.df['epoch_day'].diff()
+        day_diff = self.df["epoch_day"].diff()
         breaks = day_diff != 1  # bool
-        assert (breaks.sum() == large_breaks.sum() + 1), 'Large breaks mismatch!'
+        assert breaks.sum() == large_breaks.sum() + 1, "Large breaks mismatch!"
 
         sequence_id = breaks.cumsum()  # int, starting from 1
         sequences = self.df.index[breaks].values  # idx list
@@ -497,15 +514,14 @@ class SequenceMaskedDataset(SequenceDataset):
         # todo: Consider max_mask_ratio here
         # drop_sequences = drop_sequences | (self.masks.groupby(sequence_id).sum().values > self.max_mask_ratio * sequence_lengths)
 
-
     def as_tensors(self, df: pd.DataFrame):
-        t = torch.IntTensor(df['epoch_day'].values).unsqueeze(-1)
-        x = torch.FloatTensor(df['air_temperature'].values).unsqueeze(-1)
-        y = torch.FloatTensor(df['water_temperature'].values).unsqueeze(-1)
-        time_masks = torch.BoolTensor(df['time_mask'].values)  # [seq_len], True means to ignore / to mask
+        t = torch.IntTensor(df["epoch_day"].values).unsqueeze(-1)
+        x = torch.FloatTensor(df["air_temperature"].values).unsqueeze(-1)
+        y = torch.FloatTensor(df["water_temperature"].values).unsqueeze(-1)
+        time_masks = torch.BoolTensor(df["time_mask"].values)  # [seq_len], True means to ignore / to mask
 
         # check for predictions (wt_hat):  fixme validate this part:
-        matches = df.columns.str.contains(r'_wt_hat$')
+        matches = df.columns.str.contains(r"_wt_hat$")
         matching_columns = df.columns[matches]
         neighs = [torch.FloatTensor(df[col].values).unsqueeze(-1) for col in matching_columns]
         for neigh in neighs:
@@ -517,23 +533,22 @@ class SequenceMaskedDataset(SequenceDataset):
             embs = torch.LongTensor([self.embedding_idx] * x.shape[0])
 
         if t is None or embs is None or x is None or y is None:
-            print('haaaaaalt!')
+            print("haaaaaalt!")
 
-        if 'pad_mask' in df.columns:
-            pad_masks = torch.BoolTensor(df['pad_mask'].values)  # [seq_len], True means to ignore / to mask
+        if "pad_mask" in df.columns:
+            pad_masks = torch.BoolTensor(df["pad_mask"].values)  # [seq_len], True means to ignore / to mask
             return t, embs, x, y, time_masks, pad_masks
         else:
             return t, embs, x, y, time_masks
-
 
     def as_stgnn_tensors(self, df):
         ts = []
         xs = []
         ys = []
         for station in self.stations:
-            ts.append(torch.IntTensor(df['epoch_day'].values).unsqueeze(-1))
-            xs.append(torch.FloatTensor(df[f'{station}_at'].values).unsqueeze(-1))
-            ys.append(torch.FloatTensor(df[f'{station}_wt'].values).unsqueeze(-1))
+            ts.append(torch.IntTensor(df["epoch_day"].values).unsqueeze(-1))
+            xs.append(torch.FloatTensor(df[f"{station}_at"].values).unsqueeze(-1))
+            ys.append(torch.FloatTensor(df[f"{station}_wt"].values).unsqueeze(-1))
 
         t = torch.stack(ts, dim=0)
         x = torch.stack(xs, dim=0)
@@ -543,36 +558,41 @@ class SequenceMaskedDataset(SequenceDataset):
         embs = torch.zeros((x.shape[0], x.shape[1]), dtype=torch.long)
 
         if t is None or embs is None or x is None or y is None:
-            print('haaaaaalt!')
+            print("haaaaaalt!")
 
         return (t, embs, x, y)
 
 
 class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
-
     def __init__(
-            self, window_len, df, embedding_idx=None,
-            max_mask_ratio: float = 0.25, max_mask_consecutive: int = 10,
-            short_subsequence_method: str = 'pad',  # 'pad' or 'drop'
-            name: str = '',
-            dev_run: bool = False,
-            **kwargs
+        self,
+        window_len,
+        df,
+        embedding_idx=None,
+        max_mask_ratio: float = 0.25,
+        max_mask_consecutive: int = 10,
+        short_subsequence_method: str = "pad",  # 'pad' or 'drop'
+        name: str = "",
+        dev_run: bool = False,
+        **kwargs,
     ):
         super().__init__(
-            window_len, df, embedding_idx, max_mask_ratio=max_mask_ratio, max_mask_consecutive=max_mask_consecutive,
+            window_len,
+            df,
+            embedding_idx,
+            max_mask_ratio=max_mask_ratio,
+            max_mask_consecutive=max_mask_consecutive,
             short_subsequence_method=short_subsequence_method,
             name=name,
-            **kwargs
+            **kwargs,
         )
         self.dev_run = dev_run
-
 
     def __len__(self):
         if self.dev_run:
             return min(10, np.sum(self.sequence_lengths))
         else:
             return np.sum(self.sequence_lengths)
-
 
     def __getitem__(self, idx: int):
         for i, length in enumerate(self.sequence_lengths):
@@ -584,7 +604,7 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
             # idx is now in sequence:
             start = self.sequences[i] + idx
 
-            df = self.df.iloc[start:start + self.window_len]  # Windowed DF
+            df = self.df.iloc[start : start + self.window_len]  # Windowed DF
             return self.as_tensors(df)
 
 
@@ -592,35 +612,29 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
 
 
 class STGNNSequenceFullDataset(SequenceFullDataset):
-
     def __init__(self, df, stations, **kwargs):
         super().__init__(df, **kwargs)
         self.stations = stations
 
-
     def as_tensors(self, df):
         return super().as_stgnn_tensors(df)
-
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
         for col in df.columns:
-            if col.endswith('_at'):
+            if col.endswith("_at"):
                 at = df[col].values
                 df[col] = SequenceDataset.add_noise_to_array(at, noise_type, noise_kwargs)
         return df
 
 
 class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
-
     def __init__(self, window_len, df, stations, dev_run: bool = False, **kwargs):
         super().__init__(window_len, df, dev_run=dev_run, **kwargs)
         self.stations = stations
 
-
     def as_tensors(self, df):
         return super().as_stgnn_tensors(df)
-
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:

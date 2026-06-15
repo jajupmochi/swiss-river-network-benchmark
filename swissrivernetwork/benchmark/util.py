@@ -21,6 +21,27 @@ def save(object, checkpoint_dir, name):
 
 
 def extract_neighbors(graph_name, station, num_hops):
+    """Return the station IDs within ``num_hops`` of ``station`` on ``graph_name``.
+
+    The graph edges are first made undirected so that downstream/upstream
+    stations are treated symmetrically. The target station itself is excluded
+    from the returned list.
+
+    Parameters
+    ----------
+    graph_name:
+        One of ``swiss-1990``, ``swiss-2010``, ``zurich``.
+    station:
+        Station identifier (as ``str`` — the stored column is numeric but we
+        compare the string form throughout the codebase).
+    num_hops:
+        Number of hops to expand from ``station`` (1 = immediate neighbors).
+
+    Returns
+    -------
+    list[str]
+        Neighbor station IDs, excluding ``station``.
+    """
     # Use undirected edges:
     x, e = read_graph(graph_name)
     e = to_undirected(e)
@@ -35,14 +56,42 @@ def extract_neighbors(graph_name, station, num_hops):
 
 
 def merge_graphlet_dfs(df, df_neighs):
+    """Inner-join a target station's dataframe with its neighbors' ``wt_hat`` dumps.
+
+    The target ``df`` is a test CSV for one station (with raw measurements
+    for every test day) and ``df_neighs`` is a list of per-neighbor
+    dataframes carrying ``(epoch_day, <neighbor>_wt_hat)`` rows. The result
+    is a single dataframe indexed on ``epoch_day`` that contains the target
+    columns plus one ``wt_hat`` column per neighbor.
+
+    Why inner join
+    --------------
+    Graphlet can only make a prediction on days where **every** neighbor has
+    a prediction. At ``eval_wl == trained_wl`` (the normal case) neighbors
+    cover every test day, so an inner join is identical to the previous
+    ``how="outer"`` merge. At ``eval_wl > trained_wl`` (or whenever the
+    sliding window in the isolated dump can't reach some test days) the
+    neighbor dumps are missing those days — inner join correctly drops
+    those days from the target instead of leaving NaN holes in the neighbor
+    feature columns (which then tripped the downstream NaN assertion).
+
+    The per-column NaN assertion is retained as a defensive guard: the
+    inner join cannot introduce NaN in the neighbor columns, so any hit
+    indicates upstream data corruption.
+    """
+    # Inner join on epoch_day: graphlet can only predict on days where every
+    # neighbor has a prediction. At eval_wl == trained_wl (the normal case)
+    # neighbors cover every test day, so this is identical to the previous
+    # `how="outer"` merge. At eval_wl > trained_wl (or whenever the sliding
+    # window can't reach some test days) neighbors are missing those days —
+    # inner join correctly drops them from the target instead of leaving
+    # NaN holes in the neighbor feature columns.
     for df_neigh in df_neighs:
-        df = pd.merge(df, df_neigh, on='epoch_day', how='outer')
-        # fill NaN:
+        df = pd.merge(df, df_neigh, on="epoch_day", how="inner")
         col = df_neigh.columns[1]
-        # df[col] = df[col].fillna(-1)
-        assert df[col].isna().sum() == 0, f'NaN in neigh {col} detected!'
-    has_any_nan = df.drop(columns=['air_temperature', 'water_temperature']).isna().any().any()
-    assert not has_any_nan, 'There is a NaN in your data!'
+        assert df[col].isna().sum() == 0, f"NaN in neigh {col} detected!"
+    has_any_nan = df.drop(columns=["air_temperature", "water_temperature"]).isna().any().any()
+    assert not has_any_nan, "There is a NaN in your data!"
     return df
 
 
@@ -50,8 +99,9 @@ def merge_graphlet_dfs(df, df_neighs):
 
 
 def aggregate_day_predictions(
-        epoch_days: np.ndarray | torch.Tensor,
-        dict_to_aggregate: dict[str, np.ndarray | torch.Tensor], method: str | None = 'longest_history'
+    epoch_days: np.ndarray | torch.Tensor,
+    dict_to_aggregate: dict[str, np.ndarray | torch.Tensor],
+    method: str | None = "longest_history",
 ) -> (np.ndarray | torch.Tensor, dict[str, np.ndarray | torch.Tensor]):
     """
     Aggregate day predictions from multiple windows.
@@ -68,7 +118,7 @@ def aggregate_day_predictions(
     if method is None:
         return epoch_days, dict_to_aggregate
 
-    if method == 'longest_history':
+    if method == "longest_history":
         # For each given day, this method chooses the predictions for that day who has the longest history.
         # Here we assume that the input `epoch_days` is organized as the concatenation of multiple sliding windows,
         # (e.g., the dataloader with batch_size=1 and shuffle=False). Thus, for each day, the first occurrence of that
@@ -86,10 +136,10 @@ def aggregate_day_predictions(
                 aggregated_dict[key] = values[day_indices]
             return unique_epoch_days, aggregated_dict
 
-    elif method == 'last':
+    elif method == "last":
         # Here "last" means that for the prediction of a given day, we take the prediction from the last window:
         if isinstance(epoch_days, torch.Tensor):
-            raise NotImplementedError('last method not implemented for torch.Tensor yet.')
+            raise NotImplementedError("last method not implemented for torch.Tensor yet.")
         else:
             unique_epoch_days, idx = np.unique(epoch_days[::-1], return_index=True)
             unique_epoch_days = unique_epoch_days[::-1]
@@ -99,9 +149,9 @@ def aggregate_day_predictions(
                 aggregated_dict[key] = values[last_indices]
             return unique_epoch_days, aggregated_dict
 
-    elif method == 'mean':
+    elif method == "mean":
         if isinstance(epoch_days, torch.Tensor):
-            raise NotImplementedError('mean method not implemented for torch.Tensor yet.')
+            raise NotImplementedError("mean method not implemented for torch.Tensor yet.")
         else:
             unique_epoch_days = np.unique(epoch_days)
             aggregated_dict = {}
@@ -113,9 +163,9 @@ def aggregate_day_predictions(
                 aggregated_dict[key] = np.array(agg_values)
             return unique_epoch_days, aggregated_dict
 
-    elif method == 'median':
+    elif method == "median":
         if isinstance(epoch_days, torch.Tensor):
-            raise NotImplementedError('median method not implemented for torch.Tensor yet.')
+            raise NotImplementedError("median method not implemented for torch.Tensor yet.")
         else:
             unique_epoch_days = np.unique(epoch_days)
             aggregated_dict = {}
@@ -128,7 +178,7 @@ def aggregate_day_predictions(
             return unique_epoch_days, aggregated_dict
 
     else:
-        raise ValueError(f'Unknown aggregation method: {method}.')
+        raise ValueError(f"Unknown aggregation method: {method}.")
 
 
 def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.Tensor:
@@ -178,6 +228,7 @@ def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader, is_extr
 
 def safe_get_ray_trial_id():
     from ray.air import session
+
     sess = session.get_session()
     if sess is not None and session.get_trial_id():
         return session.get_trial_id()
@@ -185,22 +236,22 @@ def safe_get_ray_trial_id():
 
 
 def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict, directory: Path | None = None) -> str:
-    run_name = f'{method}-{graph_name}'
+    run_name = f"{method}-{graph_name}"
     extra_keys = get_run_extra_key(config)
     run_name += extra_keys
-    resume = config.get('resume', False)
+    resume = config.get("resume", False)
     if resume:
-        if config.get('resume_timestamp', None) is not None:
-            run_name += f'-{config.resume_time_stamp}'
+        if config.get("resume_timestamp", None) is not None:
+            run_name += f"-{config.resume_time_stamp}"
         else:
             # If time stamp is None, use the latest run:
             directory = Path(directory) if directory is not None else Path.cwd()
-            path_prefix = Path(run_name).name + ('-' if extra_keys else '')
+            path_prefix = Path(run_name).name + ("-" if extra_keys else "")
             run_name = get_latest_run_path(directory, path_prefix=path_prefix, verbose=False)
             run_name = run_name.relative_to(directory)
-        print(f'{INFO_TAG}Resuming from previous run: {run_name}.')
+        print(f"{INFO_TAG}Resuming from previous run: {run_name}.")
     else:
-        run_name += f'-{now}'
+        run_name += f"-{now}"
 
     return run_name
 
@@ -208,40 +259,47 @@ def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict
 def get_run_extra_key(config: benedict | dict) -> str:
     if isinstance(config, dict):
         config = benedict(config)
-    extra_key = ''
-    if 'use_current_x' in config and config.use_current_x is not None and not config.use_current_x:
-        extra_key += f'-fs{config.future_steps}'
-        if 'extrapo_mode' in config and config.extrapo_mode is not None and config.extrapo_mode != 'limo':
-            extra_key += f'-{config.extrapo_mode}'
-    if not config.get('use_station_embedding', True):
-        extra_key += '-noSEmb'
-    if 'window_len' in config and config.window_len is not None:
-        extra_key += f'-wl{config.window_len}'
-    if 'missing_value_method' in config and config.missing_value_method is not None:
-        extra_key += f'-{config.missing_value_method}'
-    if 'positional_encoding' in config:
-        extra_key += f'-{config.positional_encoding}'.lower()  # None -> none
+    extra_key = ""
+    if "use_current_x" in config and config.use_current_x is not None and not config.use_current_x:
+        extra_key += f"-fs{config.future_steps}"
+        if "extrapo_mode" in config and config.extrapo_mode is not None and config.extrapo_mode != "limo":
+            extra_key += f"-{config.extrapo_mode}"
+    if not config.get("use_station_embedding", True):
+        extra_key += "-noSEmb"
+    if "window_len" in config and config.window_len is not None:
+        extra_key += f"-wl{config.window_len}"
+    if "missing_value_method" in config and config.missing_value_method is not None:
+        extra_key += f"-{config.missing_value_method}"
+    if "positional_encoding" in config:
+        extra_key += f"-{config.positional_encoding}".lower()  # None -> none
     return extra_key
 
 
-def get_latest_run_path(directory: Path, path_prefix: str = '', verbose: bool = False) -> Path:
+def get_latest_run_path(directory: Path, path_prefix: str = "", verbose: bool = False) -> Path:
     all_paths = sorted(
-        [path for path in directory.iterdir() if
-         path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix):])]
+        [
+            path
+            for path in directory.iterdir()
+            if path.is_dir() and path.name.startswith(path_prefix) and is_valid_datetime(path.name[len(path_prefix) :])
+        ]
     )
-    assert len(all_paths) > 0, f'No previous results found. Path prefix {path_prefix}.'
+    assert len(all_paths) > 0, f"No previous results found. Path prefix {path_prefix}."
     latest_path = all_paths[-1]
-    verbose and print(f'{INFO_TAG}Loading latest results from {latest_path}.')
+    verbose and print(f"{INFO_TAG}Loading latest results from {latest_path}.")
     return latest_path
 
 
 def trim_checkpoints(
-        root_path: Path, keep_best_n: int = 10, anchor_metric: str = 'validation_mse', mode: str = 'min',
-        if_trim_best_n: bool = True,
-        keep_best_for_trimmed_trials: bool = True, keep_last_for_trimmed_trials: bool = False,
-        remove_seperated_marker_files: bool = False,
-        cur_depth: int = 0,
-        verbose: bool = True
+    root_path: Path,
+    keep_best_n: int = 10,
+    anchor_metric: str = "validation_mse",
+    mode: str = "min",
+    if_trim_best_n: bool = True,
+    keep_best_for_trimmed_trials: bool = True,
+    keep_last_for_trimmed_trials: bool = False,
+    remove_seperated_marker_files: bool = False,
+    cur_depth: int = 0,
+    verbose: bool = True,
 ):
     """Keep only the best n checkpoints based on the given metric.
 
@@ -264,14 +322,13 @@ def trim_checkpoints(
         remove_seperated_marker_files: Whether to remove the seperated marker files (e.g., checkpoint_000000-REMOVED).
     """
 
-
     def trim_one_trial(trial, analysis, keep_best_checkpoint, keep_last_checkpoint):
         trial_id = trial.trial_id  # e.g., trial_id: 8d0b9_00000
         # e.g., trial_path: path-to-root/train_transformer_8d0b9_00000_0_batch_size=189,..._2025-10-01_16-04-31:
         trial_path = Path(trial.path)
 
         trial_dataframe = analysis.trial_dataframes[trial_id]
-        checkpoint_dir_names = trial_dataframe['checkpoint_dir_name'].tolist()
+        checkpoint_dir_names = trial_dataframe["checkpoint_dir_name"].tolist()
 
         n_files_removed = 0
         disk_space_freed = 0
@@ -295,7 +352,7 @@ def trim_checkpoints(
         for ck_dir_name in ck_dir_names_to_remove:  # e.g., ck_dir_name: checkpoint_000000
             ck_path = trial_path / ck_dir_name
             for child in ck_path.iterdir():
-                if child.is_file() and child.name.endswith('.pth'):
+                if child.is_file() and child.name.endswith(".pth"):
                     # Remove model file:
                     file_size = child.stat().st_size
                     disk_space_freed += file_size
@@ -305,15 +362,15 @@ def trim_checkpoints(
                     # # Create a dummy file to indicate that this checkpoint has been removed:
                     # This will generate too many files, which may use up quota on cluster file systems.
                     # (ck_path / f'{child.name}-REMOVED').touch()
-                    files_trimmed.append(str(ck_path.relative_to(root_path) / f'{child.name}'))
+                    files_trimmed.append(str(ck_path.relative_to(root_path) / f"{child.name}"))
 
                 # Remove marker files. This is to curate the previous behavior where we create seperated marker files
                 # to indicate removed checkpoints:
                 if remove_seperated_marker_files:
-                    if child.is_file() and child.name.endswith('.pth-REMOVED'):
+                    if child.is_file() and child.name.endswith(".pth-REMOVED"):
                         child.unlink()
                         # remove '-REMOVED' suffix:
-                        file_trimmed = str(ck_path.relative_to(root_path) / f'{child.name[:-8]}')
+                        file_trimmed = str(ck_path.relative_to(root_path) / f"{child.name[:-8]}")
                         files_trimmed.append(file_trimmed)
                         n_marker_files_removed += 1
             # checkpoint_path.rmdir()
@@ -321,27 +378,25 @@ def trim_checkpoints(
         if verbose:
             if n_files_removed > 0:
                 print(
-                    f'  {INFO_TAG}Removed {n_files_removed} model files from trial {trial_id}. '
-                    f'Freed {disk_space_freed / (1024 ** 2):.2f} MB disk space.'
+                    f"  {INFO_TAG}Removed {n_files_removed} model files from trial {trial_id}. "
+                    f"Freed {disk_space_freed / (1024**2):.2f} MB disk space."
                 )
             # else:
             #     print(f'  {INFO_TAG}No model files removed from trial {trial_id}.')
 
             if n_marker_files_removed > 0:
-                print(
-                    f'  {INFO_TAG}Removed {n_marker_files_removed} seperated marker files from trial {trial_id}.'
-                )
+                print(f"  {INFO_TAG}Removed {n_marker_files_removed} seperated marker files from trial {trial_id}.")
 
         return files_trimmed, disk_space_freed
 
-
     children = list(root_path.iterdir())
     if any(
-            child.is_file() and child.name.startswith('experiment_state-') and child.name.endswith('.json') for child in
-            children
+        child.is_file() and child.name.startswith("experiment_state-") and child.name.endswith(".json")
+        for child in children
     ):
         # case 1 (single experiment):
         from ray.tune import ExperimentAnalysis
+
         analysis = ExperimentAnalysis(root_path)
         trial_ids = [t.trial_id for t in analysis.trials]
     elif cur_depth == 0:
@@ -349,32 +404,35 @@ def trim_checkpoints(
         for child in children:
             if child.is_dir():
                 trim_checkpoints(
-                    child, keep_best_n=keep_best_n, anchor_metric=anchor_metric, mode=mode,
+                    child,
+                    keep_best_n=keep_best_n,
+                    anchor_metric=anchor_metric,
+                    mode=mode,
                     if_trim_best_n=if_trim_best_n,
                     keep_best_for_trimmed_trials=keep_best_for_trimmed_trials,
                     keep_last_for_trimmed_trials=keep_last_for_trimmed_trials,
                     cur_depth=cur_depth + 1,
                     remove_seperated_marker_files=remove_seperated_marker_files,
-                    verbose=verbose
+                    verbose=verbose,
                 )
         return
     else:
-        raise ValueError(f'Invalid root_path: {root_path}.')
+        raise ValueError(f"Invalid root_path: {root_path}.")
 
     if len(trial_ids) <= keep_best_n:
         print(
-            f'{INFO_TAG}Number of trials ({len(trial_ids)}) <= keep_best_n ({keep_best_n}). '
-            f'No trimming needed for this experiment.'
+            f"{INFO_TAG}Number of trials ({len(trial_ids)}) <= keep_best_n ({keep_best_n}). "
+            f"No trimming needed for this experiment."
         )
         return
 
     # Get best n trials:
     best_anchor_metrics = [t.metric_analysis[anchor_metric][mode] for t in analysis.trials]
     idx_sorted = np.argsort(best_anchor_metrics)
-    if mode == 'max':
+    if mode == "max":
         idx_sorted = idx_sorted[::-1]
-    elif mode != 'min':
-        raise ValueError(f'Unknown mode: {mode}.')
+    elif mode != "min":
+        raise ValueError(f"Unknown mode: {mode}.")
     idx_best_n = idx_sorted[:keep_best_n]
     idx_to_trim = idx_sorted[keep_best_n:]
     best_n_trials = [analysis.trials[i] for i in idx_best_n]
@@ -387,8 +445,10 @@ def trim_checkpoints(
 
     for trial in trials_to_trim:
         files_removed, disk_space_freed = trim_one_trial(
-            trial, analysis,
-            keep_best_checkpoint=keep_best_for_trimmed_trials, keep_last_checkpoint=keep_last_for_trimmed_trials
+            trial,
+            analysis,
+            keep_best_checkpoint=keep_best_for_trimmed_trials,
+            keep_last_checkpoint=keep_last_for_trimmed_trials,
         )
         total_n_files_removed += len(files_removed)
         total_disk_space_freed += disk_space_freed
@@ -405,15 +465,15 @@ def trim_checkpoints(
 
     if len(files_trimmed) > 0:
         # Save the list of trimmed files. Append if the file already exists.
-        trimmed_files_path = root_path / f'trimmed_files.txt'
-        with open(trimmed_files_path, 'a') as f:
+        trimmed_files_path = root_path / "trimmed_files.txt"
+        with open(trimmed_files_path, "a") as f:
             for file_path in files_trimmed:
-                f.write(f'{file_path}\n')
+                f.write(f"{file_path}\n")
 
     if verbose:
         print(
-            f'{SUCCESS_TAG}Total removed {total_n_files_removed} files for this experiment. '
-            f'Total freed {total_disk_space_freed / (1024 ** 2):.2f} MB disk space.'
+            f"{SUCCESS_TAG}Total removed {total_n_files_removed} files for this experiment. "
+            f"Total freed {total_disk_space_freed / (1024**2):.2f} MB disk space."
         )
 
 
@@ -430,20 +490,29 @@ def is_valid_datetime(s: str) -> bool:
 
 # %% Misc utils:
 
+
 def is_transformer_model(method: str) -> bool:
-    return 'transformer' in method.lower()
+    """Return True for any method whose name contains ``transformer``."""
+    return "transformer" in method.lower()
 
 
 def str2bool(v):
+    """Argparse-compatible ``bool`` parser.
+
+    Accepts existing booleans (passthrough) or the literal strings
+    ``"true"`` / ``"false"`` (case-insensitive). Raises
+    :class:`argparse.ArgumentTypeError` for any other input.
+    """
     if isinstance(v, bool):
         return v
-    if v.lower() in ('true',):
+    if v.lower() in ("true",):
         return True
-    elif v.lower() in ('false',):
+    elif v.lower() in ("false",):
         return False
     else:
         from argparse import ArgumentTypeError
-        raise ArgumentTypeError('Boolean value expected.')
+
+        raise ArgumentTypeError("Boolean value expected.")
 
 
 def get_proper_infer_batchsize(method: str, graph_name: str) -> int:
@@ -452,34 +521,44 @@ def get_proper_infer_batchsize(method: str, graph_name: str) -> int:
     GPU with 8 GB memory. The batch sizes here are chosen to fully utilize the GPU memory without OOM.
     """
     # print(method, graph_name)
-    if method == 'stgnn':
-        if graph_name in ['swiss-1990', 'swiss-2010']:
+    if method == "stgnn":
+        if graph_name in ["swiss-1990", "swiss-2010"]:
             return 64  # 128 is too large for windows_len experiments with window_len>=120
-    elif method == 'transformer_stgnn':
-        if graph_name in ['swiss-1990']:
+    elif method == "transformer_stgnn":
+        if graph_name in ["swiss-1990"]:
             return 64  # for e.g. sinusoidal
-    elif method == 'transformer_graphlet':
-        if graph_name in ['swiss-1990']:
+    elif method == "transformer_graphlet":
+        if graph_name in ["swiss-1990"]:
             return 128  # for e.g. sinusoidal
     return 256
 
 
 def trim_lstm_model_name(name: str) -> str:
     name = name.lower()
-    name = name.removeprefix('extrapo')  # for extrapolation lstm models
-    name = name.split('model')  # Can be e.g. 'lstmmodel' or 'lstmmodelFEmbed'
-    name = ''.join(name[:-1])  # remove 'model' suffix and the following parts
+    name = name.removeprefix("extrapo")  # for extrapolation lstm models
+    name = name.split("model")  # Can be e.g. 'lstmmodel' or 'lstmmodelFEmbed'
+    name = "".join(name[:-1])  # remove 'model' suffix and the following parts
     return name
 
 
 def get_evaluation_path_keys(config: benedict | dict) -> str:
     """
     This is the path keys related only to evaluation process, such as noise on data, etc.
+
+    When the evaluation ``window_len`` differs from the trained ``window_len`` (stored on
+    ``config`` as ``trained_window_len``), an ``-evalwl{W}`` suffix is appended. This keeps
+    per-W wt_hat dumps from the isolated LSTM/Transformer separate so that a graphlet
+    evaluated at window length W reads neighbor predictions produced with the same W,
+    instead of picking up wt_hat leaked from the trained-wl run.
     """
-    path_keys = ''
-    noise_type = config.get('noise_type')
-    if noise_type is not None and noise_type != 'none':
-        path_keys += f'-noise'
+    path_keys = ""
+    noise_type = config.get("noise_type")
+    if noise_type is not None and noise_type != "none":
+        path_keys += "-noise"
         # if noise_type == 'gaussian_w':
         #     noise_level = config.get('noise_level')
+    eval_wl = config.get("window_len")
+    trained_wl = config.get("trained_window_len")
+    if eval_wl is not None and trained_wl is not None and eval_wl != trained_wl:
+        path_keys += f"-evalwl{eval_wl}"
     return path_keys

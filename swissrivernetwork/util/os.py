@@ -27,35 +27,36 @@ def open_in_file_manager(path):
         file_path = None
         folder_path = path
 
-    if sys.platform.startswith('darwin'):  # macOS
+    if sys.platform.startswith("darwin"):  # macOS
         if file_path:
-            subprocess.run(['open', '-R', file_path])  # reveal in Finder
+            subprocess.run(["open", "-R", file_path])  # reveal in Finder
         else:
-            subprocess.run(['open', folder_path])
-    elif sys.platform.startswith('win'):  # Windows
+            subprocess.run(["open", folder_path])
+    elif sys.platform.startswith("win"):  # Windows
         if file_path:
-            subprocess.run(['explorer', '/select,', file_path])
+            subprocess.run(["explorer", "/select,", file_path])
         else:
-            subprocess.run(['explorer', folder_path])
-    elif sys.platform.startswith('linux'):  # Linux
+            subprocess.run(["explorer", folder_path])
+    elif sys.platform.startswith("linux"):  # Linux
         if file_path:
             # Try common file managers to select the file:
             try:
-                subprocess.run(['nautilus', '--select', file_path])
+                subprocess.run(["nautilus", "--select", file_path])
             except FileNotFoundError:
                 try:
-                    subprocess.run(['dolphin', '--select', file_path])
+                    subprocess.run(["dolphin", "--select", file_path])
                 except FileNotFoundError:
-                    subprocess.run(['xdg-open', folder_path])
+                    subprocess.run(["xdg-open", folder_path])
         else:
-            subprocess.run(['xdg-open', folder_path])
+            subprocess.run(["xdg-open", folder_path])
     else:
-        raise RuntimeError(f'Unsupported OS: {sys.platform}')
+        raise RuntimeError(f"Unsupported OS: {sys.platform}")
 
 
-def make_open_button(path, label='Open in File Manager'):
+def make_open_button(path, label="Open in File Manager"):
     import ipywidgets as widgets
     from IPython.display import display
-    button = widgets.Button(description=label, button_style='success')
+
+    button = widgets.Button(description=label, button_style="success")
     button.on_click(lambda b: open_in_file_manager(path))
     display(button)

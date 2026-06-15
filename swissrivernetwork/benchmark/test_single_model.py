@@ -3,8 +3,14 @@ import time
 from ray.tune import ExperimentAnalysis
 from sklearn.preprocessing import MinMaxScaler
 
-from swissrivernetwork.benchmark.dataset import STGNNSequenceFullDataset, STGNNSequenceWindowedDataset
-from swissrivernetwork.benchmark.dataset import read_stations, read_csv_train, read_csv_test
+from swissrivernetwork.benchmark.dataset import (
+    STGNNSequenceFullDataset,
+    STGNNSequenceWindowedDataset,
+    read_csv_test,
+    read_csv_train,
+    read_stations,
+)
+
 # from swissrivernetwork.experiment.error import Error
 from swissrivernetwork.benchmark.model import *
 from swissrivernetwork.benchmark.test_isolated_station import compute_metrics
@@ -23,25 +29,28 @@ def fit_column_normalizers(df):
 
 
 def test_stgnn(
-        graph_name, model, window_len: int | None = None,
-        dump_dir: Path | str = 'swissrivernetwork/benckmark/dump', method: str | None = None,
-        config: dict = {},
-        verbose: int = 2
+    graph_name,
+    model,
+    window_len: int | None = None,
+    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    method: str | None = None,
+    config: dict = {},
+    verbose: int = 2,
 ):
     infer_time_total = time.time()
 
     # Set up configurations:
-    use_current_x = config.get('use_current_x', True)
-    extrapo_mode = config.get('extrapo_mode', None)
-    noise_settings = {k: v for k, v in config.items() if k.startswith('noise_')}
+    use_current_x = config.get("use_current_x", True)
+    extrapo_mode = config.get("extrapo_mode", None)
+    noise_settings = {k: v for k, v in config.items() if k.startswith("noise_")}
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     # TODO:
     # Read Train Data for normalizer
     df_train = read_csv_train(graph_name)
-    df_train = df_train.loc[:, ~df_train.columns.isin(['epoch_day', 'has_nan'])]
+    df_train = df_train.loc[:, ~df_train.columns.isin(["epoch_day", "has_nan"])]
     normalizers = fit_column_normalizers(df_train)
 
     # Read Test Data
@@ -55,7 +64,7 @@ def test_stgnn(
 
     # Normalize Input Values:
     for station in stations:
-        df[f'{station}_at'] = normalizers[f'{station}_at'].transform(df[f'{station}_at'].values.reshape(-1, 1))
+        df[f"{station}_at"] = normalizers[f"{station}_at"].transform(df[f"{station}_at"].values.reshape(-1, 1))
     # TODO: test if equal to column wise normalizer.. (but should)
 
     # Create Dataset
@@ -79,7 +88,7 @@ def test_stgnn(
     epoch_days_to_record, preds_to_record = [], []  # for timewise extrapolation
     with torch.no_grad():
         model.eval()
-        for (t, e, x, y) in dataloader:
+        for t, e, x, y in dataloader:
             t, e, x, y = t.to(device), e.to(device), x.to(device), y.to(device)
 
             # Run Model
@@ -90,7 +99,7 @@ def test_stgnn(
 
             # Remove historical inputs and masks for forecasting:
             if not use_current_x:
-                future_steps = config['future_steps']
+                future_steps = config["future_steps"]
                 # For future embedding extrapolation, "out" includes all predictions including historical ones:
                 epoch_days_to_record.append(t.cpu().detach().numpy())
                 preds_to_record.append(out.cpu().detach().numpy())
@@ -159,17 +168,19 @@ def test_stgnn(
             station_epoch_days_to_record, aggregated_dict = aggregate_day_predictions(
                 station_epoch_days_to_record,
                 {
-                    'preds_to_record': station_preds_to_record,
+                    "preds_to_record": station_preds_to_record,
                 },
-                method='longest_history'
+                method="longest_history",
             )
-            station_preds_to_record = aggregated_dict['preds_to_record']
+            station_preds_to_record = aggregated_dict["preds_to_record"]
             all_epoch_days_to_record.append(station_epoch_days_to_record)
             all_preds_to_record.append(station_preds_to_record)
 
             # Create a time step array as a reference for forecasting:
-            n_future_steps = config['future_steps']
-            assert station_actual.size % n_future_steps == 0, 'Forcasting: total size must be divisible by n_future_steps.'
+            n_future_steps = config["future_steps"]
+            assert station_actual.size % n_future_steps == 0, (
+                "Forcasting: total size must be divisible by n_future_steps."
+            )
             n_samples = station_actual.size // n_future_steps
             forcast_time_steps = np.tile(np.arange(1, n_future_steps + 1), n_samples)
             all_forcast_time_steps.append(forcast_time_steps[station_masks])  # masked
@@ -178,23 +189,23 @@ def test_stgnn(
             station_epoch_days, aggregated_dict = aggregate_day_predictions(
                 station_epoch_days,
                 {
-                    'prediction_norm': station_prediction_norm,
-                    'mask': station_masks,
-                    'actual': station_actual,
+                    "prediction_norm": station_prediction_norm,
+                    "mask": station_masks,
+                    "actual": station_actual,
                 },
-                method='longest_history'
+                method="longest_history",
             )
-            station_masks = aggregated_dict['mask']
-            station_prediction_norm = aggregated_dict['prediction_norm']
-            station_actual = aggregated_dict['actual']
+            station_masks = aggregated_dict["mask"]
+            station_prediction_norm = aggregated_dict["prediction_norm"]
+            station_actual = aggregated_dict["actual"]
 
         station_prediction_norm = station_prediction_norm[station_masks]
         station_actual = station_actual[station_masks]
 
         # Denormalize predictions
-        station_prediction = normalizers[f'{station}_wt'].inverse_transform(
-            station_prediction_norm.reshape(-1, 1)
-        ).flatten()
+        station_prediction = (
+            normalizers[f"{station}_wt"].inverse_transform(station_prediction_norm.reshape(-1, 1)).flatten()
+        )
 
         all_epoch_days.append(station_epoch_days[station_masks])  # masked
         all_actual.append(station_actual)  # masked
@@ -202,15 +213,15 @@ def test_stgnn(
 
     infer_time_total = time.time() - infer_time_total
     extra_resu = {
-        'infer_time_total': [infer_time_total / n_stations] * n_stations,
-        'infer_time_gpu_total': [infer_time_gpu_total / n_stations] * n_stations,
-        'infer_time_per_time_step': [infer_time_total / n_total_time_steps] * n_stations,
-        'n_total_time_steps': [n_total_time_steps / n_stations] * n_stations,
+        "infer_time_total": [infer_time_total / n_stations] * n_stations,
+        "infer_time_gpu_total": [infer_time_gpu_total / n_stations] * n_stations,
+        "infer_time_per_time_step": [infer_time_total / n_total_time_steps] * n_stations,
+        "n_total_time_steps": [n_total_time_steps / n_stations] * n_stations,
     }
     if not use_current_x:
-        extra_resu['forcast_time_steps'] = all_forcast_time_steps
-        extra_resu['full_epoch_days'] = all_epoch_days_to_record
-        extra_resu['full_prediction_norm'] = all_preds_to_record
+        extra_resu["forcast_time_steps"] = all_forcast_time_steps
+        extra_resu["full_epoch_days"] = all_epoch_days_to_record
+        extra_resu["full_prediction_norm"] = all_preds_to_record
         #  todo: this may be incorrect if using limo mode
         # if extrapo_mode == 'future_embedding':
         # else:
@@ -244,16 +255,16 @@ def test_stgnn(
     return rmses, maes, nses, ns, (all_actual, all_prediction, all_epoch_days), extra_resu
 
 
-if __name__ == '__main__':
-    method = 'stgnn'
-    graph_name = 'swiss-1990'
+if __name__ == "__main__":
+    method = "stgnn"
+    graph_name = "swiss-1990"
 
     # Read statistics
     stations = read_stations(graph_name)
     num_embeddings = len(stations)
 
     # Load a model from a config:
-    analysis = ExperimentAnalysis(f'/home/benjamin/ray_results/stgnn-2025-06-16_16-11-22')
+    analysis = ExperimentAnalysis("/home/benjamin/ray_results/stgnn-2025-06-16_16-11-22")
 
     # COPY CODE
     # Get best trial and load model:
@@ -261,15 +272,20 @@ if __name__ == '__main__':
     best_trial = analysis.get_best_trial(metric="validation_mse", mode="min", scope="all")
     best_config = best_trial.config
     best_checkpoint = analysis.get_best_checkpoint(best_trial, metric="validation_mse", mode="min")
-    print('use best config:', best_config)
+    print("use best config:", best_config)
 
     # COPY CODE:
     # Create Model
     model = SpatioTemporalEmbeddingModel(
-        best_config['gnn_conv'], 1, num_embeddings, best_config['embedding_size'], best_config['hidden_size'],
-        best_config['num_layers'], best_config['num_convs']
+        best_config["gnn_conv"],
+        1,
+        num_embeddings,
+        best_config["embedding_size"],
+        best_config["hidden_size"],
+        best_config["num_layers"],
+        best_config["num_convs"],
     )
     model_file = sorted(os.listdir(best_checkpoint.path))[0]
-    model.load_state_dict(torch.load(f'{best_checkpoint.path}/{model_file}'))
+    model.load_state_dict(torch.load(f"{best_checkpoint.path}/{model_file}"))
 
     test_stgnn(graph_name, model)

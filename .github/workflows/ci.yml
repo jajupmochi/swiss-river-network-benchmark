@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, transformers]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: ruff format --check
+        run: uvx ruff@0.15.11 format --check .
+      - name: ruff check (advisory)
+        run: uvx ruff@0.15.11 check --output-format=github .
+        continue-on-error: true
+
+  test:
+    name: smoke tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: pytest
+        run: uv run pytest tests/ -q
+
+  cli-smoke:
+    name: srn CLI help
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install (app extra only)
+        run: uv sync --frozen --extra app
+      - name: srn --help
+        run: uv run srn --help
+      - name: srn version
+        run: uv run srn version
+
+  notebooks:
+    name: notebook syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate notebook JSON
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          fails = 0
+          for nb in pathlib.Path("swissrivernetwork/benchmark/visualize_results").rglob("*.ipynb"):
+              if ".ipynb_checkpoints" in nb.parts:
+                  continue
+              try:
+                  with nb.open() as f:
+                      doc = json.load(f)
+                  assert "cells" in doc, nb
+              except Exception as exc:
+                  print(f"FAIL {nb}: {exc}")
+                  fails += 1
+          print(f"Checked notebooks. Failures: {fails}")
+          sys.exit(1 if fails else 0)
+          PY
+
+  docs-build:
+    name: mkdocs strict build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install docs extra
+        run: uv sync --frozen --extra docs
+      - name: mkdocs build --strict
+        run: uv run mkdocs build --strict
+        continue-on-error: true  # advisory until i18n/API settles.

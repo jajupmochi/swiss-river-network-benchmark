@@ -1,0 +1,39 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & deploy MkDocs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # mike needs history
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install docs extras
+        run: uv sync --no-cache --extra docs
+      - name: Configure git identity (for mike)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Build & deploy (latest)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run mike deploy --push --update-aliases latest
+          uv run mike set-default --push latest
