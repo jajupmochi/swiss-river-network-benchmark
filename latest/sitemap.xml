@@ -1,0 +1,1119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/changelog/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/citation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/citation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/citation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/citation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/citation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/faq/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/faq/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/faq/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/faq/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/faq/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-dataset/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-dataset/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-model/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-model/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-util/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-util/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/release-process/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/release-process/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/working-style/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/working-style/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/eval-window-leakage/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/eval-window-leakage/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/graphlet-nan-fix/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/graphlet-nan-fix/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/desktop/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/desktop/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/installation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/llm-agent/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/llm-agent/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/quickstart/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/figures/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/figures/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/noise-robustness/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/noise-robustness/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/window-length-sweep/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/window-length-sweep/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/one-station-lstm/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/one-station-lstm/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/tune-transformer/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/tune-transformer/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/cli/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/cli/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/datasets/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/datasets/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/methods/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/for-hydrologists/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/for-hydrologists/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/changelog/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestchangelog/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/changelog/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/citation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/citation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/citation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestcitation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/citation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/faq/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/faq/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfaq/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/faq/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-dataset/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-dataset/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-model/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-model/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-util/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-util/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/release-process/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/release-process/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/working-style/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/working-style/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/eval-window-leakage/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/eval-window-leakage/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/graphlet-nan-fix/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/graphlet-nan-fix/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/desktop/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/desktop/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/installation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/llm-agent/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/llm-agent/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/quickstart/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/figures/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/figures/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/noise-robustness/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/noise-robustness/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/window-length-sweep/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/window-length-sweep/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/one-station-lstm/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/one-station-lstm/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/tune-transformer/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/tune-transformer/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/cli/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/cli/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/datasets/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/datasets/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/methods/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/for-hydrologists/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/zh/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/for-hydrologists/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/changelog/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestchangelog/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/citation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/citation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestcitation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/citation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/citation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/faq/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfaq/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/faq/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/faq/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-dataset/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-dataset/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-model/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-model/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-util/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-util/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/release-process/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/release-process/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/working-style/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/working-style/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/eval-window-leakage/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/eval-window-leakage/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/graphlet-nan-fix/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/graphlet-nan-fix/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/desktop/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/desktop/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/installation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/llm-agent/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/llm-agent/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/quickstart/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/figures/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/figures/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/noise-robustness/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/noise-robustness/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/window-length-sweep/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/window-length-sweep/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/one-station-lstm/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/one-station-lstm/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/tune-transformer/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/tune-transformer/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/cli/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/cli/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/datasets/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/datasets/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/methods/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/for-hydrologists/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/de/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfr/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/for-hydrologists/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/changelog/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestchangelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/citation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/citation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/citation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestcitation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/citation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/faq/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/faq/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestfaq/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/faq/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-dataset/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-dataset/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-dataset/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-model/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-model/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-model/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-util/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/api/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestapi/benchmark-util/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/api/benchmark-util/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/release-process/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/release-process/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/release-process/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/working-style/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/developer-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestdeveloper-guide/working-style/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/developer-guide/working-style/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/eval-window-leakage/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/eval-window-leakage/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/eval-window-leakage/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/graphlet-nan-fix/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/explainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestexplainers/graphlet-nan-fix/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/explainers/graphlet-nan-fix/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/desktop/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/desktop/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/desktop/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/installation/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/installation/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/llm-agent/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/llm-agent/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/llm-agent/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/quickstart/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/getting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestgetting-started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/getting-started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/figures/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/figures/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/figures/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/noise-robustness/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/noise-robustness/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/noise-robustness/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/window-length-sweep/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/paper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestpaper/window-length-sweep/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/paper/window-length-sweep/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/one-station-lstm/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/one-station-lstm/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/one-station-lstm/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/tune-transformer/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/tutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latesttutorials/tune-transformer/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/tutorials/tune-transformer/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/cli/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/cli/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/datasets/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/datasets/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/datasets/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/methods/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/methods/"/>
+    </url>
+    <url>
+        <loc>https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/for-hydrologists/</loc>
+        <lastmod>2026-06-15</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latest/fr/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestde/user-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestuser-guide/for-hydrologists/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://jajupmochi.github.io/swiss-river-network-benchmark/latestzh/user-guide/for-hydrologists/"/>
+    </url>
+</urlset>

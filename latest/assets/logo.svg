@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Swiss River Network Benchmark logo">
+  <title>Swiss River Network Benchmark</title>
+  <desc>Stylized river graph with temperature gradient. Placeholder logo — replace with a polished version before v1.0.</desc>
+  <defs>
+    <linearGradient id="riverGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="tempGrad" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="2" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.25"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="96" ry="96" fill="#0f172a"/>
+
+  <!-- river spline -->
+  <g filter="url(#softShadow)" fill="none" stroke="url(#riverGrad)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M80 140 C 160 120, 180 220, 250 230 S 360 260, 430 190"/>
+    <path d="M250 230 C 240 290, 290 340, 360 340"/>
+    <path d="M180 200 C 170 280, 130 320, 110 380"/>
+  </g>
+
+  <!-- nodes (measurement stations) -->
+  <g stroke="#0f172a" stroke-width="4">
+    <circle cx="80"  cy="140" r="14" fill="#38bdf8"/>
+    <circle cx="180" cy="200" r="14" fill="#60a5fa"/>
+    <circle cx="250" cy="230" r="18" fill="#818cf8"/>
+    <circle cx="360" cy="260" r="14" fill="#a78bfa"/>
+    <circle cx="430" cy="190" r="14" fill="#c084fc"/>
+    <circle cx="360" cy="340" r="14" fill="#f472b6"/>
+    <circle cx="110" cy="380" r="14" fill="#f59e0b"/>
+  </g>
+
+  <!-- thermometer on the right -->
+  <g transform="translate(392 70)">
+    <rect x="0" y="0" width="32" height="220" rx="16" ry="16" fill="#0f172a" stroke="#e2e8f0" stroke-width="3"/>
+    <rect x="8" y="18" width="16" height="180" rx="8" ry="8" fill="url(#tempGrad)"/>
+    <circle cx="16" cy="240" r="28" fill="url(#tempGrad)" stroke="#e2e8f0" stroke-width="3"/>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="'Inter','Helvetica Neue',Arial,sans-serif" fill="#e2e8f0" text-anchor="middle">
+    <text x="256" y="455" font-size="44" font-weight="700" letter-spacing="2">SWISS RIVER</text>
+    <text x="256" y="492" font-size="22" font-weight="500" letter-spacing="6" fill="#94a3b8">NETWORK · BENCHMARK</text>
+  </g>
+</svg>
