@@ -66,24 +66,25 @@ water-temperature forecasting. It ships:
 
 <table>
   <tr>
-    <td align="center" width="33%"><strong>Fig. 2 — HLE / robustness radar</strong><br/>
-      <img src="assets/diagrams/architecture.svg" width="100%"/><br/>
-      <sub>(Placeholder — see <code>visualize_results/figures/all_resu_radar_grid_plot.pdf</code>.)</sub>
+    <td align="center" width="33%"><strong>Fig. 2 — multi-aspect metric radar</strong><br/>
+      <img src="assets/figures/fig2_radar.png" width="100%"/><br/>
+      <sub>LSTM vs Transformer across 4 architectures × 3 datasets — <code>visualize_results/err_resu_to_latex_table.ipynb</code>.</sub>
     </td>
     <td align="center" width="33%"><strong>Fig. 4 — window-length sweep</strong><br/>
-      <img src="assets/logo/logo.svg" width="100%"/><br/>
-      <sub>(Placeholder — produced by <code>window_lens_resu.ipynb</code>.)</sub>
+      <img src="assets/figures/fig4_window_length.png" width="100%"/><br/>
+      <sub>Nowcasting RMSE vs history window length — <code>visualize_results/window_lens_resu.ipynb</code>.</sub>
     </td>
-    <td align="center" width="33%"><strong>Sankey — method / graph choices</strong><br/>
-      <img src="assets/social/social-card.svg" width="100%"/><br/>
-      <sub>(Placeholder — produced by <code>sankey.ipynb</code>.)</sub>
+    <td align="center" width="33%"><strong>Model / graph selection guide</strong><br/>
+      <img src="assets/figures/sankey_choices.png" width="100%"/><br/>
+      <sub>Expert-informed selection paths — <code>visualize_results/sankey.ipynb</code>.</sub>
     </td>
   </tr>
 </table>
 
-> Run `uv run python scripts/export_assets.py --only figures --dpi 200` after a full
-> reproduction to rasterise the real paper figures into `assets/export/figures/` for
-> embedding.
+> Figures above are rasterised from the paper PDFs in
+> `swissrivernetwork/benchmark/visualize_results/figures/`. Regenerate them from CSVs by
+> running the notebooks under `visualize_results/`, or re-rasterise with
+> `uv run python scripts/export_assets.py --only figures --dpi 200`.
 
 ## Quickstart (≤ 30 s)
 
@@ -250,7 +251,7 @@ swiss-river-network-benchmark/
 │   │   ├── train_isolated_station.py
 │   │   ├── util.py                         # merge_graphlet_dfs, get_evaluation_path_keys…
 │   │   ├── dataset.py                      # readers + SequenceDataset(Windowed)
-│   │   └── visualize_results/              # notebooks that produce every paper figure
+│   │   └── visualize_results/              # notebooks + latex_tables_export.py (paper figures & tables)
 │   ├── app/
 │   │   ├── gradio_app.py                   # HF Space + local Gradio
 │   │   └── streamlit_app.py                # local UI with live visualization
