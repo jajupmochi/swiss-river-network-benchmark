@@ -93,7 +93,7 @@ def get_job_script_gpu(id_str):
         + id_str
         + r""""
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=jajupmochi@gmail.com
+#SBATCH --mail-user=your-email@example.com
 #SBATCH --output="outputs/"""
         + prefix_kw
         + r"""."""
@@ -167,7 +167,7 @@ def get_job_script_cpu(id_str):
 #SBATCH --partition=epyc2,bdw # @todo: to change it back
 #SBATCH --qos=job_gratis  # @fixme: for UBELIX, change as needed  "job_gratis": free tier, max 2x 4090 or 1x h100
 #SBATCH --mail-type=ALL
-#SBATCH --mail-user=jajupmochi@gmail.com
+#SBATCH --mail-user=your-email@example.com
 #SBATCH --output="outputs/"""
         + prefix_kw
         + r""".cpu."""
@@ -220,7 +220,7 @@ echo Local work dir_file : $LOCAL_WORK_DIR
 
 
 # TODO: this is not working correctly.
-def check_job_script(script, user="lj22u267"):
+def check_job_script(script, user="username"):
     """
     Check the job name in the given script, to see if it is already submitted in
     the cluster by SLURM.
