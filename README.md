@@ -246,6 +246,7 @@ inference (CPU otherwise).
 | Local workbench | `uv run srn app gradio` | The full workbench; GPU auto-detected. |
 | Local Streamlit | `uv run srn app streamlit` | Alternative Explore / Predict / Compare UI. |
 | Desktop installer | double-click the `.exe` / `.dmg` / `.AppImage` | Bundled Streamlit UI. |
+| **One-click (no coding)** | double-click `scripts/launch-workbench.command` (macOS) / `.bat` (Windows), or run `scripts/launch-workbench.sh` (Linux) | Installs `uv` + dependencies on first run and opens the workbench in your browser. |
 
 See the **[workbench manual](docs/user-guide/workbench.md)** for a tab-by-tab guide
 and a no-code hydrologist walkthrough. Every visualization is computed from the
@@ -277,7 +278,7 @@ swiss-river-network-benchmark/
 ├── assets/                                  # logo, social card, architecture diagram
 ├── docs/                                    # MkDocs Material site (en / zh / de / fr)
 ├── packaging/                               # PyInstaller spec + platform entry scripts
-├── scripts/                                 # export_assets.py, smoke helpers
+├── scripts/                                 # launch-workbench.* (one-click), export_assets.py
 ├── tests/
 ├── .claude/skills/                          # Claude Code skills (install, run-benchmark)
 ├── pyproject.toml                           # PEP 621 metadata, extras, console scripts

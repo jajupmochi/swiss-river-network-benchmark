@@ -1478,6 +1478,7 @@ def main():
     demo.launch(
         server_name=os.environ.get("SRN_HOST", "0.0.0.0"),
         server_port=int(os.environ.get("SRN_PORT", "7860")),
+        inbrowser=bool(os.environ.get("SRN_INBROWSER")),
     )
 
 

@@ -23,6 +23,13 @@ what you run locally.
 
 ## Launching it
 
+**One-click (no coding needed).** Double-click `scripts/launch-workbench.command`
+(macOS) or `scripts/launch-workbench.bat` (Windows), or run
+`scripts/launch-workbench.sh` (Linux). It installs the `uv` package manager and all
+dependencies on the first run, then opens the app in your browser — nothing else to set up.
+
+From the command line:
+
 ```bash
 # Recommended: installs the app extra (gradio, folium, …) on first run.
 uv run srn app gradio
