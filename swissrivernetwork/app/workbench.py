@@ -54,7 +54,8 @@ def _resolve_data() -> Path:
     if env:
         cands.append(Path(env))
     cands.append(here / "data")
-    cands.append(here.parents[1] / "tmp" / "hf-space" / "data")
+    if len(here.parents) > 1:  # repo-checkout dev fallback; absent on a shallow path like /app
+        cands.append(here.parents[1] / "tmp" / "hf-space" / "data")
     for c in cands:
         if c and (c / "stations_zurich.csv").exists():
             return c
