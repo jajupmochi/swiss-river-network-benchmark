@@ -1,3 +1,10 @@
+"""Export the river-network graph and its water-temperature data for GNN use.
+
+Reads the Rhine graph structure, prunes unwanted nodes, plots the graph and
+its time series, aligns the per-station water-temperature series into a single
+table, and dumps both the graph tensors and the CSV.
+"""
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
@@ -9,6 +16,7 @@ This Script exports the Graph such that we can use Graph Neural Networks on it
 
 
 def remove_node(x, e, node_to_remove):
+    """Drop node ``node_to_remove`` from features ``x`` and edge index ``e``, reindexing edges."""
     new_x = torch.cat([x[:node_to_remove], x[node_to_remove + 1 :]], dim=0)
     mask = e != node_to_remove
     new_e = e[:, mask[0] & mask[1]]
@@ -32,6 +40,13 @@ def plot_graph(
     use_static_color=False,
     verbose: int = 2,
 ):
+    """Scatter-plot the river-network stations with connecting edges on the current axes.
+
+    Node color encodes ``information[station]`` values via ``color``/``cmap`` (optionally a
+    static color), a ``noisy_node`` is highlighted in red, and a colorbar is attached unless
+    ``skipcolorbar``. Axis limits get a ``margin`` unless ``skipmargin``; ``verbose > 1`` prints
+    diagnostics.
+    """
     node_positions = nodes[:, :2].numpy()
     edges = e.numpy()
 
@@ -127,6 +142,7 @@ def plot_graph(
 
 
 def plot_nan_locations(total):
+    """Heatmap the NaN mask of ``total`` (stations on x, time on y)."""
     plt.figure(figsize=(10, 6))
     sns.heatmap(total.isna(), cbar=False, cmap="viridis")
     plt.title("Nan Values Locations")
@@ -135,6 +151,7 @@ def plot_nan_locations(total):
 
 
 def plot_values(total, title="Water Temperatures"):
+    """Heatmap the per-station values of ``total`` (drops ``epoch_day``/``has_nan`` columns)."""
     plt.figure(figsize=(10, 6))
     sns.heatmap(total.drop(columns=["epoch_day", "has_nan"]), cmap="viridis")
     plt.title(title)
@@ -143,6 +160,7 @@ def plot_values(total, title="Water Temperatures"):
 
 
 def plot_linegraph_values(total, title="Water Temperatures"):
+    """Line-plot each station's series in ``total`` against ``epoch_day``."""
     plt.figure(figsize=(10, 6))
 
     for column in total.drop(columns=["epoch_day", "has_nan"]):
@@ -155,6 +173,12 @@ def plot_linegraph_values(total, title="Water Temperatures"):
 
 
 def graph_export(x, e, dump_dir, graph_name):
+    """Align and dump the graph's water-temperature data as a CSV, with plots.
+
+    Plots the graph, reads each station's water temperature, outer-joins the series on
+    ``epoch_day`` (adding a ``has_nan`` flag), writes ``water_temperature_{graph_name}.csv``
+    to ``dump_dir``, and displays value heatmaps/line plots for inspection.
+    """
     from swissrivernetwork.reader.water_reader import RawBafuReaderFactory
 
     # Plot Rhine Figure:

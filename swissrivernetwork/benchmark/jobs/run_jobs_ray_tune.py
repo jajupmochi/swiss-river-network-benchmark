@@ -35,6 +35,15 @@ infras = "ubelix"  # 'criann'
 
 
 def get_job_script(job_name: str, py_file: str, params: dict = {}, device: str = "gpu") -> str:
+    """Build the shell command that submits (or runs) a Ray Tune job for one config.
+
+    Selects the SLURM template by ``device`` (``"gpu"`` / ``"cpu"`` / ``"cpu_local"``),
+    appends ``python3 <py_file>`` with ``--key value`` flags from ``params``, and
+    wraps it in an ``sbatch <<EOF ... EOF`` heredoc (or a redirect for ``cpu_local``).
+
+    Raises:
+        ValueError: If ``device`` is None.
+    """
     if device == "gpu":
         script = get_job_script_gpu(job_name)
 
@@ -79,6 +88,7 @@ python3 """
 
 
 def get_job_script_gpu(id_str):
+    """Return the UBELIX GPU SLURM preamble (gratis account, rtx4090) for job ``id_str``."""
     # ubelix
     script = (
         r"""
@@ -152,6 +162,7 @@ echo Local work dir_file : $LOCAL_WORK_DIR
 
 
 def get_job_script_cpu(id_str):
+    """Return the UBELIX CPU SLURM preamble (gratis account, epyc2/bdw) for job ``id_str``."""
     script = (
         r"""
 #!/bin/bash
@@ -207,6 +218,7 @@ echo Local work dir_file : $LOCAL_WORK_DIR
 
 
 def get_job_script_cpu_local():
+    """Return a minimal local (non-SLURM) shell preamble that just changes directory."""
     script = (
         r"""
 cd """

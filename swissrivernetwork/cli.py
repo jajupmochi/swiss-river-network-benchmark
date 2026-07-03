@@ -84,6 +84,7 @@ def _forward(module: str, argv: Optional[List[str]] = None) -> None:
 # ---------------------------------------------------------------------------
 @app.command("prepare-data", help="Build the three dataset splits (swiss-1990, swiss-2010, zurich).")
 def prepare_data() -> None:
+    """Build the three dataset splits (swiss-1990, swiss-2010, zurich)."""
     _forward("swissrivernetwork.benchmark.data_preparation")
 
 
@@ -93,6 +94,7 @@ def prepare_data() -> None:
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def tune(ctx: typer.Context) -> None:
+    """Run the Ray Tune hyper-parameter search; flags after ``--`` forward to ``ray_tune``."""
     _forward("swissrivernetwork.benchmark.ray_tune", ctx.args)
 
 
@@ -101,6 +103,7 @@ def tune(ctx: typer.Context) -> None:
     help="Evaluate Ray-tuned checkpoints. Edit ray_evaluation.py `__main__` block to configure.",
 )
 def evaluate() -> None:
+    """Evaluate Ray-tuned checkpoints (configure via the ``ray_evaluation`` ``__main__`` block)."""
     _forward("swissrivernetwork.benchmark.ray_evaluation")
 
 
@@ -109,6 +112,7 @@ def evaluate() -> None:
     help="Window-length sweep producing the Fig. 4 / HLE CSVs.",
 )
 def sweep() -> None:
+    """Run the window-length sweep producing the Fig. 4 / HLE CSVs."""
     _forward("swissrivernetwork.benchmark.run_win_len_sweep")
 
 
@@ -118,6 +122,7 @@ def sweep() -> None:
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def train_single(ctx: typer.Context) -> None:
+    """Train a single unified model without Ray Tune."""
     _forward("swissrivernetwork.benchmark.train_single_model", ctx.args)
 
 
@@ -127,6 +132,7 @@ def train_single(ctx: typer.Context) -> None:
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def train_isolated(ctx: typer.Context) -> None:
+    """Train per-station (isolated) models without Ray Tune."""
     _forward("swissrivernetwork.benchmark.train_isolated_station", ctx.args)
 
 
@@ -135,6 +141,7 @@ def train_isolated(ctx: typer.Context) -> None:
 # ---------------------------------------------------------------------------
 @app_cmd.command("gradio", help="Launch the interactive workbench (Gradio; same app as the Hugging Face Space).")
 def app_gradio() -> None:
+    """Launch the interactive Gradio workbench (same app as the Hugging Face Space)."""
     _forward("swissrivernetwork.app.gradio_app")
 
 
@@ -143,11 +150,13 @@ def app_gradio() -> None:
     help="Alias for `srn app gradio` — the full local workbench (explore / train / infer / analyse).",
 )
 def app_workbench() -> None:
+    """Alias for ``srn app gradio`` — the full local workbench."""
     _forward("swissrivernetwork.app.workbench")
 
 
 @app_cmd.command("streamlit", help="Launch the Streamlit local UI (Explore / Predict / Compare).")
 def app_streamlit() -> None:
+    """Launch the Streamlit local UI (Explore / Predict / Compare)."""
     # Streamlit expects `streamlit run <script>` rather than `python -m <module>`. We
     # emulate that entry via the streamlit.web.cli module.
     import importlib.resources as _res
@@ -161,6 +170,7 @@ def app_streamlit() -> None:
 # ---------------------------------------------------------------------------
 @app.command("version", help="Print package version.")
 def version_cmd() -> None:
+    """Print the installed package version."""
     try:
         typer.echo(version("swissrivernetwork"))
     except PackageNotFoundError:

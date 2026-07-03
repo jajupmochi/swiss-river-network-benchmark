@@ -39,21 +39,25 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
 def read_stations(graph_name, base_dir: str | Path = PROJ_DIR):
+    """Return the list of station IDs (as strings) for ``graph_name``."""
     x, _ = read_graph(graph_name, base_dir=base_dir)
     return [str(i) for i in x[:, 2].numpy()]
 
 
 def read_graph(graph_name, base_dir: str | Path = PROJ_DIR):
+    """Load the ``(node_features, edge_index)`` graph tensor tuple for ``graph_name`` from the dump."""
     return torch.load(f"{str(base_dir)}/swissrivernetwork/benchmark/dump/graph_{graph_name}.pth")
 
 
 def read_csv_train(graph_name, base_dir: str | Path = PROJ_DIR):
+    """Read the training CSV (wide, one ``<station>_wt``/``_at`` column pair per station) for ``graph_name``."""
     return pd.read_csv(f"{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_train.csv")  # DUPLICATE?!
 
 
 def read_csv_prediction_train(
     graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None, base_dir: str | Path = PROJ_DIR
 ):
+    """Read a station's dumped train-set predictions for ``method`` (defaults to the ``dump/predictions`` dir)."""
     predict_dump_dir = (
         f"{base_dir}/swissrivernetwork/benchmark/dump/predictions" if predict_dump_dir is None else predict_dump_dir
     )
@@ -61,12 +65,21 @@ def read_csv_prediction_train(
 
 
 def select_isolated_station(df, station):
+    """Select one station's columns and rename them to generic ``water_temperature`` /
+    ``air_temperature`` (keeps all rows; does not drop any)."""
     return df[["epoch_day", f"{station}_wt", f"{station}_at"]].rename(
         columns={f"{station}_wt": "water_temperature", f"{station}_at": "air_temperature"}
     )
 
 
 def select_conditioned_columns(df: pd.DataFrame, **kwargs):
+    """Select the single pre-generated noisy air-temperature column matching ``noise_type`` and its params.
+
+    Builds the expected column suffix from ``noise_type`` (``"gaussian_a"`` /
+    ``"impulse_a"``) and ``noise_kwargs``, then returns ``(epoch_day, <renamed column>)``.
+    Raises ``ValueError`` for an unknown noise type or if the suffix does not match exactly
+    one column.
+    """
     noise_type = kwargs.get("noise_type")
     noise_kwargs = kwargs.get("noise_kwargs")
     if noise_type == "gaussian_a":
@@ -82,12 +95,14 @@ def select_conditioned_columns(df: pd.DataFrame, **kwargs):
 
 
 def read_csv_test(graph_name, base_dir: str | Path = PROJ_DIR):
+    """Read the test CSV (wide, one ``<station>_wt``/``_at`` column pair per station) for ``graph_name``."""
     return pd.read_csv(f"{base_dir}/swissrivernetwork/benchmark/dump/{graph_name}_test.csv")
 
 
 def read_csv_prediction_test(
     graph_name: str, method: str, station, predict_dump_dir: str | Path | None = None, based_dir: str | Path = PROJ_DIR
 ):
+    """Read a station's dumped test-set predictions for ``method`` (defaults to the ``dump/predictions`` dir)."""
     predict_dump_dir = (
         f"{based_dir}/swissrivernetwork/benchmark/dump/predictions" if predict_dump_dir is None else predict_dump_dir
     )
@@ -95,12 +110,19 @@ def read_csv_prediction_test(
 
 
 def read_station_data_from_df(df_all: pd.DataFrame, station: str):
+    """Select one station's ``wt``/``at`` columns and rename them to the ``<station>_wt_hat`` /
+    ``_at_hat`` prediction-column convention used by graphlet models."""
     return df_all[["epoch_day", f"{station}_wt", f"{station}_at"]].rename(
         columns={f"{station}_wt": f"{station}_wt_hat", f"{station}_at": f"{station}_at_hat"}
     )
 
 
 def normalize_isolated_station(df):
+    """Min-max scale ``air_temperature`` and ``water_temperature`` in place and return the fitted scalers.
+
+    Returns ``(df, normalizer_at, normalizer_wt)``. Asserts there are no NaNs in the input
+    air temperature (NaN in the water-temperature target is allowed and later masked).
+    """
     # Normalize air temperature, water temperature
     normalizer_at = MinMaxScaler()
     df["air_temperature"] = normalizer_at.fit_transform(df["air_temperature"].values.reshape(-1, 1))
@@ -121,6 +143,7 @@ def normalize_isolated_station(df):
 
 
 def normalize_columns(df):
+    """Min-max scale every column except ``epoch_day``/``has_nan``; return ``(df_normalized, normalizer)``."""
     normalizer = MinMaxScaler()
     cols = df.columns.difference(["epoch_day", "has_nan"])
     df_normalized = df.copy()
@@ -129,6 +152,7 @@ def normalize_columns(df):
 
 
 def train_valid_split(config, df):
+    """Chronologically split ``df`` into train/validation at ``config['train_split']`` (no shuffle)."""
     # Split into Train and Validation:
     train_size = int(config["train_split"] * len(df))
     df_train = df.iloc[:train_size].reset_index(drop=True)
@@ -182,6 +206,17 @@ def add_impulse_noise(data: np.ndarray, probability: float = 0.01, scale_factor:
 
 
 class SequenceDataset(torch.utils.data.Dataset):
+    """Base sliding-window dataset over one station's daily time series.
+
+    Splits ``df`` into contiguous runs wherever ``epoch_day`` is not consecutive, then
+    enumerates length-``window_len`` windows within each run (``window_len <= 0`` means whole
+    runs). Runs shorter than ``window_len`` are handled by ``short_subsequence_method``
+    (``"drop"`` removes them, ``"pad"`` zero-pads them). Optionally injects input noise via
+    ``noise_type`` / ``noise_kwargs``. ``embedding_idx`` is the station embedding id attached
+    to every emitted sample. Subclasses implement ``__len__`` / ``__getitem__``; samples are
+    built by :meth:`as_tensors` as ``(t, embs, x, y)``.
+    """
+
     def __init__(
         self,
         window_len,
@@ -208,6 +243,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.extract_sequences()
 
     def extract_sequences(self):
+        """Detect contiguous ``epoch_day`` runs and populate ``sequences`` (start indices) and
+        ``sequence_lengths`` (window counts), applying ``short_subsequence_method`` to runs
+        shorter than ``window_len``."""
         day_diff = self.df["epoch_day"].diff()
         breaks = day_diff != 1
         sequence_id = breaks.cumsum()
@@ -249,6 +287,8 @@ class SequenceDataset(torch.utils.data.Dataset):
     def process_short_subsequences_drop(
         df, sequences: np.ndarray[int], sequence_lengths: np.ndarray[int], window_len: int
     ):
+        """Drop runs shorter than ``window_len`` (negative window count) and return the filtered
+        ``(df, sequences, sequence_lengths)`` unchanged otherwise."""
         # remove short sequences
         drop_sequences = sequence_lengths < 0
         sequences = sequences[~drop_sequences]
@@ -323,6 +363,12 @@ class SequenceDataset(torch.utils.data.Dataset):
         return df_padded, sequences, sequence_lengths
 
     def as_tensors(self, df):
+        """Convert a window dataframe into the ``(t, embs, x, y)`` tensor tuple.
+
+        ``t`` is ``epoch_day``, ``x`` is air temperature (with any ``*_wt_hat`` neighbor
+        prediction columns appended as extra features for graphlet models), ``y`` is water
+        temperature, and ``embs`` is the constant station embedding index (zeros if none).
+        """
         t = torch.IntTensor(df["epoch_day"].values).unsqueeze(-1)
         x = torch.FloatTensor(df["air_temperature"].values).unsqueeze(-1)
         y = torch.FloatTensor(df["water_temperature"].values).unsqueeze(-1)
@@ -346,6 +392,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        """Add noise (in place) to the ``air_temperature`` column of ``df`` and return it."""
         # todo: there is a small problem: when using graphlet, the neighbor predictions are done by previous lstm model,
         # which uses a different random seed than the current one. So the noise added here is not exactly the same
         # as that in the neighbor predictions. But this should be a minor issue.
@@ -355,6 +402,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def add_noise_to_array(arr: np.ndarray, noise_type: str, noise_kwargs: dict) -> np.ndarray:
+        """Apply ``"gaussian_a"`` or ``"impulse_a"`` noise to ``arr`` per ``noise_kwargs``; raise on unknown type."""
         if noise_type == "gaussian_a":
             noise_level = noise_kwargs.get("noise_level")
             arr_noisy = add_gaussian_noise(arr, noise_level=noise_level)
@@ -368,6 +416,11 @@ class SequenceDataset(torch.utils.data.Dataset):
             raise ValueError(f"Unknown noise_type: {noise_type}.")
 
     def as_stgnn_tensors(self, df):
+        """Build STGNN tensors ``(t, embs, x, y)`` stacked over all ``self.stations``.
+
+        Each output has a leading node (station) dimension; ``x``/``y`` are the per-station
+        air/water temperature and ``embs`` is an all-zero embedding-index tensor.
+        """
         ts = []
         xs = []
         ys = []
@@ -409,6 +462,12 @@ class SequenceFullDataset(SequenceDataset):
 
 
 class SequenceWindowedDataset(SequenceDataset):
+    """Sliding-window dataset: one sample per length-``window_len`` window across all runs.
+
+    ``__getitem__`` maps a flat index into the corresponding window and returns its
+    :meth:`as_tensors` tuple; ``dev_run`` caps the length at 10 samples for quick smoke tests.
+    """
+
     def __init__(self, window_len, df, embedding_idx=None, name: str = "", dev_run: bool = False, **kwargs):
         super().__init__(window_len, df, embedding_idx, name=name, **kwargs)
         self.dev_run = dev_run
@@ -437,6 +496,15 @@ class SequenceWindowedDataset(SequenceDataset):
 
 
 class SequenceMaskedDataset(SequenceDataset):
+    """Sequence dataset that bridges short day gaps by inserting masked (padded) rows.
+
+    Gaps of at most ``max_mask_consecutive`` missing days are filled with zero rows flagged
+    in a ``time_mask`` column (larger gaps still break the sequence), so consecutive windows
+    can span small holes; the mask lets the model / loss ignore those positions. Emitted
+    samples include the boolean ``time_masks`` (and ``pad_masks`` when present).
+    ``max_mask_ratio`` is reserved for future use.
+    """
+
     def __init__(
         self,
         window_len,
@@ -456,6 +524,12 @@ class SequenceMaskedDataset(SequenceDataset):
         )
 
     def extract_sequences(self):
+        """Insert masked zero rows for gaps up to ``max_mask_consecutive`` days, then re-run the
+        base window extraction on the padded frame.
+
+        Requires ``epoch_day`` sorted ascending and NaN-free. Adds a ``time_mask`` column
+        (True on inserted rows) so the model / loss can ignore the padded days.
+        """
         day_diff = self.df["epoch_day"].diff()
         if (day_diff < 0).any():
             raise ValueError("DataFrame must be sorted by epoch_day in ascending order!")
@@ -515,6 +589,8 @@ class SequenceMaskedDataset(SequenceDataset):
         # drop_sequences = drop_sequences | (self.masks.groupby(sequence_id).sum().values > self.max_mask_ratio * sequence_lengths)
 
     def as_tensors(self, df: pd.DataFrame):
+        """Build the masked sample tuple, appending the boolean ``time_masks`` (and ``pad_masks``
+        when the frame has a ``pad_mask`` column) to the base ``(t, embs, x, y)`` tensors."""
         t = torch.IntTensor(df["epoch_day"].values).unsqueeze(-1)
         x = torch.FloatTensor(df["air_temperature"].values).unsqueeze(-1)
         y = torch.FloatTensor(df["water_temperature"].values).unsqueeze(-1)
@@ -542,6 +618,11 @@ class SequenceMaskedDataset(SequenceDataset):
             return t, embs, x, y, time_masks
 
     def as_stgnn_tensors(self, df):
+        """Build STGNN tensors ``(t, embs, x, y)`` stacked over all ``self.stations``.
+
+        Each output has a leading node (station) dimension; ``x``/``y`` are the per-station
+        air/water temperature and ``embs`` is an all-zero embedding-index tensor.
+        """
         ts = []
         xs = []
         ys = []
@@ -564,6 +645,12 @@ class SequenceMaskedDataset(SequenceDataset):
 
 
 class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
+    """Sliding-window variant of :class:`SequenceMaskedDataset`.
+
+    One sample per length-``window_len`` window over the gap-padded frame; each returns the
+    masked :meth:`as_tensors` tuple. ``dev_run`` caps the length at 10 samples.
+    """
+
     def __init__(
         self,
         window_len,
@@ -612,15 +699,22 @@ class SequenceMaskedWindowedDataset(SequenceMaskedDataset):
 
 
 class STGNNSequenceFullDataset(SequenceFullDataset):
+    """Full-sequence STGNN dataset: emits all stations stacked along a node dimension.
+
+    Whole runs (no windowing) built via :meth:`as_stgnn_tensors` for the given ``stations``.
+    """
+
     def __init__(self, df, stations, **kwargs):
         super().__init__(df, **kwargs)
         self.stations = stations
 
     def as_tensors(self, df):
+        """Return the multi-station STGNN tensor tuple (delegates to :meth:`as_stgnn_tensors`)."""
         return super().as_stgnn_tensors(df)
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        """Add noise (in place) to every ``*_at`` (air-temperature) column of ``df`` and return it."""
         for col in df.columns:
             if col.endswith("_at"):
                 at = df[col].values
@@ -629,13 +723,21 @@ class STGNNSequenceFullDataset(SequenceFullDataset):
 
 
 class STGNNSequenceWindowedDataset(SequenceWindowedDataset):
+    """Sliding-window STGNN dataset: emits all stations stacked along a node dimension.
+
+    One length-``window_len`` window per sample built via :meth:`as_stgnn_tensors` for the
+    given ``stations``.
+    """
+
     def __init__(self, window_len, df, stations, dev_run: bool = False, **kwargs):
         super().__init__(window_len, df, dev_run=dev_run, **kwargs)
         self.stations = stations
 
     def as_tensors(self, df):
+        """Return the multi-station STGNN tensor tuple (delegates to :meth:`as_stgnn_tensors`)."""
         return super().as_stgnn_tensors(df)
 
     @staticmethod
     def add_noise(df: pd.DataFrame, noise_type: str, noise_kwargs: dict) -> pd.DataFrame:
+        """Add noise to every ``*_at`` column (delegates to :meth:`STGNNSequenceFullDataset.add_noise`)."""
         return STGNNSequenceFullDataset.add_noise(df, noise_type, noise_kwargs)

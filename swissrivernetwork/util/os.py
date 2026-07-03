@@ -54,6 +54,7 @@ def open_in_file_manager(path):
 
 
 def make_open_button(path, label="Open in File Manager"):
+    """Display a Jupyter button that opens ``path`` in the file manager on click."""
     import ipywidgets as widgets
     from IPython.display import display
 

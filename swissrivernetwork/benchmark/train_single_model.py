@@ -22,6 +22,7 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
 def train_lstm_embedding(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train one unified LSTM model (optionally with station embeddings) over all stations."""
     valid_use_window = settings.get("valid_use_window", True)
 
     # Setup Dataset
@@ -110,6 +111,16 @@ def create_dataset_embedding(
     name: str = "",  # station name
     dev_run: bool = False,
 ):
+    """Normalize, split, and build windowed train/valid datasets for one station.
+
+    Args:
+        i: Station index stored as the dataset's embedding index.
+        valid_use_window: If True, window the validation set; otherwise use the
+            full sequence.
+
+    Returns:
+        ``(dataset_train, dataset_valid, normalizer_at, normalizer_wt)``.
+    """
     # Normalize
     df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
 
@@ -128,6 +139,7 @@ def create_dataset_embedding(
 
 
 def train_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train a spatio-temporal GNN (LSTM temporal backbone) jointly over the graph."""
     # # test only
     # print(config)
     # print(settings)
@@ -290,6 +302,15 @@ def create_masked_dataset_embedding(
     name: str = "",  # station name
     dev_run: bool = False,
 ):
+    """Normalize, split, and build masked windowed train/valid datasets for one station.
+
+    Like :func:`create_dataset_embedding` but yields randomly masked windows
+    (bounded by ``max_mask_ratio`` and ``max_mask_consecutive``) for masked
+    transformer training.
+
+    Raises:
+        NotImplementedError: If ``valid_use_window`` is False.
+    """
     # Normalize
     df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
 
@@ -405,6 +426,7 @@ def train_masked_transformer_embedding(config, settings: benedict = benedict({})
 
 
 def train_transformer_stgnn(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train a spatio-temporal GNN with a transformer temporal backbone over the graph."""
     # # test only
     # print(config)
     # print(settings)

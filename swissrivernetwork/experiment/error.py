@@ -1,9 +1,13 @@
+"""NumPy error metrics (RMSE, MAE, NSE) for scoring model predictions."""
+
 import numpy as np
 
 # provide numpy error functions to reduce code duplications
 
 
 class Error:
+    """Namespace of static NumPy error metrics: RMSE, MAE, and NSE."""
+
     @staticmethod
     def rmse(y, y_hat):
         """
@@ -28,6 +32,7 @@ class Error:
 
 
 def compute_errors(actual, prediction):
+    """Compute ``(rmse, mae, nse)`` for the given actual and predicted arrays."""
     from swissrivernetwork.experiment.error import Error
 
     rmse = Error.rmse(actual, prediction)

@@ -1,3 +1,10 @@
+"""Parallel-coordinate plots of isolated-station hyperparameter tuning runs.
+
+Reads Ray Tune results per station via
+:func:`~swissrivernetwork.benchmark.ray_evaluation.experiment_analysis_isolated_station`
+and plots normalized hyperparameters colored by validation MSE.
+"""
+
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
@@ -7,6 +14,12 @@ from .ray_evaluation import experiment_analysis_isolated_station
 
 
 def visualize_all_isolated_experiments(graph_name, method):
+    """Plot the best-trial hyperparameters across all stations as parallel coordinates.
+
+    For each station, pull its Ray Tune runs, bin trials by validation MSE, keep only the
+    single best trial (normalized hyperparameters), then overlay every station's best trial
+    on one MSE-colored parallel-coordinates plot.
+    """
     # Create dataframes and combine them:
     cols_to_plot = ["config/batch_size", "config/learning_rate", "config/hidden_size", "config/num_layers"]
     target_col = "validation_mse"
@@ -65,6 +78,7 @@ def visualize_all_isolated_experiments(graph_name, method):
 
 
 def visualize_isolated_experiment(graph_name, method, station):
+    """Plot the top-decile trials for one station as MSE-colored parallel coordinates."""
     analysis = experiment_analysis_isolated_station(graph_name, method, station)
 
     df = analysis.dataframe(metric="validation_mse", mode="min")

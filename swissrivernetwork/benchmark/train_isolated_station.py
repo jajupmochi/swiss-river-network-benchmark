@@ -20,6 +20,7 @@ DUMP_DIR = (CUR_ABS_DIR / "../../" / "swissrivernetwork/benchmark/dump/").resolv
 
 
 def train_lstm(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train an isolated LSTM model on a single station's time series."""
     # config
     station = config["station"]
     graph_name = config["graph_name"]
@@ -32,6 +33,7 @@ def train_lstm(config, settings: benedict = benedict({}), verbose: int = 2):
 
 
 def train_transformer(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train an isolated transformer model on a single station's time series."""
     # config
     station = config["station"]
     graph_name = config["graph_name"]
@@ -47,6 +49,11 @@ def train_transformer(config, settings: benedict = benedict({}), verbose: int = 
 
 
 def train_graphlet(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train an LSTM graphlet model on a station plus its 1-hop neighbors' LSTM predictions.
+
+    Requires the neighbors' ``lstm`` ``wt_hat`` prediction files to already exist
+    (produced by prior LSTM test-time evaluation).
+    """
     station = config["station"]
     graph_name = config["graph_name"]
     num_hops = 1  # use 1-Hop Neighborhood
@@ -66,6 +73,11 @@ def train_graphlet(config, settings: benedict = benedict({}), verbose: int = 2):
 
 
 def train_transformer_graphlet(config, settings: benedict = benedict({}), verbose: int = 2):
+    """Train a transformer graphlet model on a station plus its 1-hop neighbors' predictions.
+
+    Requires the neighbors' ``transformer`` ``wt_hat`` prediction files to
+    already exist (produced by prior transformer test-time evaluation).
+    """
     station = config["station"]
     graph_name = config["graph_name"]
     num_hops = 1  # use 1-Hop Neighborhood
@@ -89,6 +101,15 @@ def train_transformer_graphlet(config, settings: benedict = benedict({}), verbos
 
 
 def train_isolated_station(config, input_size, df, settings: benedict = benedict({}), verbose: int = 2):
+    """Normalize, split, build a model, and run the training loop for one station.
+
+    Shared backend for the isolated / graphlet trainers. Picks a transformer or
+    LSTM (current-step vs. extrapolation) model based on ``settings["method"]``
+    and ``config``.
+
+    Args:
+        input_size: Number of input features (1 for isolated; 1 + neighbors for graphlet).
+    """
     # Normalize and Split
     df, normalizer_at, normalizer_wt = normalize_isolated_station(df)
     df_train, df_valid = train_valid_split(config, df)

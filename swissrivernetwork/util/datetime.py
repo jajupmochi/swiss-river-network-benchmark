@@ -1,3 +1,10 @@
+"""Unix-timestamp helpers and dataset split-boundary constants.
+
+The ``UNIX_*`` module constants are precomputed UTC epoch seconds marking the
+train/val/test split boundaries used by the benchmark datasets. The functions
+convert between pandas datetimes, epoch seconds, and whole epoch-days.
+"""
+
 import datetime
 
 import pandas
@@ -28,28 +35,34 @@ def unix_timestamp(dataframe: pandas.DataFrame, format: str):
 
 
 def unix_days(dataframe_with_timestamp: pandas.DataFrame):
+    """Convert epoch seconds to whole epoch-days (integer floor division)."""
     return dataframe_with_timestamp // 86400  # seconds per day
 
 
 def from_unix_days(dataframe_with_epoch_day):
+    """Convert whole epoch-days back to epoch seconds."""
     return dataframe_with_epoch_day * 86400  # seconds per day
 
 
 def to_unix_days(timestamp: int) -> int:
+    """Convert a single epoch-seconds timestamp to a whole epoch-day."""
     return timestamp // 86400
 
 
 def to_datetime(timestamp: int) -> datetime.datetime:
+    """Convert epoch seconds to a UTC-aware :class:`datetime.datetime`."""
     return datetime.datetime.fromtimestamp(timestamp).astimezone(
         datetime.timezone.utc
     )  # .replace(tzinfo=datetime.timezone.utc)
 
 
 def to_human(timestamp: int) -> str:
+    """Return the UTC datetime string for the given epoch-seconds timestamp."""
     return str(to_datetime(timestamp))
 
 
 def from_human(day, month, year) -> str:
+    """Return the UTC epoch-seconds timestamp for the given calendar date."""
     dt = datetime.datetime(year, month, day)
     timestamp = dt.replace(tzinfo=datetime.timezone.utc).timestamp()
     return int(timestamp)

@@ -195,9 +195,15 @@ nav:
       - Figures: paper/figures.md
   - API reference:
       - api/index.md
-      - benchmark.util: api/benchmark-util.md
-      - benchmark.dataset: api/benchmark-dataset.md
-      - benchmark.model: api/benchmark-model.md
+      - CLI: api/cli.md
+      - Benchmark pipeline: api/benchmark-pipeline.md
+      - Data & datasets: api/benchmark-dataset.md
+      - Models: api/benchmark-model.md
+      - NN layers & training: api/benchmark-nn.md
+      - Helpers: api/benchmark-util.md
+      - Results & tables: api/results.md
+      - Interactive workbench: api/app.md
+      - Utilities: api/utilities.md
   - Explainers:
       - explainers/index.md
       - Eval-window leakage: explainers/eval-window-leakage.md

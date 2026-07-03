@@ -1,3 +1,12 @@
+"""Training loop and validation-metric computation for the benchmark.
+
+Provides :func:`training_loop` (the shared Adam/MSE loop used by every entry
+point, with per-epoch Ray-Tune reporting, Weights & Biases logging, and OOM
+handling) and a family of ``compute_all_metrics*`` helpers that de-normalize
+predictions and report validation MSE, over-all RMSE, and station-averaged
+RMSE for both isolated-station and spatio-temporal (STGNN) models.
+"""
+
 import sys
 import tempfile
 from typing import Callable, Iterable
@@ -40,6 +49,26 @@ def training_loop(
     settings: benedict = benedict({}),
     verbose: int = 2,
 ):
+    """Train ``model`` for ``config['epochs']`` epochs and report validation metrics.
+
+    Runs an Adam + masked-MSE loop shared by all model types. Each dataloader batch may
+    be ``(t, e, x, y)`` or additionally carry ``time_masks`` / ``pad_masks``; the model is
+    dispatched as ``model(x, edges, ...)`` (STGNN), ``model(e, x, ...)`` (embedding), or
+    ``model(x, ...)``, and NaN/mask/padding positions are excluded from the loss. For
+    forecasting (``use_current_x=False``) only the last ``future_steps`` are scored. Every
+    epoch checkpoints the state dict, reports metrics to Ray Tune (when in a trial), and
+    logs to Weights & Biases (unless disabled). Out-of-memory ``RuntimeError`` is caught
+    and reported as a skipped trial rather than raised.
+
+    Args:
+        config: Hyperparameters (learning rate, epochs, graph name, forecasting settings).
+        n_valid: Unused count of validation samples (kept for signature compatibility).
+        use_embedding: Whether the model takes a station-embedding index argument.
+        edges: Edge index tensor for STGNN models, else ``None``.
+        normalizer_wt: Per-station water-temperature scalers used to de-normalize for RMSE.
+        wandb_project: W&B project name, or ``None`` to disable logging.
+        verbose: ``>=2`` prints data/model summaries and progress bars.
+    """
     # Set up configurations:
     use_current_x = config.get("use_current_x", True)
 
@@ -280,6 +309,13 @@ def compute_all_metrics(
     is_stg: bool,
     **kwargs,
 ):
+    """Flatten batched validation tensors and dispatch to the STGNN or isolated metric path.
+
+    Concatenates the per-batch lists into per-sample lists (batch dimension unrolled), then
+    routes to :func:`compute_all_metrics_stg` when ``is_stg`` else
+    :func:`compute_all_metrics_isolated_station`. Returns ``(validation_mse,
+    validation_ave_rmse, validation_rmse)``.
+    """
     # Shapes of items in input lists ``epoch_days``, ``masks``, ``preds``, ``targets`` are as follows:
     # - For SeqFull[Masked]Dataset: [B, seq_len, 1]. ``seq_len`` may vary.
     # - For SeqWindowed[Masked]Dataset: [B, win_len, 1]. ``win_len`` is fixed.
@@ -310,6 +346,12 @@ def compute_all_metrics_stg(
     validation_criterion: nn.Module,
     **kwargs,
 ):
+    """Compute validation metrics for STGNN outputs (one prediction column per station).
+
+    Stacks the per-sample tensors back into ``[days, n_stations, 1]`` and slices out each
+    station by its column index before delegating to :func:`compute_all_metrics_unified`.
+    """
+
     def station_data_extractor(input, iter_idx):
         return input[:, iter_idx, :].flatten()
 
@@ -346,6 +388,13 @@ def compute_all_metrics_isolated_station(
     validation_criterion: nn.Module,
     **kwargs,
 ):
+    """Compute validation metrics for isolated-station models (LSTM / Transformer).
+
+    Builds a station iterator over either a single-station dataset or a ``ConcatDataset``
+    (using its ``cumulative_sizes`` to slice sub-sequence ranges per station), then
+    delegates to :func:`compute_all_metrics_unified`.
+    """
+
     def station_data_extractor(input, iter_idx):
         start, end = iter_idx
         return torch.cat(input[start:end], dim=0).flatten()

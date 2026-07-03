@@ -205,6 +205,13 @@ class TemporalGATConv(GATConv):
         ptr: OptTensor,
         dim_size: Optional[int],
     ) -> Tensor:
+        """Compute per-edge GAT attention weights, softmax-normalized over the edge dimension.
+
+        Sums the source/target coefficients (plus an optional edge-feature term), applies
+        LeakyReLU, softmax-normalizes over incoming edges, and dropout. The edge dimension
+        is ``-2`` (not the PyG default ``0``) to accommodate the temporal ``(B, T, ...)``
+        layout.
+        """
         # Given edge-level attention coefficients for source and target nodes,
         # we simply need to sum them up to "emulate" concatenation:
         alpha = alpha_j if alpha_i is None else alpha_j + alpha_i

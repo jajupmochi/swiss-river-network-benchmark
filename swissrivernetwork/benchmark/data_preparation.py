@@ -30,6 +30,15 @@ from swissrivernetwork.util.datetime import (
 
 
 def combine_graphs(x1, e1, x2, e2):
+    """Concatenate two graphs into one, offsetting the second graph's edge indices.
+
+    Args:
+        x1, x2: Node feature tensors of the two graphs.
+        e1, e2: ``edge_index`` tensors of the two graphs.
+
+    Returns:
+        A ``(x, edge_index)`` pair for the combined graph.
+    """
     offset = x1.shape[0]
     e2_offset = e2 + offset
 
@@ -40,6 +49,7 @@ def combine_graphs(x1, e1, x2, e2):
 
 
 def remove_short_sequences(df, min_length):
+    """Drop rows whose contiguous ``epoch_day`` run is shorter than ``min_length`` days."""
     day_diff = df["epoch_day"].diff()
     breaks = day_diff != 1
     group_id = breaks.cumsum()
@@ -50,6 +60,7 @@ def remove_short_sequences(df, min_length):
 
 
 def plot_sequence_historgram(df, title="Hisgoram of Day Sequences"):
+    """Plot a histogram of the lengths of contiguous ``epoch_day`` sequences in ``df``."""
     day_diff = df["epoch_day"].diff()
     breaks = day_diff != 1
     sequence_id = breaks.cumsum()
@@ -64,13 +75,28 @@ def plot_sequence_historgram(df, title="Hisgoram of Day Sequences"):
 
 
 def print_start_end(df):
+    """Print the human-readable first and last ``epoch_day`` dates of ``df``."""
     start_date = to_human(from_unix_days(df["epoch_day"].values[0]))
     end_date = to_human(from_unix_days(df["epoch_day"].values[-1]))
     print("start:", start_date, "\tend:", end_date)
 
 
 def graph_export(x, e, dump_dir, graph_name, train_test_split, filter_values):
+    """Persist a graph and its joined water/air-temperature train/test CSVs.
 
+    Saves the ``(x, e)`` graph and a figure, joins per-station water and air
+    temperature series into one frame, applies ``filter_values`` to keep
+    complete rows, splits on ``train_test_split`` (an ``epoch_day``), writes
+    ``{graph_name}_train.csv`` / ``{graph_name}_test.csv`` under ``dump_dir``,
+    and plots summary statistics.
+
+    Args:
+        x, e: Node features and ``edge_index`` of the graph.
+        dump_dir: Output directory for figures and CSVs.
+        graph_name: Name used for output file prefixes.
+        train_test_split: ``epoch_day`` boundary; rows before it are train.
+        filter_values: Callable applied to the joined frame to select rows.
+    """
     # persist graph:
     torch.save((x, e), f"swissrivernetwork/journal/dump/graph_{graph_name}.pth")
 
@@ -182,6 +208,7 @@ def graph_export(x, e, dump_dir, graph_name, train_test_split, filter_values):
 
 
 def filter_1990(total):
+    """Keep complete rows after 1990-01-01, dropping runs shorter than 90 days."""
     start_date = to_unix_days(from_human(1, 1, 1990))
     total = total[total["epoch_day"] > start_date]
     total_values_only = total[total["has_nan"] == False]
@@ -190,7 +217,7 @@ def filter_1990(total):
 
 
 def create_1990_graph():
-
+    """Build and export the ``swiss-1990`` dataset (Rhine + Rhône)."""
     # Date conversion:
     date = to_human(from_unix_days(15700))
     print("date:", date)
@@ -212,6 +239,7 @@ def create_1990_graph():
 
 
 def filter_2010(total):
+    """Keep rows in 2005-01-01..2020-12-31, dropping runs shorter than 90 days."""
     start_date = to_unix_days(from_human(1, 1, 2005))
     end_date = to_unix_days(from_human(31, 12, 2020))
     total = total[total["epoch_day"] > start_date]
@@ -221,7 +249,7 @@ def filter_2010(total):
 
 
 def create_2010_graph():
-
+    """Build and export the ``swiss-2010`` dataset (Rhine + Rhône + Ticino + Inn)."""
     # date = to_human(from_unix_days(14962+3500))
     # print('date:', date)
     # split = to_unix_days(from_human(1, 1, 2013))
@@ -270,6 +298,12 @@ def create_2010_graph():
 
 
 def read_zh_water_temperature(station):
+    """Read and daily-average a Canton-Zurich water-temperature CSV for ``station``.
+
+    Locates the station's ``Wassertemperatur`` export, parses dates, drops the
+    zero values used to mask missing data, and returns a frame with
+    ``epoch_day`` and ``{station}_wt`` columns.
+    """
     # Find File
     dir = "/home/benjamin/Downloads/Gewaesser_ZH/zh/126___wt_export/01-Wandel Jasmin/Wandel Jasmin"
     files = os.listdir(dir)
@@ -293,6 +327,7 @@ def read_zh_water_temperature(station):
 
 
 def filter_zh(total):
+    """Drop runs shorter than 90 days from the Zurich dataset."""
     # start_date = to_unix_days(from_human(1, 1, 2005)) # TODO
     # end_date = to_unix_days(from_human(31, 12, 2020))
     # total = total[total['epoch_day'] > start_date]
@@ -302,7 +337,13 @@ def filter_zh(total):
 
 
 def create_zh_graph():
+    """Build and export the ``zurich`` dataset from Canton-Zurich station data.
 
+    Constructs a graph from whitelisted Zurich stations, maps them onto the
+    BAFU river network to derive edges (pruning, collapsing, and spanning-tree
+    steps), then joins water and air temperature series and writes the
+    ``zurich`` train/test CSVs.
+    """
     # Convert dates:
     # print('11477', to_human(from_unix_days(11477)))
     # print('1996', to_human(from_unix_days(1996)))

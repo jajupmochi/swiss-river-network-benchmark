@@ -19,6 +19,12 @@ from torch.overrides import handle_torch_function, has_torch_function
 
 
 class LearnablePositionalEncoding(nn.Module):
+    """Additive positional encoding with a learnable ``(max_len, dim)`` parameter table.
+
+    ``forward`` adds the first ``seq_len`` rows to the input and raises if ``seq_len``
+    exceeds ``max_len``.
+    """
+
     def __init__(self, dim: int, max_len: int = 5000):
         super().__init__()
         self.pe = nn.Parameter(torch.zeros(max_len, dim))
@@ -39,6 +45,12 @@ class LearnablePositionalEncoding(nn.Module):
 
 # ---- sinusoidal encoding (Vaswani 2017) ----
 class SinusoidalPositionalEncoding(nn.Module):
+    """Fixed sine/cosine positional encoding (Vaswani et al. 2017).
+
+    Precomputes a non-persistent ``(1, max_len, dim)`` buffer; ``forward`` adds the first
+    ``seq_len`` positions to the input.
+    """
+
     def __init__(self, dim: int, max_len: int = 500):
         super().__init__()
         pe = torch.zeros(max_len, dim)
@@ -65,12 +77,20 @@ class SinusoidalPositionalEncoding(nn.Module):
 
 # ---- rotary embedding (Su et al. 2021) ----
 def rotate_half(x):
+    """Rotate the interleaved even/odd pairs of the last dim: ``(x0, x1, ...) -> (-x1, x0, ...)``."""
     x1 = x[..., ::2]
     x2 = x[..., 1::2]
     return torch.stack((-x2, x1), dim=-1).flatten(-2)
 
 
 class RotaryEmbedding(nn.Module):
+    """Rotary positional embedding (RoPE, Su et al. 2021) for interleaved head dims.
+
+    Caches ``cos``/``sin`` tables at construction; ``forward`` applies the rotation to
+    query and key tensors. Note: this in-repo implementation is unused — the models rely
+    on HuggingFace's RoFormer RoPE instead (see the module comment above).
+    """
+
     def __init__(self, dim: int, max_position_embeddings: int = 2048, base: int = 10000):
         """
         dim: head_dim (must be even)
@@ -161,6 +181,9 @@ class FlexibleTransformerEncoderLayer(nn.TransformerEncoderLayer):
         device=None,
         dtype=None,
     ) -> None:
+        """Build the encoder layer, adding a RoFormer sinusoidal position table and,
+        if ``self_attn`` is given, swapping in that custom attention module (wired with
+        ``embed_positions`` so it can apply RoPE)."""
         super().__init__(
             d_model,
             nhead,
@@ -193,6 +216,12 @@ class FlexibleTransformerEncoderLayer(nn.TransformerEncoderLayer):
 
 
 class FlexibleMultiheadAttention(nn.MultiheadAttention):
+    """``nn.MultiheadAttention`` variant that lets the ``multi_head_attention_forward``
+    kernel be overridden (e.g. with the RoPE-aware version in this module).
+
+    Extra ``attention_forward_kwargs`` are forwarded into that kernel on every call.
+    """
+
     def __init__(
         self,
         embed_dim,
@@ -209,6 +238,8 @@ class FlexibleMultiheadAttention(nn.MultiheadAttention):
         device=None,
         dtype=None,
     ) -> None:
+        """Init the attention module, storing the (optional) custom forward kernel — falling
+        back to ``nn.functional.multi_head_attention_forward`` — and its extra kwargs."""
         super().__init__(
             embed_dim,
             num_heads,

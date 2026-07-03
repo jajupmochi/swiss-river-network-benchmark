@@ -1,3 +1,22 @@
+"""Neural network models for the Swiss River Network Benchmark.
+
+Defines the three model families used across the benchmark and their
+extrapolation (forecasting) variants:
+
+* LSTM baselines — :class:`LstmModel`, :class:`LstmEmbeddingModel` (with a
+  station embedding), plus ``Extrapo*`` variants for future-step prediction.
+* Transformer — :class:`TransformerEmbeddingModel` (RoPE / learnable /
+  sinusoidal positional encoding, optional mask embedding for missing days)
+  and the embedding-free :class:`TransformerModel`.
+* Spatio-temporal GNN — :class:`SpatioTemporalEmbeddingModel`, which runs a
+  per-node temporal model (LSTM or Transformer) then message passing over the
+  river graph (GCN / GIN / GAT / GraphSAGE / MPNN).
+
+The ``ExtrapoLstm*`` / ``ExtrapoLstmEmbedding*`` factory functions dispatch on
+``extrapo_mode`` (``"limo"`` = last-input-multiple-output, or
+``"future_embedding"``).
+"""
+
 from typing import Any, Mapping, override
 
 import torch
@@ -13,12 +32,19 @@ from swissrivernetwork.benchmark.transformer import LearnablePositionalEncoding,
 
 
 class LstmModel(nn.Module):
+    """Plain per-step LSTM regressor: maps ``[B, seq, input_size]`` to a scalar per step.
+
+    Constructor args are the LSTM ``input_size``, ``hidden_size``, and ``num_layers``;
+    a ReLU + linear head projects each hidden state to one output.
+    """
+
     def __init__(self, input_size, hidden_size, num_layers):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
         self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, 1))
 
     def forward(self, x):
+        """Run the LSTM over ``x`` ``[B, seq, input_size]`` and return ``[B, seq, 1]``."""
         out, hidden = self.lstm(x)  # x in [batch x sequence x features]
         target = self.linear(out)  # expect [batch x sequence x features_out(1)]
         return target
@@ -62,6 +88,9 @@ class ExtrapoLstmModelLIMO(nn.Module):
         self.linear = nn.Sequential(nn.ReLU(), nn.Linear(hidden_size, future_steps))
 
     def forward(self, x):
+        """Encode the history ``x[:, :-future_steps]`` and predict all future steps from the
+        last hidden state. Returns ``[B, future_steps, 1]`` (and the full LSTM output when
+        ``return_hidden``)."""
         x = x[:, : -self.future_steps]
         out, hidden = self.lstm(x)
         target = self.linear(out[:, -1, :])  # only use the last time step
@@ -71,6 +100,13 @@ class ExtrapoLstmModelLIMO(nn.Module):
 
 
 class ExtrapoLstmModelFEmbed(nn.Module):
+    """Extrapolation LSTM using learnable future-step embeddings (no station embedding).
+
+    The history is projected to ``d_future_emb`` and concatenated with ``future_steps``
+    learnable embedding vectors, then run jointly through the LSTM so future steps are
+    predicted in one pass.
+    """
+
     def __init__(
         self,
         input_size: int,
@@ -80,6 +116,9 @@ class ExtrapoLstmModelFEmbed(nn.Module):
         d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
         return_all_steps: bool = False,  # whether to return all steps or only future steps
     ):
+        """Build the input projection, the ``(1, future_steps, d_future_emb)`` learnable
+        future embedding, the LSTM, and the linear head. When ``return_all_steps`` is False,
+        installs a postprocessor that keeps only the last ``future_steps`` outputs."""
         super().__init__()
         self.future_steps = future_steps
         self.d_future_emb = d_future_emb
@@ -96,6 +135,8 @@ class ExtrapoLstmModelFEmbed(nn.Module):
             self.target_postprocessor = lambda target: target[:, -self.future_steps :, :]  # only return future steps
 
     def forward(self, x):
+        """Project the history, append the future-step embeddings, run the LSTM jointly, and
+        return per-step predictions (only the future steps unless ``return_all_steps``)."""
         x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
         # Project input to d_future_emb, since normally the input_size is small (e.g., 1):
         x_history = self.input_proj(x_history)  # [batch, seq_len - future_steps, d_future_emb]
@@ -113,6 +154,12 @@ class ExtrapoLstmModelFEmbed(nn.Module):
 
 
 class LstmEmbeddingModel(nn.Module):
+    """Per-step LSTM regressor with a learnable station embedding concatenated to inputs.
+
+    ``num_embeddings`` stations map to ``embedding_size``-dim vectors that are fused with
+    the per-step features before the LSTM; a ReLU + linear head yields one output per step.
+    """
+
     def __init__(self, input_size, num_embeddings, embedding_size, hidden_size, num_layers):
         super().__init__()
         self.embedding = nn.Embedding(num_embeddings, embedding_size)
@@ -208,6 +255,12 @@ class ExtrapoLstmEmbeddingModelLIMO(nn.Module):
 
 
 class ExtrapoLstmEmbeddingModelFEmbed(nn.Module):
+    """Extrapolation LSTM with both a station embedding and learnable future-step embeddings.
+
+    Like :class:`ExtrapoLstmModelFEmbed`, but the station embedding is concatenated to every
+    step (history and future) before the LSTM.
+    """
+
     def __init__(
         self,
         input_size: int,
@@ -219,6 +272,9 @@ class ExtrapoLstmEmbeddingModelFEmbed(nn.Module):
         d_future_emb: int = 32,  # dimension of future step embedding # todo: this can be tuned
         return_all_steps: bool = False,  # whether to return all steps or only future steps
     ):
+        """Build the station embedding, input projection, learnable future-step embedding,
+        LSTM, and linear head; install the future-only postprocessor unless
+        ``return_all_steps``."""
         super().__init__()
         self.future_steps = future_steps
         self.d_future_emb = d_future_emb
@@ -238,6 +294,9 @@ class ExtrapoLstmEmbeddingModelFEmbed(nn.Module):
             self.target_postprocessor = lambda target: target[:, -self.future_steps :, :]  # only return future steps
 
     def forward(self, e, x):
+        """Project the history, append future-step embeddings, fuse the station embedding on
+        every step, run the LSTM, and return per-step predictions (future steps only unless
+        ``return_all_steps``)."""
         x_history = x[:, : -self.future_steps, :]  # [batch, seq_len - future_steps, input_size]
         x_future = self.future_step_embedding  # [1, future_steps, d_future_emb]
         x_future = x_future.expand(x.size(0), -1, -1)  # [batch, future_steps, d_future_emb]
@@ -515,6 +574,12 @@ class TransformerEmbeddingModel(nn.Module):
         return target
 
     def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False):
+        """Load a checkpoint, patching legacy keys before delegating to ``nn.Module``.
+
+        Renames an old ``pos_embedding`` tensor to ``pos_embedding.pe`` and drops a stale
+        ``mask_embedding`` entry when this instance does not use one, so checkpoints saved
+        under earlier code / settings still load.
+        """
         if "pos_embedding" in state_dict and "pos_embedding.pe" not in state_dict:
             # Convert old positional encoding to new format:
             state_dict["pos_embedding.pe"] = state_dict.pop("pos_embedding")
@@ -685,12 +750,28 @@ class TransformerEmbeddingModel(nn.Module):
 
 
 class TransformerModel(TransformerEmbeddingModel):
+    """Embedding-free Transformer: same as :class:`TransformerEmbeddingModel` but takes no
+    station id (call with ``num_embeddings=0``)."""
+
     @override
     def forward(self, x, time_masks=None, pad_masks=None):
+        """Forward without a station embedding (passes ``e=None`` to the parent)."""
         return super().forward(None, x, time_masks=None, pad_masks=None)
 
 
 class SpatioTemporalEmbeddingModel(nn.Module):
+    """Spatio-temporal GNN: a per-station temporal encoder followed by graph message passing.
+
+    Each of the ``num_embeddings`` stations (graph nodes) is first encoded independently in
+    time by ``temporal_func`` (``"lstm_embedding"`` or ``"transformer_embedding"``, with its
+    output head replaced by identity so it emits hidden states). The resulting per-node,
+    per-timestep hidden states are then propagated over the (undirected, self-looped) river
+    graph by ``num_convs`` layers of ``method`` (``"GCN"``, ``"GIN"``, ``"GAT"``,
+    ``"GraphSAGE"``, or ``"MPNN"``) before a final linear head predicts water temperature.
+    Supports both current-step regression and forecasting (``use_current_x`` /
+    ``future_steps`` / ``extrapo_mode`` via ``kwargs``).
+    """
+
     def __init__(
         self,
         method,
@@ -704,6 +785,11 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         temporal_func: str = "lstm_embedding",  # 'lstm_embedding' or 'transformer_embedding'
         **kwargs,
     ):
+        """Construct the temporal encoder and the ``num_convs`` graph-conv layers for
+        ``method``, wiring output dimensions to the forecasting mode. See the class
+        docstring for the roles of ``method``, ``temporal_func``, and the ``kwargs``
+        (``use_current_x``, ``future_steps``, ``extrapo_mode``, ``use_station_embedding``,
+        and method-specific keys such as ``edge_hidden_size`` for MPNN)."""
         super().__init__()
         self.method = method
         # self.window_len = window_len # TODO: for what?
@@ -845,6 +931,12 @@ class SpatioTemporalEmbeddingModel(nn.Module):
             raise ValueError(f"Unknown method: {self.method}.")
 
     def apply_temporal_model(self, x):
+        """Run the shared temporal encoder on each station independently and stack the results.
+
+        Input ``[B, nodes, seq, feature]`` -> output ``[B, nodes, seq, hidden_size]``; a
+        constant per-node station id is fed as the embedding index when the encoder expects
+        one.
+        """
         # input: batch x nodes x sequence x feature
         # output: batch x nodes x sequence x hidden_size
         hs = []
@@ -859,6 +951,12 @@ class SpatioTemporalEmbeddingModel(nn.Module):
         return torch.stack(hs, dim=1)  # [batch x node x sequence x latent]
 
     def postprocess_target(self, target):
+        """Apply the final linear head to the post-GNN hidden states and shape the output.
+
+        For current-step regression, projects every step. For forecasting, selects the last
+        step (LIMO) or the future steps (future-embedding / transformer) as dictated by
+        ``temporal_func`` / ``extrapo_mode`` / ``return_all_steps`` before/after projection.
+        """
         if self.use_current_x:
             target = self.linear(target)
         else:

@@ -1,3 +1,7 @@
+"""Glue helpers for the benchmark: graphlet neighbor lookup, day-prediction
+aggregation, checkpoint pruning, Ray-Tune plumbing, run-name construction,
+and small type/date utilities shared across the entry points."""
+
 import os
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +20,7 @@ SUCCESS_TAG = "\033[92m[success]\033[0m "  # Green
 
 
 def save(object, checkpoint_dir, name):
+    """Save ``object`` via ``torch.save`` to ``checkpoint_dir/name``."""
     path = os.path.join(checkpoint_dir, name)
     torch.save(object, path)
 
@@ -211,6 +216,13 @@ def torch_unique_as_numpy(t: torch.Tensor, return_index: bool = False) -> torch.
 
 
 def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader, is_extrapolation: bool = True) -> bool:
+    """Return True when per-day predictions must be aggregated before scoring.
+
+    Aggregation is only needed for windowed datasets (``window_len > 0``), where a
+    day can be predicted by several overlapping windows. Extrapolation/forecasting
+    (``is_extrapolation=True``) returns future-step predictions directly and never
+    aggregates. Handles both plain and ``ConcatDataset`` valid sets.
+    """
     # todo: upgrade with aggregation method in config or full/windowed dataset
     if is_extrapolation:  # Return all values (corresponding to future prediction) without aggregation:
         return False
@@ -227,6 +239,7 @@ def check_is_aggregation_needed(dataloader: torch.utils.data.DataLoader, is_extr
 
 
 def safe_get_ray_trial_id():
+    """Return the current Ray Tune trial id, or ``None`` when not inside a trial."""
     from ray.air import session
 
     sess = session.get_session()
@@ -236,6 +249,13 @@ def safe_get_ray_trial_id():
 
 
 def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict, directory: Path | None = None) -> str:
+    """Build the run directory name ``<method>-<graph>[extra-keys]-<timestamp>``.
+
+    Extra keys encoding the config (see :func:`get_run_extra_key`) are always
+    appended. When ``config['resume']`` is set, resolves to an existing run
+    (the ``resume_timestamp`` one, or the latest matching directory) instead of
+    stamping ``now``.
+    """
     run_name = f"{method}-{graph_name}"
     extra_keys = get_run_extra_key(config)
     run_name += extra_keys
@@ -257,6 +277,13 @@ def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict
 
 
 def get_run_extra_key(config: benedict | dict) -> str:
+    """Encode config-dependent run settings into a filename-safe suffix.
+
+    Appends tokens for forecasting horizon (``-fs<n>``, plus ``-<extrapo_mode>``),
+    no-station-embedding (``-noSEmb``), window length (``-wl<n>``), missing-value
+    method, and positional encoding, so runs with different settings get distinct
+    directory names.
+    """
     if isinstance(config, dict):
         config = benedict(config)
     extra_key = ""
@@ -276,6 +303,12 @@ def get_run_extra_key(config: benedict | dict) -> str:
 
 
 def get_latest_run_path(directory: Path, path_prefix: str = "", verbose: bool = False) -> Path:
+    """Return the most recent ``path_prefix``-prefixed, timestamp-suffixed subdir.
+
+    Scans ``directory`` for subdirectories whose name starts with ``path_prefix``
+    and whose remainder is a valid ``%Y-%m-%d_%H-%M-%S`` timestamp, and returns the
+    lexicographically last (i.e. latest). Asserts at least one match exists.
+    """
     all_paths = sorted(
         [
             path
@@ -481,6 +514,7 @@ def trim_checkpoints(
 
 
 def is_valid_datetime(s: str) -> bool:
+    """Return True if ``s`` parses as a ``%Y-%m-%d_%H-%M-%S`` timestamp."""
     try:
         datetime.strptime(s, "%Y-%m-%d_%H-%M-%S")
         return True
@@ -534,6 +568,11 @@ def get_proper_infer_batchsize(method: str, graph_name: str) -> int:
 
 
 def trim_lstm_model_name(name: str) -> str:
+    """Normalize an LSTM model class name to a short base tag.
+
+    Lowercases, strips a leading ``extrapo`` prefix, and drops the ``model`` suffix
+    and anything after it (e.g. ``ExtrapoLstmModelFEmbed`` -> ``lstm``).
+    """
     name = name.lower()
     name = name.removeprefix("extrapo")  # for extrapolation lstm models
     name = name.split("model")  # Can be e.g. 'lstmmodel' or 'lstmmodelFEmbed'

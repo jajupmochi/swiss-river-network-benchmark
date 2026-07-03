@@ -53,6 +53,7 @@ MAX_HORIZON = 7
 
 
 def is_transformer_model(method: str) -> bool:
+    """Return True if ``method`` names a Transformer variant (prefix ``transformer``)."""
     return method.startswith("transformer")
 
 
@@ -267,6 +268,7 @@ _CAPTION = {
 
 
 def wrap_table(body: str, stat: str) -> str:
+    """Wrap a table ``body`` in the full booktabs tabular, caption, and footnote for ``stat``."""
     header = (
         "\\begin{tabular}{lllcccccc}\n\\toprule\n"
         "\\multirow{2}{*}{\\textbf{Dataset}} & \\multirow{2}{*}{\\textbf{Model}} & "
@@ -287,6 +289,11 @@ def wrap_table(body: str, stat: str) -> str:
 
 
 def build_all_tables(stats: list[str] = STATS) -> dict[str, str]:
+    """Build the complete LaTeX table string for each requested statistic.
+
+    Returns:
+        Mapping ``{stat: latex_table_str}`` (one wrapped table per statistic in ``stats``).
+    """
     out = {}
     for stat in stats:
         vals, best_pe = gather(stat)
@@ -297,6 +304,12 @@ def build_all_tables(stats: list[str] = STATS) -> dict[str, str]:
 
 # ---------------------------------------------------------------- JSON
 def collect_all_results(stats: list[str] = STATS) -> dict:
+    """Collect every value, best-PE, and Wilcoxon flag into one JSON-serializable dict.
+
+    Nests results by graph, architecture, model, casting scenario, and metric across all
+    requested ``stats``, alongside metadata (graphs, architectures, metrics, window length,
+    forecast horizons) and the significance table.
+    """
     results: dict = {g: {a: {"LSTM": {}, "Transformer": {}} for a in ARCHITECTURES} for g in GRAPH_NAMES}
     significance: dict = {}
     for stat in stats:
@@ -330,6 +343,7 @@ def collect_all_results(stats: list[str] = STATS) -> dict:
 
 
 def export_results_json(path: Path | None = None, stats: list[str] = STATS) -> Path:
+    """Write :func:`collect_all_results` to a JSON file and return its path (defaults under ``OUT_DIR``)."""
     path = Path(path) if path else OUT_DIR / "all_results.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
@@ -371,6 +385,11 @@ def save_tables_to_tex(tables: dict[str, str], path: Path | None = None) -> Path
 
 
 def compile_tex_to_pdf(tex_path: Path) -> tuple[bool, str]:
+    """Run ``pdflatex`` on ``tex_path`` and return ``(ok, log_tail)``.
+
+    ``ok`` is True only when pdflatex exits 0 and the ``.pdf`` was produced; ``log_tail`` is the
+    tail of stdout/stderr for diagnostics.
+    """
     tex_path = Path(tex_path)
     proc = subprocess.run(
         ["pdflatex", "-interaction=nonstopmode", "-halt-on-error", tex_path.name],
@@ -431,6 +450,11 @@ _PAPER = {  # Table 3, (RMSE,MAE,NSE) nowcast | forecast
 
 
 def verify_mean_vs_paper() -> int:
+    """Compare the CSV-derived Mean table against the hard-coded paper Table 3, cell by cell.
+
+    Prints a per-row match report and a summary, and returns the number of mismatched cells
+    (0 means the reproduction is exact to 3 decimals).
+    """
     vals, _ = gather("Mean")
     order = [("nowcasting", m) for m in METRICS] + [("forecasting", m) for m in METRICS]
     n_ok = n_bad = n_na = 0
@@ -458,6 +482,7 @@ def verify_mean_vs_paper() -> int:
 
 
 def main():
+    """CLI entry point: ``--verify`` checks against paper Table 3, ``--generate`` writes .tex/JSON/PDF."""
     import argparse
 
     ap = argparse.ArgumentParser()

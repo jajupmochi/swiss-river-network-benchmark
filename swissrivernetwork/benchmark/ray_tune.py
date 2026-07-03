@@ -61,10 +61,13 @@ Run the Ray Tuner to determine best architectures
 
 
 class MemoryLimitCallback(Callback):
+    """Ray Tune callback that stops any trial exceeding a per-process RSS limit."""
+
     def __init__(self, mem_limit_mb):
         self.mem_limit_mb = mem_limit_mb
 
     def on_trial_result(self, iteration, trials, trial, result, **info):
+        """Stop the trial if its process RSS exceeds ``mem_limit_mb``."""
         import psutil
 
         process = psutil.Process(trial.runner.pid)
@@ -181,6 +184,7 @@ search_space_transformer_stgnn = {
 
 
 def scheduler():
+    """ASHA scheduler for isolated-station models (aggressive early stopping)."""
     return ASHAScheduler(
         max_t=200,  # 100
         grace_period=3,
@@ -190,6 +194,7 @@ def scheduler():
 
 # this one is a bit less "aggressive"
 def scheduler_soft():
+    """ASHA scheduler with gentler pruning (longer grace period, smaller reduction)."""
     return ASHAScheduler(
         max_t=200,  # 100
         grace_period=5,  # 5
@@ -198,6 +203,7 @@ def scheduler_soft():
 
 
 def scheduler_single_model_soft():
+    """ASHA scheduler for single-model runs with a longer horizon and gentle pruning."""
     return ASHAScheduler(
         max_t=500,  # 100
         grace_period=5,
@@ -206,6 +212,7 @@ def scheduler_single_model_soft():
 
 
 def scheduler_single_model_hard():
+    """ASHA scheduler for single-model runs with a longer horizon and aggressive pruning."""
     return ASHAScheduler(max_t=500, grace_period=3, reduction_factor=2)
 
 
@@ -524,6 +531,13 @@ def run_experiment(
 
 
 def parse_config():
+    """Parse CLI args (optionally merging a YAML ``--config``) into the run settings.
+
+    Values from ``--config`` fill only args left at their default/``None``. The
+    string ``"none"`` is normalized to ``None`` for ``missing_value_method`` /
+    ``positional_encoding`` / ``extrapo_mode``, and ``positional_encoding`` is
+    dropped entirely when unset.
+    """
     methods = [
         "lstm",
         "graphlet",

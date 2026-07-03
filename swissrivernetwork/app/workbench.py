@@ -158,14 +158,17 @@ def stations_of(graph):
 
 
 def rmse(y, yh):
+    """Root-mean-square error between observations ``y`` and predictions ``yh``."""
     return float(np.sqrt(np.mean((y - yh) ** 2)))
 
 
 def mae(y, yh):
+    """Mean absolute error between observations ``y`` and predictions ``yh``."""
     return float(np.mean(np.abs(y - yh)))
 
 
 def nse(y, yh):
+    """Nash--Sutcliffe efficiency of predictions ``yh`` against observations ``y``."""
     return float(1 - np.sum((y - yh) ** 2) / np.sum((y - np.mean(y)) ** 2))
 
 
@@ -877,6 +880,7 @@ def cuda_available() -> bool:
 
 
 def device_choices() -> list[str]:
+    """List selectable inference devices (``auto``/``cpu``, plus ``cuda`` when a GPU is present)."""
     return ["auto", "cpu"] + (["cuda"] if cuda_available() else [])
 
 
@@ -889,6 +893,7 @@ def _resolve_device(sel: str) -> str:
 
 
 def detect_resources() -> str:
+    """Return a Markdown summary of the detected compute: CPU cores, RAM, and any CUDA GPU."""
     import platform
 
     lines = [f"**Python** {platform.python_version()}  ·  **CPU cores** {os.cpu_count()}"]
@@ -1027,6 +1032,7 @@ def _series_pred(graph, station, split, source, file, window, device):
 
 
 def run_inference(graph, station, split, source, file, window, device):
+    """Predict a station's water temperature and return a ground-truth-vs-prediction figure and metrics."""
     out, msg = _series_pred(graph, station, split, source, file, window, device)
     if out is None:
         return _empty(msg), msg
@@ -1079,6 +1085,7 @@ def stream_inference(graph, station, split, source, file, window, device, delay=
 
 # ------------------------------------------------------------------ analysis
 def residual_analysis(graph, station, split, source, file, window, device):
+    """Plot prediction residuals over time and their distribution; report bias and spread."""
     out, msg = _series_pred(graph, station, split, source, file, window, device)
     if out is None:
         return _empty(msg), msg
@@ -1106,6 +1113,7 @@ def residual_analysis(graph, station, split, source, file, window, device):
 
 
 def seasonal_error(graph, station, split, source, file, window, device):
+    """Plot mean absolute error by calendar month for a station's predictions."""
     out, msg = _series_pred(graph, station, split, source, file, window, device)
     if out is None:
         return _empty(msg), msg
@@ -1124,6 +1132,7 @@ def seasonal_error(graph, station, split, source, file, window, device):
 
 
 def threshold_exceedance(graph, station, threshold):
+    """Plot observed days per year above a temperature threshold (e.g. 25 °C fish-stress)."""
     tr, te = series_df(graph, "train"), series_df(graph, "test")
     wt = f"{station}_wt"
     if tr.empty or wt not in tr.columns:
@@ -1145,6 +1154,7 @@ def threshold_exceedance(graph, station, threshold):
 
 
 def model_ranking(graph, metric):
+    """Rank the eight architectures by their mean per-station error on a dataset."""
     rows = []
     for m in METHODS:
         rs = station_resu(graph, m)

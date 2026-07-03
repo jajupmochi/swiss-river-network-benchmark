@@ -114,6 +114,7 @@ MAX_DAYS_PER_GRAPH = {"swiss-1990": 853, "swiss-2010": 1096, "zurich": 1035}
 
 
 def curate_window_lens(raw: np.ndarray, graph_name: str, cap: int = 150) -> list[int]:
+    """Clamp raw window lengths to the graph's day cap and always include the limit."""
     limit = min(MAX_DAYS_PER_GRAPH[graph_name], cap)
     arr = np.array(raw)
     arr = arr[arr < limit]
@@ -192,6 +193,11 @@ def _save_row(dump_dir: Path, graph_name: str, method: str, row: dict, pe: str |
 
 
 def run_single(graph_name: str, method: str, wl: int, settings: dict) -> dict:
+    """Evaluate one ``(graph, method)`` at eval window length ``wl`` and return a summary row.
+
+    Pins ``path_extra_keys`` to the trained checkpoint (always ``TRAIN_WIN_LEN``)
+    so :func:`process_method` reads the right model while evaluating at ``wl``.
+    """
     s = {**settings, "window_len": wl}
     # path_extra_keys pins the TRAINED checkpoint directory (always wl=TRAIN_WIN_LEN).
     # get_evaluation_path_keys additionally appends -evalwl{W} when wl != TRAIN_WIN_LEN.
@@ -208,6 +214,12 @@ def run_method_at_wl(
     dump_dir: Path,
     resume: bool = False,
 ):
+    """Evaluate ``method`` at window length ``wl`` and append the result row(s) to disk.
+
+    Transformer methods loop over all positional encodings; others run once with
+    ``positional_encoding="none"``. Honors the ``resume`` skip-if-present guard
+    and the strict duplicate-row guard otherwise.
+    """
     if is_transformer_model(method):
         for pe in POSITIONAL_ENCODINGS:
             if resume and _row_present(dump_dir, graph_name, method, wl, pe):
@@ -240,6 +252,7 @@ def run_phase(
     dump_dir: Path,
     resume: bool = False,
 ):
+    """Run one sweep phase: every ``(method, curated window length)`` over all graphs."""
     print(f"\n{INFO_TAG}=========== PHASE: {phase_label} ===========")
     for graph_name in graph_names:
         wls = curate_window_lens(window_lens_raw, graph_name)
@@ -251,6 +264,12 @@ def run_phase(
 
 
 def main(resume: bool = False, skip_isolated: bool = False):
+    """Run the full two-phase window-length sweep (ISOLATED then GRAPHLET).
+
+    Args:
+        resume: Skip rows already present on disk instead of raising.
+        skip_isolated: Skip Phase 1, relying on existing ``wt_hat`` dumps.
+    """
     GRAPH_NAMES = ["swiss-1990", "swiss-2010", "zurich"]
     # [1, 3, 5, 7, 15, 30, 60, 90, 120, 150] — same sweep as paper Fig. 4.
     WINDOW_LENS = np.concatenate(([1, 3, 5, 7, 15], 30 * np.arange(1, 6)))

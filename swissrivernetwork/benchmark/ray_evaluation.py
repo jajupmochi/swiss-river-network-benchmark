@@ -195,6 +195,7 @@ def get_metrics_from_ray_trial(
 
 
 def show_best_trial(best_trial):
+    """Print metrics for the ``"all"`` and ``"last"`` scoped best trials in ``best_trial``."""
     best_all = best_trial.get("all", None)
     best_last = best_trial.get("last", None)
     if best_all is not None:
@@ -242,6 +243,12 @@ def plot_diff(
     title,
     dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
 ):
+    """Plot the mean +/- std absolute prediction error across stations over time.
+
+    Aligns each station's ``|actual - prediction|`` onto the union of
+    ``epoch_days``, shades contiguous day-sequence spans, and saves the figure
+    under ``dump_dir/figures/``.
+    """
     epoch_days = np.sort(np.unique(np.concatenate(epoch_day_list)))
     diffs = np.empty((len(epoch_day_list), len(epoch_days)), dtype=float)
     for idx_station, (ed, a, p) in enumerate(zip(epoch_day_list, actuals, predictions)):
@@ -292,6 +299,11 @@ def plot_diff(
 def experiment_analysis_isolated_station(
     graph_name, method, station, path_extra_keys: str = "", output_dir: Path | None = None
 ):
+    """Load the Ray ``ExperimentAnalysis`` for one isolated-station run.
+
+    When ``LOAD_LATEST_RESULTS`` is set, resolves the latest matching run
+    directory; otherwise falls back to a hard-coded date per (method, graph).
+    """
     date = None
 
     directory = "/home/benjamin/ray_results" if output_dir is None else output_dir
@@ -324,6 +336,14 @@ def experiment_analysis_isolated_station(
 
 
 def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = "", output_dir: Path | None = None):
+    """Load the Ray ``ExperimentAnalysis`` for one single-model (embedding/ST-GNN) run.
+
+    When ``LOAD_LATEST_RESULTS`` is set, resolves the latest matching run
+    directory; otherwise falls back to a hard-coded date per (method, graph).
+
+    Raises:
+        ValueError: If ``method`` is not a single-model method or ``graph_name`` is unknown.
+    """
     if method not in ["transformer_embedding", "lstm_embedding", "stgnn", "transformer_stgnn"]:
         raise ValueError(f"Method {method} does not use single model training.")
 
@@ -369,12 +389,23 @@ def experiment_analysis_single_model(graph_name, method, path_extra_keys: str = 
 
 
 def parameter_count(model):
+    """Return the total number of parameters in ``model``."""
     pytorch_total_params = sum(p.numel() for p in model.parameters())
     # print('TOTAL MODEL PARAMETERS: ', pytorch_total_params)
     return pytorch_total_params
 
 
 def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None = None, settings: dict = {}):
+    """Rebuild and test the best single-model (ST-GNN) checkpoint for ``(graph, method)``.
+
+    Loads the best trial's config and checkpoint, reconstructs the
+    ``SpatioTemporalEmbeddingModel``, runs :func:`test_stgnn`, and returns the
+    test results plus the parameter count and best-trial handles.
+
+    Returns:
+        The unpacked ``test_stgnn`` result tuple, then ``total_params`` and a
+        ``{"all", "last"}`` best-trial dict.
+    """
     if method in ["stgnn", "transformer_stgnn"]:
         analysis = experiment_analysis_single_model(
             graph_name, method, path_extra_keys=settings.get("path_extra_keys", ""), output_dir=output_dir
@@ -488,6 +519,21 @@ def evaluate_best_trial_single_model(graph_name, method, output_dir: Path | None
 def evaluate_best_trial_isolated_station(
     graph_name, method, station, i, output_dir: Path | None = None, settings: dict = {}
 ):
+    """Rebuild and test the best checkpoint for one station under ``method``.
+
+    Loads the best trial's config and checkpoint, reconstructs the appropriate
+    model (LSTM / transformer / their embedding and graphlet variants), then
+    runs the matching ``test_*`` function. Evaluation-time ``wt_hat`` dumps are
+    keyed by the *eval* window length (via :func:`get_evaluation_path_keys`) to
+    avoid leaking long-history predictions into short-window graphlet reads.
+
+    Args:
+        i: Station index used for embedding lookups.
+
+    Returns:
+        The unpacked ``test_*`` result tuple, then ``total_params`` and a
+        ``{"all", "last"}`` best-trial dict.
+    """
     if method in ["lstm", "graphlet", "transformer", "transformer_graphlet"]:
         analysis = experiment_analysis_isolated_station(
             graph_name, method, station, path_extra_keys=settings.get("path_extra_keys", ""), output_dir=output_dir
@@ -708,6 +754,20 @@ def evaluate_best_trial_isolated_station(
 
 
 def process_method(graph_name, method, output_dir: Path | None = None, settings: dict = {}, return_extra: bool = False):
+    """Evaluate ``method`` on ``graph_name`` across all stations and aggregate metrics.
+
+    Dispatches per-station evaluation (isolated/embedding methods) or a single
+    joint evaluation (ST-GNN methods), collects RMSE/MAE/NSE plus extra metrics
+    into a DataFrame, appends summary statistics, and (when ``verbose > 1``)
+    writes a CSV and error-colored graph figure.
+
+    Args:
+        return_extra: If True, also return a dict with ``model_size`` (and
+            ``forcast_time_steps`` for extrapolation runs).
+
+    Returns:
+        The results DataFrame, or ``(df, extra)`` when ``return_extra`` is True.
+    """
     # Settings:
     verbose = settings["verbose"] if "verbose" in settings else 2
     use_current_x = settings.get("use_current_x", True)
