@@ -133,9 +133,17 @@ def train_isolated(ctx: typer.Context) -> None:
 # ---------------------------------------------------------------------------
 # Demo apps
 # ---------------------------------------------------------------------------
-@app_cmd.command("gradio", help="Launch the Gradio demo (also used for Hugging Face Spaces).")
+@app_cmd.command("gradio", help="Launch the interactive workbench (Gradio; same app as the Hugging Face Space).")
 def app_gradio() -> None:
     _forward("swissrivernetwork.app.gradio_app")
+
+
+@app_cmd.command(
+    "workbench",
+    help="Alias for `srn app gradio` — the full local workbench (explore / train / infer / analyse).",
+)
+def app_workbench() -> None:
+    _forward("swissrivernetwork.app.workbench")
 
 
 @app_cmd.command("streamlit", help="Launch the Streamlit local UI (Explore / Predict / Compare).")

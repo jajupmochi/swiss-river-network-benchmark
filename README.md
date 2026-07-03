@@ -81,6 +81,9 @@ water-temperature forecasting. It ships:
   </tr>
 </table>
 
+<p align="center"><strong>Interactive workbench</strong> (<code>uv run srn app gradio</code>) — a station map, forecasting, and analysis for hydrologists alongside the full ML result set.<br/>
+<img src="assets/figures/workbench.png" width="80%"/></p>
+
 > Figures above are rasterised from the paper PDFs in
 > `swissrivernetwork/benchmark/visualize_results/figures/`. Regenerate them from CSVs by
 > running the notebooks under `visualize_results/`, or re-rasterise with
@@ -226,15 +229,27 @@ The window-length sweep runs in two strict phases:
 
 ## Live demo & local UI
 
+The **interactive workbench** is the same Gradio app locally and on the
+[🤗 Hugging Face Space](https://huggingface.co/spaces/jajupmochi/swiss-river-network-benchmark)
+— one source file, identical features. It serves hydrologists and ML researchers
+side by side: a station map, seasonal cycles, a drought-portal-style outlook, a 3D
+river network, the full result set (window-length, forecasting horizon, noise,
+per-station, radar, ranking), a CPU **train/eval** sandbox, **bring-your-own-model**
+inference (scikit-learn `.joblib` or TorchScript `.pt`) with **live-streaming**
+predictions, residual / seasonal / **threshold-exceedance** analysis, and a
+multi-format upload. Locally it **auto-detects a CUDA GPU** for TorchScript
+inference (CPU otherwise).
+
 | Target | Command | Notes |
 | --- | --- | --- |
-| Hugging Face Space | [🤗 Open the demo](https://huggingface.co/spaces/jajupmochi/swiss-river-network-benchmark) | Gradio front-end, live predictions on bundled checkpoints. |
-| Local Gradio | `uv run srn app gradio` | Same app as the HF Space. |
-| Local Streamlit | `uv run srn app streamlit` | Explore / Predict / Compare tabs, reuses the project's existing visualization code. |
-| Desktop installer | double-click the `.exe` / `.dmg` / `.AppImage` | Same Streamlit UI, bundled. |
+| Hugging Face Space | [🤗 Open the demo](https://huggingface.co/spaces/jajupmochi/swiss-river-network-benchmark) | Hosted, CPU, no install. |
+| Local workbench | `uv run srn app gradio` | The full workbench; GPU auto-detected. |
+| Local Streamlit | `uv run srn app streamlit` | Alternative Explore / Predict / Compare UI. |
+| Desktop installer | double-click the `.exe` / `.dmg` / `.AppImage` | Bundled Streamlit UI. |
 
-Both demo apps include **real-time visualization** built directly from the notebooks under
-`swissrivernetwork/benchmark/visualize_results/` — no mocked data.
+See the **[workbench manual](docs/user-guide/workbench.md)** for a tab-by-tab guide
+and a no-code hydrologist walkthrough. Every visualization is computed from the
+released CSVs and your own inputs — no mocked data.
 
 ## Project layout
 
@@ -253,8 +268,11 @@ swiss-river-network-benchmark/
 │   │   ├── dataset.py                      # readers + SequenceDataset(Windowed)
 │   │   └── visualize_results/              # notebooks + latex_tables_export.py (paper figures & tables)
 │   ├── app/
-│   │   ├── gradio_app.py                   # HF Space + local Gradio
-│   │   └── streamlit_app.py                # local UI with live visualization
+│   │   ├── workbench.py                    # full Gradio workbench (shared byte-for-byte with the HF Space)
+│   │   ├── gradio_app.py                   # thin launcher for the workbench (`srn app gradio`)
+│   │   ├── streamlit_app.py                # alternative local UI
+│   │   ├── data/                           # bundled demo data (released benchmark CSVs)
+│   │   └── test_workbench.py               # automated workbench tests
 │   └── …                                   # experiment helpers, NN modules, utilities
 ├── assets/                                  # logo, social card, architecture diagram
 ├── docs/                                    # MkDocs Material site (en / zh / de / fr)
@@ -284,8 +302,9 @@ an installable `srn` command after a `pip install`:
 | `srn sweep` | `python -m swissrivernetwork.benchmark.run_win_len_sweep` |
 | `srn train-single` | `python -m swissrivernetwork.benchmark.train_single_model` |
 | `srn train-isolated` | `python -m swissrivernetwork.benchmark.train_isolated_station` |
-| `srn app gradio` | Launch the Gradio demo. |
-| `srn app streamlit` | Launch the Streamlit local UI. |
+| `srn app gradio` | Launch the interactive workbench (Gradio; same app as the HF Space). |
+| `srn app workbench` | Alias for `srn app gradio`. |
+| `srn app streamlit` | Launch the alternative Streamlit UI. |
 | `srn version` | Print the installed package version. |
 
 Pass driver-specific flags after `--`:

@@ -180,6 +180,7 @@ nav:
   - User guide:
       - user-guide/index.md
       - For hydrologists: user-guide/for-hydrologists/index.md
+      - Interactive workbench: user-guide/workbench.md
       - Datasets: user-guide/datasets.md
       - Methods: user-guide/methods.md
       - CLI reference: user-guide/cli.md

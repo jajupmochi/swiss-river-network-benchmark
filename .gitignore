@@ -34,6 +34,11 @@ swissrivernetwork/benchmark/visualize_results/outputs/
 assets/export/
 # ...but keep the rasterised README gallery figures (override the global *.png ignore above)
 !assets/figures/*.png
+# ...and the workbench screenshot embedded in the docs manual
+!docs/user-guide/workbench.png
+# ...and the workbench demo data bundle (released, redistributable benchmark CSVs) so the
+# local app runs out-of-the-box on a fresh clone (override the global *.csv ignore above)
+!swissrivernetwork/app/data/**
 
 # Packaging / docs build artefacts
 build/
