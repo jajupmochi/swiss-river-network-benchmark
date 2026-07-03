@@ -198,6 +198,16 @@ def test_load_user_model_ok_and_bad():
     os.unlink(bad.name)
 
 
+def test_hosted_disables_model_upload(monkeypatch):
+    # On a hosted Space, loading a user model (pickle/TorchScript) would execute code on a
+    # shared server, so uploads must be refused.
+    monkeypatch.setattr(app, "_HOSTED", True)
+    p = _dump(_sk_model())
+    m, kind, msg = app.load_user_model(_F(p))
+    assert m is None and "disabled" in msg.lower()
+    os.unlink(p)
+
+
 def test_run_and_stream_inference():
     st = _st(Z)
     p = _dump(_sk_model(14))

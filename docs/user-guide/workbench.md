@@ -103,9 +103,9 @@ Run predictions and watch them appear:
    the prediction drawn progressively — a real-time output feel.
 
 !!! warning "Security"
-    A model file executes code when it is loaded. Only upload models you trust.
-    This capability runs locally on your machine (the hosted Space accepts only
-    the CPU scikit-learn path).
+    A model file executes code when it is loaded, so this capability is **enabled only when
+    you run the workbench locally**; it is disabled on the hosted Space (loading a model there
+    would run code on a shared, multi-tenant server). Only load models you trust.
 
 ### Analysis — where and how a model is right or wrong
 

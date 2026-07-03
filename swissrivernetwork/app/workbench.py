@@ -70,6 +70,9 @@ _STATE: dict = {"model": None, "kind": "sklearn", "label": None, "window": 14}
 INFER_SOURCES = ["Last trained sandbox model", "Uploaded model file"]
 MODEL_EXT = [".joblib", ".pkl", ".pickle", ".pt", ".ts"]
 STREAM_STEPS = 24
+# On a hosted multi-tenant Space (e.g. Hugging Face) loading a user model would execute code
+# on a shared server (pickle / TorchScript), so uploads are disabled there; local is safe.
+_HOSTED = bool(os.environ.get("SPACE_ID") or os.environ.get("SYSTEM") == "spaces")
 
 GRAPHS = ["swiss-1990", "swiss-2010", "zurich"]
 METHODS = [
@@ -916,6 +919,15 @@ def load_user_model(file):
     """Load an uploaded model: scikit-learn (.joblib/.pkl) or TorchScript (.pt/.ts)."""
     if file is None:
         return None, None, "Upload a **scikit-learn** estimator (`.joblib`/`.pkl`) or a **TorchScript** module (`.pt`)."
+    if _HOSTED:
+        return (
+            None,
+            None,
+            (
+                "⚠️ Model upload is disabled on the hosted Space: loading a model executes code, which is unsafe on a "
+                "shared server. Run the workbench locally (`uv run srn app gradio`) to use your own model."
+            ),
+        )
     p = Path(file.name)
     ext = p.suffix.lower()
     if not p.exists() or p.stat().st_size == 0:
@@ -1354,7 +1366,8 @@ def ui():
                     "scikit-learn estimator (`.joblib`/`.pkl`, CPU) or a **TorchScript** module (`.pt`, GPU when "
                     "available). Input is a window of past daily air-temperature values. The **live** button "
                     "streams the prediction as it is produced.\n\n"
-                    "⚠️ *Model files execute code when loaded — only upload models you trust.*"
+                    "⚠️ *Model files execute code when loaded — only upload models you trust. Enabled locally; "
+                    "disabled on the hosted Space for security.*"
                 )
                 gr.Markdown(detect_resources())
                 with gr.Row():
