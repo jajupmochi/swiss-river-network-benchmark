@@ -406,9 +406,16 @@ def _model_axes(graph, method):
     """Raw (un-normalised) value per axis; lower-is-better for errors, higher for NSE."""
     out = {}
     rs = station_resu(graph, method)
-    rs = rs[rs["Station"].astype(str) == "Mean"] if not rs.empty else rs
+    # Per-station CSVs hold one row per station with no summary row, so average
+    # across stations for the nowcasting axes (mirrors model_ranking()).
+    if not rs.empty:
+        rs = rs[~rs["Station"].astype(str).isin(STATS + ["CI95"])]
     for k, col in [("RMSE/now", "RMSE"), ("MAE/now", "MAE"), ("NSE/now", "NSE")]:
-        out[k] = float(rs[col].iloc[0]) if (not rs.empty and col in rs.columns) else np.nan
+        out[k] = (
+            float(pd.to_numeric(rs[col], errors="coerce").dropna().mean())
+            if (not rs.empty and col in rs.columns)
+            else np.nan
+        )
     for k, col in [("RMSE/fore", "RMSE_Mean"), ("MAE/fore", "MAE_Mean"), ("NSE/fore", "NSE_Mean")]:
         df = best_pe(graph, method, future_steps, col)
         out[k] = float(df[col].mean()) if (not df.empty and col in df.columns) else np.nan
