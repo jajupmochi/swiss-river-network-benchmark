@@ -151,6 +151,16 @@ def test_radar_and_upload_overlay():
     os.unlink(p)
 
 
+def test_model_axes_nowcasting_populated():
+    # Regression: the bundled per-station CSVs have no "Mean" summary row, so the
+    # radar's nowcasting axes must be averaged from the station rows. If the code
+    # instead reads a non-existent "Mean" row, RMSE/now, MAE/now and NSE/now
+    # silently become NaN and drop off the chart.
+    ax = app._model_axes(G, "lstm_embedding")
+    for k in ("RMSE/now", "MAE/now", "NSE/now"):
+        assert not np.isnan(ax[k]), f"{k} must be finite when a station CSV exists"
+
+
 def test_forecast_outlook():
     f = app.forecast_outlook(Z, _st(Z), "25 °C (fish-stress / regulatory)", 28)
     assert isinstance(f, go.Figure) and len(f.data) >= 3  # observed + band + median
