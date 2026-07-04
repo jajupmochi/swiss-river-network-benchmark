@@ -32,7 +32,7 @@ def test_stgnn(
     graph_name,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     method: str | None = None,
     config: dict = {},
     verbose: int = 2,

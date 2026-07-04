@@ -241,7 +241,7 @@ def plot_diff(
     actuals,
     predictions,
     title,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
 ):
     """Plot the mean +/- std absolute prediction error across stations over time.
 

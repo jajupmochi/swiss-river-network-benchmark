@@ -455,7 +455,7 @@ def plot(
     title,
     plot_ys: bool = True,
     plot_diff: bool = False,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
 ):
     # plt.figure(figsize=(10, 6))
     # plt.plot(epoch_days, actual, label='Actual')
@@ -556,7 +556,7 @@ def test_graphlet(
     station,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     predict_dump_dir: Path | str | None = None,
     config: dict = {},
     verbose: int = 2,
@@ -614,7 +614,7 @@ def test_transformer_graphlet(
     station,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     predict_dump_dir: Path | str | None = None,
     method: str | None = None,
     config: dict = {},
@@ -681,7 +681,7 @@ def test_lstm(
     station,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     predict_dump_dir: Path | str | None = None,
     config: dict = {},
     verbose: int = 2,
@@ -757,7 +757,7 @@ def test_transformer(
     station,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     predict_dump_dir: Path | str | None = None,
     config: dict = {},
     verbose: int = 2,
@@ -830,7 +830,7 @@ def test_lstm_embedding(
     i,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     config: dict = {},
     verbose: int = 2,
 ):
@@ -877,7 +877,7 @@ def test_transformer_embedding(
     i,
     model,
     window_len: int | None = None,
-    dump_dir: Path | str = "swissrivernetwork/benckmark/dump",
+    dump_dir: Path | str = "swissrivernetwork/benchmark/dump",
     config: dict = {},
     verbose: int = 2,
 ):

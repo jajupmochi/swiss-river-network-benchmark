@@ -262,7 +262,7 @@ def get_run_name(method: str, graph_name: str, now: str, config: benedict | dict
     resume = config.get("resume", False)
     if resume:
         if config.get("resume_timestamp", None) is not None:
-            run_name += f"-{config.resume_time_stamp}"
+            run_name += f"-{config.resume_timestamp}"
         else:
             # If time stamp is None, use the latest run:
             directory = Path(directory) if directory is not None else Path.cwd()

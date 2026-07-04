@@ -334,7 +334,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         padded_lens = []
         for i_seq, (start, end) in enumerate(zip(starts, ends)):
             if end - start < 5:
-                print(f"{ISSUE_TAG}Removing sequence of length {ends - start} < 5 starting at index {start}!")
+                print(f"{ISSUE_TAG}Removing sequence of length {end - start} < 5 starting at index {start}!")
                 # continue  todo: or raise error?
                 raise ValueError("Sequence too short!")
 

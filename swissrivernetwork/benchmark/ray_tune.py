@@ -669,7 +669,7 @@ def parse_config():
         required=False,
         type=int,
         default=None,
-        help="Maximum sequence length for transformer models. If less than window_len, will be set to window_len. Default is 90.",
+        help="Maximum sequence length for transformer models. If unset or less than window_len, it defaults to window_len.",
     )
     # Embedded models specific:
     parser.add_argument(
