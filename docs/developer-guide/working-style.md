@@ -38,8 +38,11 @@ Executable modules live in `swissrivernetwork/benchmark/`:
 Conventional Commits. Good: `feat(app): add Streamlit compare tab`.
 Bad: `update`, `fix stuff`, `wip`.
 
-## No test suite
+## Tests
 
-Verify changes by running the relevant entry point, not by inventing
-tests. CI will grow a real test suite over time; today it runs ruff
-and a handful of notebook executions.
+`tests/` holds a light suite — an import smoke test and the
+`merge_graphlet_dfs` regression — run with `uv run pytest -q`; the
+workbench ships its own suite (`swissrivernetwork/app/test_workbench.py`,
+needs the `app` extra). Prefer verifying behaviour by running the relevant
+entry point over inventing tests. CI runs ruff, these tests, a CLI smoke
+check, notebook-JSON validation, and a strict docs build.

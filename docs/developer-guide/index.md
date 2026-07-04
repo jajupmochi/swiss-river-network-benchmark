@@ -14,5 +14,6 @@ Conventions for hacking on the benchmark.
   directly for new features — add a new file and wire it up from the
   CLI.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
-- There is no test suite: smoke-test by running the relevant entry
-  point.
+- The test suite is intentionally light — `tests/` holds an import smoke
+  test and a regression test (`uv run pytest -q`); for behaviour, verify by
+  running the relevant entry point rather than inventing tests around it.
