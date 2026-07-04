@@ -258,7 +258,7 @@ def training_loop(
                 normalizer_wt,
                 validation_criterion,
                 is_stg=dataloader_valid.dataset.__class__.__name__.startswith("STGNN"),  # fixme: startswith or include?
-                is_extrapolation=use_current_x,
+                is_extrapolation=not use_current_x,  # nowcasting (use_current_x) is not extrapolation
             )
 
             # Log everything:
@@ -486,34 +486,43 @@ def compute_all_metrics_unified(
         station_preds_norm = station_data_extractor(preds, iter_idx)
         station_targets_norm = station_data_extractor(targets, iter_idx)
 
-        if check_is_aggregation_needed(dataloader_valid, kwargs.get("use_current_x", True)):  # windowed dataset:
-            unique_epoch_days, aggregated_dict = aggregate_day_predictions(
+        # validation_ave_rmse (per-station RMSE, then averaged over stations): for a windowed
+        # nowcasting set, aggregate the overlapping windows to one prediction per day
+        # ('longest_history') so each station is scored once per day; forecasting and
+        # full-sequence sets are scored directly.
+        is_extrapolation = kwargs.get("is_extrapolation", True)
+        if check_is_aggregation_needed(dataloader_valid, is_extrapolation):  # windowed nowcasting
+            _, aggregated_dict = aggregate_day_predictions(
                 station_epoch_days,
                 {"masks": station_masks, "preds_norm": station_preds_norm, "targets_norm": station_targets_norm},
                 method="longest_history",
             )
-            station_masks = aggregated_dict["masks"]
-            station_preds_norm = aggregated_dict["preds_norm"][station_masks]  # masked tensor
-            station_targets_norm = aggregated_dict["targets_norm"][station_masks]  # masked tensor
-        else:  # Full sequence dataset:
-            station_preds_norm = station_preds_norm[station_masks]
-            station_targets_norm = station_targets_norm[station_masks]
+            ave_mask = aggregated_dict["masks"]
+            ave_preds_norm = aggregated_dict["preds_norm"][ave_mask]  # masked tensor
+            ave_targets_norm = aggregated_dict["targets_norm"][ave_mask]  # masked tensor
+        else:
+            ave_preds_norm = station_preds_norm[station_masks]
+            ave_targets_norm = station_targets_norm[station_masks]
+        ave_preds = normalizer_wt[i_station].inverse_transform(ave_preds_norm.cpu().numpy().reshape(-1, 1)).flatten()
+        ave_targets = (
+            normalizer_wt[i_station].inverse_transform(ave_targets_norm.cpu().numpy().reshape(-1, 1)).flatten()
+        )
+        valid_ave_rmses.append(Error.rmse(ave_preds, ave_targets))
 
-        station_preds = (
-            normalizer_wt[i_station].inverse_transform(station_preds_norm.cpu().numpy().reshape(-1, 1)).flatten()
-        )  # masked array
-        station_targets = (
-            normalizer_wt[i_station].inverse_transform(station_targets_norm.cpu().numpy().reshape(-1, 1)).flatten()
-        )  # masked array
-
-        valid_ave_rmse = Error.rmse(station_preds, station_targets)
-        valid_ave_rmses.append(valid_ave_rmse)
-
-        all_preds_norm.append(station_preds_norm)
-        all_targets_norm.append(station_targets_norm)
+        # validation_mse / validation_rmse: total error over all (masked) samples, no
+        # aggregation ('same as valid loss'). This is the trial-selection metric and is kept
+        # byte-identical to the historical (never-aggregated) behaviour.
+        mse_preds_norm = station_preds_norm[station_masks]
+        mse_targets_norm = station_targets_norm[station_masks]
+        mse_preds = normalizer_wt[i_station].inverse_transform(mse_preds_norm.cpu().numpy().reshape(-1, 1)).flatten()
+        mse_targets = (
+            normalizer_wt[i_station].inverse_transform(mse_targets_norm.cpu().numpy().reshape(-1, 1)).flatten()
+        )
+        all_preds_norm.append(mse_preds_norm)
+        all_targets_norm.append(mse_targets_norm)
         all_masks.append(station_masks.cpu().numpy())  # array
-        all_preds.append(station_preds)
-        all_targets.append(station_targets)
+        all_preds.append(mse_preds)
+        all_targets.append(mse_targets)
 
     all_preds_norm = torch.concatenate(all_preds_norm, dim=0)
     all_targets_norm = torch.concatenate(all_targets_norm, dim=0)
