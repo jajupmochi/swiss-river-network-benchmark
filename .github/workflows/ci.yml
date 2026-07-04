@@ -56,6 +56,17 @@ jobs:
       - name: srn version
         run: uv run srn version
 
+  app-tests:
+    name: workbench tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: pytest workbench (app extra + bundled data)
+        run: uv run --extra app --with pytest python -m pytest swissrivernetwork/app/test_workbench.py -q
+
   notebooks:
     name: notebook syntax
     runs-on: ubuntu-latest
