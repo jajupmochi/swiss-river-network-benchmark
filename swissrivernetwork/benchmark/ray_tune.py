@@ -481,10 +481,12 @@ def run_experiment(
 
         if config.missing_value_method is None:
             trainer = partial(train_transformer_stgnn, settings=config, verbose=verbose)
-        elif config.missing_value_method == "mask_embedding":
-            trainer = partial(train_masked_transformer_stgnn, settings=config, verbose=verbose)
         else:
-            raise NotImplementedError(f"Missing value method {config.missing_value_method} not implemented.")
+            # Masked STGNN training was never implemented; fail clearly instead of a NameError
+            # on the undefined train_masked_transformer_stgnn.
+            raise NotImplementedError(
+                f"missing_value_method={config.missing_value_method!r} is not implemented for transformer_stgnn."
+            )
 
         analysis = run(
             trainer,

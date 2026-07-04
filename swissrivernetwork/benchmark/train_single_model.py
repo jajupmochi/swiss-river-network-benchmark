@@ -598,12 +598,12 @@ if __name__ == "__main__":
         # STGNN-Transformer:
         if config["missing_value_method"] is None:
             train_transformer_stgnn(config, settings=benedict({**settings, "method": "transformer_stgnn"}))
-        elif config["missing_value_method"] in ["mask_embedding", "interpolation", "zero"]:
-            train_masked_transformer_stgnn(
-                config, settings=benedict({**settings, "method": "masked_transformer_stgnn"})
-            )
         else:
-            raise NotImplementedError(f"Missing value method {config['missing_value_method']} not implemented.")
+            # Masked STGNN training was never implemented; fail clearly instead of a NameError
+            # on the undefined train_masked_transformer_stgnn.
+            raise NotImplementedError(
+                f"missing_value_method={config['missing_value_method']!r} is not implemented for transformer_stgnn."
+            )
 
     else:
         raise ValueError(f"Unknown method: {method}.")
