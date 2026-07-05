@@ -368,17 +368,21 @@ def plot_forecast(graph, methods, metric):
 
 
 def plot_noise(graph, methods, nt, metric):
+    # gaussian_a curves use a `noise_level` x-axis; impulse_a uses `probability`.
+    xcol = "noise_level" if nt == "gaussian_a" else "probability"
     fr = [
-        noise_df(graph, m, nt).assign(method=m)[["noise_level", metric, "method"]].sort_values("noise_level")
+        noise_df(graph, m, nt).assign(method=m)[[xcol, metric, "method"]].sort_values(xcol)
         for m in methods
-        if not noise_df(graph, m, nt).empty and metric in noise_df(graph, m, nt).columns
+        if not noise_df(graph, m, nt).empty
+        and metric in noise_df(graph, m, nt).columns
+        and xcol in noise_df(graph, m, nt).columns
     ]
     if not fr:
         return _empty("No noise CSVs for the selection.")
     lab = "Gaussian σ (fraction of std)" if nt == "gaussian_a" else "impulse probability"
     fig = px.line(
         pd.concat(fr),
-        x="noise_level",
+        x=xcol,
         y=metric,
         color="method",
         markers=True,

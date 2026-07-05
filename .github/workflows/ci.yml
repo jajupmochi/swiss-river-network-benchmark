@@ -65,7 +65,7 @@ jobs:
         with:
           enable-cache: true
       - name: pytest workbench (app extra + bundled data)
-        run: uv run --extra app --with pytest python -m pytest swissrivernetwork/app/test_workbench.py -q
+        run: uv run --extra app --with pytest python -m pytest swissrivernetwork/app/ -q
 
   notebooks:
     name: notebook syntax
