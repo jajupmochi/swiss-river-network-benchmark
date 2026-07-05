@@ -84,7 +84,11 @@ markdown_extensions:
   - pymdownx.keys
   - pymdownx.mark
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -184,6 +188,11 @@ nav:
       - Datasets: user-guide/datasets.md
       - Methods: user-guide/methods.md
       - CLI reference: user-guide/cli.md
+  - Workbench:
+      - User manual: workbench/USER_MANUAL.md
+      - Architecture: workbench/ARCHITECTURE.md
+      - Control test plan: workbench/TEST_PLAN.md
+      - Control test report: workbench/TEST_REPORT.md
   - Tutorials:
       - tutorials/index.md
       - One-station LSTM: tutorials/one-station-lstm.md
